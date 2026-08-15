@@ -40,6 +40,15 @@ func _test_damage_rules_and_authority() -> bool:
 	if not head.critical or not _close(head.resolved_amount, 45.0) or not _close(health.current_health, 55.0):
 		return _fail("Headshot/critical damage mismatch")
 
+	if not _test_limb_damage(authority, health, DamageEventScript.BodyPart.LEFT_ARM, 13.0, "left arm"):
+		return false
+	if not _test_limb_damage(authority, health, DamageEventScript.BodyPart.RIGHT_ARM, 13.0, "right arm"):
+		return false
+	if not _test_limb_damage(authority, health, DamageEventScript.BodyPart.LEFT_LEG, 14.0, "left leg"):
+		return false
+	if not _test_limb_damage(authority, health, DamageEventScript.BodyPart.RIGHT_LEG, 14.0, "right leg"):
+		return false
+
 	health.reset_health()
 	var fire = _make_event(77, 20.0, DamageEventScript.DamageType.FIRE, DamageEventScript.BodyPart.ABDOMEN)
 	if not authority.resolve_damage(fire):
@@ -53,6 +62,21 @@ func _test_damage_rules_and_authority() -> bool:
 
 	authority.stop()
 	health.free()
+	return true
+
+func _test_limb_damage(authority, health, body_part: int, expected_damage: float, label: String) -> bool:
+	health.reset_health()
+	var event = _make_event(77, 20.0, DamageEventScript.DamageType.BULLET, body_part)
+	if not authority.resolve_damage(event):
+		return _fail("%s bullet event was rejected" % label.capitalize())
+	if event.critical:
+		return _fail("%s damage must not be critical" % label.capitalize())
+	if event.body_part != body_part:
+		return _fail("%s body part was not preserved" % label.capitalize())
+	if not _close(event.resolved_amount, expected_damage):
+		return _fail("%s damage multiplier mismatch" % label.capitalize())
+	if not _close(health.current_health, 100.0 - expected_damage):
+		return _fail("%s health result mismatch" % label.capitalize())
 	return true
 
 func _test_weapon_cadence_ammo_and_reload() -> bool:
