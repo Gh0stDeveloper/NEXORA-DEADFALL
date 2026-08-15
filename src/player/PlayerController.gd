@@ -32,6 +32,8 @@ const PlayerCommandScript = preload("res://src/network/PlayerCommand.gd")
 @export var hard_reconciliation_distance := 2.5
 
 @onready var input_source: DeadfallPlayerInput = $PlayerInput
+@onready var health: Node = $Health
+@onready var life_state: Node = $LifeState
 @onready var collision_shape: CollisionShape3D = $CollisionShape3D
 @onready var visual_root: Node3D = $VisualRoot
 @onready var visual_body: MeshInstance3D = $VisualRoot/Body
@@ -54,6 +56,8 @@ func _ready() -> void:
 	if collision_shape.shape != null:
 		collision_shape.shape = collision_shape.shape.duplicate(true)
 	camera_rig.camera_mode_changed.connect(_on_camera_mode_changed)
+	if life_state != null and life_state.has_signal("state_changed"):
+		life_state.connect("state_changed", Callable(self, "_on_life_state_changed"))
 	_apply_stance_geometry(stance)
 	configure_network_identity(player_entity_id, control_mode)
 
@@ -65,6 +69,8 @@ func configure_network_identity(entity_id: int, mode: int) -> void:
 		camera_rig.set_camera_enabled(local_visual_control)
 	if input_source != null and not local_visual_control:
 		input_source.set_process_unhandled_input(false)
+	if life_state != null and life_state.has_method("configure_squad_mode"):
+		life_state.call("configure_squad_mode", control_mode != ControlMode.OFFLINE_LOCAL)
 	var weapon := get_node_or_null("PrimaryWeapon")
 	if weapon != null and weapon.has_method("set_input_enabled"):
 		weapon.call("set_input_enabled", local_visual_control)
@@ -76,12 +82,16 @@ func configure_network_identity(entity_id: int, mode: int) -> void:
 func _physics_process(delta: float) -> void:
 	if control_mode == ControlMode.REMOTE_PROXY:
 		return
+	if _life_is_dead():
+		velocity = Vector3.ZERO
+		return
+
 	var command: Dictionary
 	if control_mode == ControlMode.SERVER_REMOTE:
 		command = _server_command
 		if command.is_empty():
 			_process_vertical_velocity(delta, false)
-			_process_planar_velocity(delta, Vector2.ZERO, false)
+			_process_planar_velocity(delta, Vector2.ZERO, false, _life_move_multiplier())
 			move_and_slide()
 			return
 		_apply_authoritative_orientation(command)
@@ -89,9 +99,13 @@ func _physics_process(delta: float) -> void:
 		command = _capture_local_command()
 		_apply_local_look(Vector2(command.get("look_delta", Vector2.ZERO)))
 
-	_process_serial_actions(command)
-	_process_vertical_velocity(delta, _serial_triggered(command, "jump_serial", _processed_jump_serial))
-	_process_planar_velocity(delta, Vector2(command.get("move", Vector2.ZERO)), bool(command.get("sprint", false)))
+	var downed := _life_is_downed()
+	if downed and stance != Stance.PRONE:
+		_apply_replica_stance(Stance.PRONE)
+	_process_serial_actions(command, not downed)
+	var jump_requested := _serial_triggered(command, "jump_serial", _processed_jump_serial, not downed)
+	_process_vertical_velocity(delta, jump_requested)
+	_process_planar_velocity(delta, Vector2(command.get("move", Vector2.ZERO)), bool(command.get("sprint", false)) and not downed, _life_move_multiplier())
 	move_and_slide()
 
 	if control_mode == ControlMode.NETWORK_PREDICTED:
@@ -119,6 +133,7 @@ func _capture_local_command() -> Dictionary:
 		"yaw": rotation.y,
 		"pitch": camera_rig.get_pitch(),
 		"sprint": input_source.is_action_pressed(&"sprint"),
+		"interact": input_source.is_action_pressed(&"interact"),
 		"jump_serial": _jump_serial,
 		"crouch_serial": _crouch_serial,
 		"prone_serial": _prone_serial,
@@ -134,6 +149,15 @@ func push_server_command(raw_command: Dictionary) -> bool:
 	_server_command = command
 	return true
 
+func get_last_server_command() -> Dictionary:
+	return _server_command.duplicate(true)
+
+func can_use_weapon() -> bool:
+	return life_state == null or not life_state.has_method("can_use_weapon") or bool(life_state.call("can_use_weapon"))
+
+func is_recoverable() -> bool:
+	return life_state == null or not life_state.has_method("is_recoverable") or bool(life_state.call("is_recoverable"))
+
 func _apply_local_look(look_delta: Vector2) -> void:
 	if look_delta.is_zero_approx():
 		return
@@ -144,24 +168,26 @@ func _apply_authoritative_orientation(command: Dictionary) -> void:
 	rotation.y = float(command.get("yaw", rotation.y))
 	camera_rig.set_pitch(float(command.get("pitch", camera_rig.get_pitch())))
 
-func _process_serial_actions(command: Dictionary) -> void:
+func _process_serial_actions(command: Dictionary, allow_actions: bool) -> void:
 	var crouch_serial := int(command.get("crouch_serial", 0))
 	if crouch_serial != _processed_crouch_serial:
 		_processed_crouch_serial = crouch_serial
-		match stance:
-			Stance.STAND: _try_set_stance(Stance.CROUCH)
-			Stance.CROUCH: _try_set_stance(Stance.STAND)
-			Stance.PRONE: _try_set_stance(Stance.CROUCH)
+		if allow_actions:
+			match stance:
+				Stance.STAND: _try_set_stance(Stance.CROUCH)
+				Stance.CROUCH: _try_set_stance(Stance.STAND)
+				Stance.PRONE: _try_set_stance(Stance.CROUCH)
 	var prone_serial := int(command.get("prone_serial", 0))
 	if prone_serial != _processed_prone_serial:
 		_processed_prone_serial = prone_serial
-		_try_set_stance(Stance.STAND if stance == Stance.PRONE else Stance.PRONE)
+		if allow_actions:
+			_try_set_stance(Stance.STAND if stance == Stance.PRONE else Stance.PRONE)
 
-func _serial_triggered(command: Dictionary, key: String, processed_value: int) -> bool:
+func _serial_triggered(command: Dictionary, key: String, processed_value: int, allow_action: bool) -> bool:
 	var serial := int(command.get(key, 0))
 	if key == "jump_serial" and serial != processed_value:
 		_processed_jump_serial = serial
-		return true
+		return allow_action
 	return false
 
 func _process_vertical_velocity(delta: float, jump_requested: bool) -> void:
@@ -173,10 +199,10 @@ func _process_vertical_velocity(delta: float, jump_requested: bool) -> void:
 	else:
 		velocity.y -= _gravity * delta
 
-func _process_planar_velocity(delta: float, move_input: Vector2, sprint: bool) -> void:
+func _process_planar_velocity(delta: float, move_input: Vector2, sprint: bool, movement_multiplier: float = 1.0) -> void:
 	var local_direction := Vector3(move_input.x, 0.0, move_input.y)
 	var world_direction := (global_transform.basis * local_direction).normalized()
-	var target_speed := _get_target_speed(sprint)
+	var target_speed := _get_target_speed(sprint) * clampf(movement_multiplier, 0.0, 1.0)
 	var target_velocity := world_direction * target_speed
 	var acceleration := ground_acceleration if is_on_floor() else air_acceleration
 	velocity.x = move_toward(velocity.x, target_velocity.x, acceleration * delta)
@@ -241,6 +267,12 @@ func _on_camera_mode_changed(mode: int) -> void:
 	else:
 		visual_root.visible = true
 
+func _on_life_state_changed(_previous: int, current: int, _reason: String) -> void:
+	if current == 1:
+		_apply_replica_stance(Stance.PRONE)
+	elif current == 2:
+		velocity = Vector3.ZERO
+
 func get_stance_name() -> String:
 	return Stance.keys()[int(stance)]
 
@@ -253,16 +285,23 @@ func get_network_snapshot() -> Dictionary:
 		"velocity": velocity,
 		"stance": int(stance),
 		"ack_sequence": _last_server_sequence if control_mode == ControlMode.SERVER_REMOTE else _command_sequence,
+		"life": life_state.call("get_network_snapshot") if life_state != null and life_state.has_method("get_network_snapshot") else {},
 	}
 
 func apply_authoritative_snapshot(snapshot: Dictionary) -> void:
 	if control_mode != ControlMode.NETWORK_PREDICTED:
 		return
+	if life_state != null and life_state.has_method("apply_network_snapshot"):
+		life_state.call("apply_network_snapshot", Dictionary(snapshot.get("life", {})))
 	var authoritative_position := Vector3(snapshot.get("position", global_position))
 	var error := global_position.distance_to(authoritative_position)
-	global_position = authoritative_position if error >= hard_reconciliation_distance else global_position.lerp(authoritative_position, reconciliation_strength)
+	if error >= hard_reconciliation_distance:
+		global_position = authoritative_position
+		rotation.y = float(snapshot.get("yaw", rotation.y))
+	else:
+		global_position = global_position.lerp(authoritative_position, reconciliation_strength)
+		rotation.y = lerp_angle(rotation.y, float(snapshot.get("yaw", rotation.y)), reconciliation_strength)
 	velocity = Vector3(snapshot.get("velocity", velocity))
-	rotation.y = lerp_angle(rotation.y, float(snapshot.get("yaw", rotation.y)), reconciliation_strength)
 	camera_rig.set_pitch(lerpf(camera_rig.get_pitch(), float(snapshot.get("pitch", camera_rig.get_pitch())), reconciliation_strength))
 	_apply_replica_stance(int(snapshot.get("stance", int(stance))))
 
@@ -272,13 +311,26 @@ func restore_authoritative_snapshot(snapshot: Dictionary) -> void:
 	velocity = Vector3(snapshot.get("velocity", Vector3.ZERO))
 	camera_rig.set_pitch(float(snapshot.get("pitch", 0.0)))
 	_apply_replica_stance(int(snapshot.get("stance", int(stance))))
+	if life_state != null and life_state.has_method("restore_authoritative_snapshot"):
+		life_state.call("restore_authoritative_snapshot", Dictionary(snapshot.get("life", {})))
 
 func apply_replica_presentation(snapshot: Dictionary) -> void:
 	_apply_replica_stance(int(snapshot.get("stance", int(stance))))
 	camera_rig.set_pitch(float(snapshot.get("pitch", camera_rig.get_pitch())))
+	if life_state != null and life_state.has_method("apply_network_snapshot"):
+		life_state.call("apply_network_snapshot", Dictionary(snapshot.get("life", {})))
 
 func _apply_replica_stance(value: int) -> void:
 	var next := clampi(value, Stance.STAND, Stance.PRONE) as Stance
 	if next != stance:
 		stance = next
 		_apply_stance_geometry(stance)
+
+func _life_is_downed() -> bool:
+	return life_state != null and life_state.has_method("is_downed") and bool(life_state.call("is_downed"))
+
+func _life_is_dead() -> bool:
+	return life_state != null and life_state.has_method("is_dead") and bool(life_state.call("is_dead"))
+
+func _life_move_multiplier() -> float:
+	return float(life_state.call("get_movement_multiplier")) if life_state != null and life_state.has_method("get_movement_multiplier") else 1.0
