@@ -4,17 +4,19 @@ extends Node
 signal joined(entity_id: int, resume_token: String, room_code: String)
 signal join_failed(reason: String)
 signal disconnected(reason: String)
+signal snapshot_received(snapshot: Dictionary)
 
-const PROTOCOL_VERSION := 1
-const MAX_PLAYERS := 2
-const SNAPSHOT_HZ := 15.0
-const RECONNECT_GRACE_SECONDS := 20.0
+const PROTOCOL_VERSION := 2
+const MAX_PLAYERS := 4
+const DEFAULT_SNAPSHOT_HZ := 15.0
+const RECONNECT_GRACE_SECONDS := 45.0
 const SERVER_PEER_ID := 1
 
 const PlayerScene = preload("res://src/player/Player.tscn")
 const ZombieScene = preload("res://src/zombies/base/Zombie.tscn")
 const MobileHUDScene = preload("res://src/mobile/MobileHUD.tscn")
 const HordeHUDScene = preload("res://src/horde/HordeHUD.tscn")
+const SquadHUDScript = preload("res://src/network/SquadHUD.gd")
 const PlayerControllerScript = preload("res://src/player/PlayerController.gd")
 const PlayerCommandScript = preload("res://src/network/PlayerCommand.gd")
 const InterpolatorScript = preload("res://src/network/NetworkReplicaInterpolator.gd")
@@ -59,22 +61,24 @@ var _snapshot_elapsed := 0.0
 var _server_tick := 0
 var _reload_request_sequence := 0
 var _snapshot_two_players_logged := false
-var _network_smoke := false
+var _snapshot_four_players_logged := false
 
 func _ready() -> void:
 	_resolve_nodes()
-	_network_smoke = "--network-smoke" in OS.get_cmdline_user_args()
 
 func _physics_process(delta: float) -> void:
 	if role != Role.SERVER:
 		return
 	_server_tick += 1
 	_cleanup_expired_resume_records()
+	_process_revives(delta)
 	_snapshot_elapsed += delta
-	if _snapshot_elapsed < 1.0 / SNAPSHOT_HZ:
+	var hz := _snapshot_hz()
+	if _snapshot_elapsed < 1.0 / hz:
 		return
 	_snapshot_elapsed = 0.0
-	rpc("_client_receive_snapshot", _build_server_snapshot())
+	for peer_id in _peers.keys():
+		rpc_id(int(peer_id), "_client_receive_snapshot", _build_server_snapshot_for_peer(int(peer_id)))
 
 func configure_server(code: String) -> void:
 	role = Role.SERVER
@@ -120,6 +124,12 @@ func get_status_snapshot() -> Dictionary:
 		"server_host": server_host,
 		"server_port": server_port,
 		"connected_players": _peers.size() if role == Role.SERVER else _players_root.get_child_count() if _players_root != null else 0,
+		"max_players": MAX_PLAYERS,
+		"reserved_slots": _reserved_slot_count() if role == Role.SERVER else 0,
+		"capacity_used": _capacity_used() if role == Role.SERVER else 0,
+		"snapshot_hz": _snapshot_hz(),
+		"zombie_snapshot_budget": _zombie_detail_budget(),
+		"max_payload_bytes": _max_payload_bytes(),
 		"protocol": PROTOCOL_VERSION,
 	}
 
@@ -134,6 +144,7 @@ func _on_connected_to_server() -> void:
 
 func _on_connection_failed() -> void:
 	join_failed.emit("connection_failed")
+	print("DEADFALL_SQUAD_JOIN_REJECTED reason=connection_failed")
 	Game.stop_session()
 
 func _on_server_disconnected() -> void:
@@ -153,6 +164,7 @@ func _server_join_request(protocol: int, requested_token: String, requested_name
 		rpc_id(sender, "_client_join_accepted", int(current.get("entity_id", 0)), String(current.get("token", "")), room_code)
 		return
 
+	_cleanup_expired_resume_records()
 	var normalized_token := requested_token.strip_edges()
 	var resume: Dictionary = {}
 	if not normalized_token.is_empty() and _resume_records.has(normalized_token):
@@ -162,15 +174,22 @@ func _server_join_request(protocol: int, requested_token: String, requested_name
 		else:
 			_resume_records.erase(normalized_token)
 
-	if resume.is_empty() and _peers.size() >= MAX_PLAYERS:
-		rpc_id(sender, "_client_join_rejected", "room_full")
-		return
+	var slot := -1
+	if not resume.is_empty():
+		slot = int(resume.get("slot", -1))
+		if slot < 0 or slot >= MAX_PLAYERS or _slot_is_active(slot):
+			rpc_id(sender, "_client_join_rejected", "resume_slot_unavailable")
+			return
+	else:
+		slot = _first_free_slot()
+		if slot < 0:
+			rpc_id(sender, "_client_join_rejected", "room_full")
+			return
 
 	var entity_id := int(resume.get("entity_id", 0))
 	if entity_id == 0:
 		entity_id = _allocate_entity_id()
 	var token := normalized_token if not resume.is_empty() else _generate_resume_token()
-	var slot := _first_free_slot()
 	var player := _spawn_player(entity_id, PlayerControllerScript.ControlMode.SERVER_REMOTE, slot)
 	if player == null:
 		rpc_id(sender, "_client_join_rejected", "server_spawn_failed")
@@ -188,13 +207,16 @@ func _server_join_request(protocol: int, requested_token: String, requested_name
 		"last_fire_seq": 0,
 		"last_reload_seq": 0,
 		"slot": slot,
+		"interact": false,
+		"revive_target_id": 0,
+		"revive_elapsed": 0.0,
 	}
 	if _horde != null and _horde.has_method("register_player"):
 		_horde.call("register_player", player)
 		if int(_horde.get("state")) == 0 and _horde.has_method("start_run"):
 			_horde.call("start_run")
 	rpc_id(sender, "_client_join_accepted", entity_id, token, room_code)
-	print("DEADFALL_DUO_SERVER_JOIN peer=%d entity=%d players=%d" % [sender, entity_id, _peers.size()])
+	print("DEADFALL_SQUAD_SERVER_JOIN peer=%d entity=%d slot=%d players=%d reserved=%d" % [sender, entity_id, slot, _peers.size(), _reserved_slot_count()])
 
 @rpc("authority", "call_remote", "reliable", 0)
 func _client_join_accepted(entity_id: int, token: String, code: String) -> void:
@@ -208,12 +230,13 @@ func _client_join_accepted(entity_id: int, token: String, code: String) -> void:
 	_bind_local_player(player)
 	_build_client_huds(player)
 	joined.emit(entity_id, token, code)
-	print("DEADFALL_DUO_JOIN_ACCEPTED entity=%d room=%s" % [entity_id, code])
+	print("DEADFALL_SQUAD_JOIN_ACCEPTED entity=%d room=%s" % [entity_id, code])
 
 @rpc("authority", "call_remote", "reliable", 0)
 func _client_join_rejected(reason: String) -> void:
 	join_failed.emit(reason)
-	push_error("Duo join rejected: %s" % reason)
+	print("DEADFALL_SQUAD_JOIN_REJECTED reason=%s" % reason)
+	push_error("Squad join rejected: %s" % reason)
 
 @rpc("any_peer", "call_remote", "unreliable_ordered", 0)
 func _server_submit_command(raw_command: Dictionary) -> void:
@@ -227,6 +250,7 @@ func _server_submit_command(raw_command: Dictionary) -> void:
 	if command.is_empty():
 		return
 	record["last_command_seq"] = int(command.get("sequence", -1))
+	record["interact"] = bool(command.get("interact", false))
 	_peers[sender] = record
 	var player = record.get("player")
 	if player != null and is_instance_valid(player) and player.has_method("push_server_command"):
@@ -245,7 +269,7 @@ func _server_fire_request(request_sequence: int, client_tick: int) -> void:
 	record["last_fire_seq"] = request_sequence
 	_peers[sender] = record
 	var player = record.get("player")
-	if player == null or not is_instance_valid(player):
+	if player == null or not is_instance_valid(player) or (player.has_method("can_use_weapon") and not bool(player.call("can_use_weapon"))):
 		return
 	var weapon := player.get_node_or_null("PrimaryWeapon")
 	if weapon != null and weapon.has_method("server_try_fire"):
@@ -264,7 +288,7 @@ func _server_reload_request(request_sequence: int) -> void:
 	record["last_reload_seq"] = request_sequence
 	_peers[sender] = record
 	var player = record.get("player")
-	if player == null or not is_instance_valid(player):
+	if player == null or not is_instance_valid(player) or (player.has_method("can_use_weapon") and not bool(player.call("can_use_weapon"))):
 		return
 	var weapon := player.get_node_or_null("PrimaryWeapon")
 	if weapon != null and weapon.has_method("server_try_reload"):
@@ -295,7 +319,10 @@ func _client_receive_snapshot(snapshot: Dictionary) -> void:
 		_apply_client_player_snapshot(player, player_snapshot, entity_id == local_entity_id)
 	_prune_client_players(seen_players)
 
-	var seen_zombies: Dictionary = {}
+	var existing_zombie_ids: Dictionary = {}
+	for zombie_id in snapshot.get("zombie_ids", []):
+		existing_zombie_ids[int(zombie_id)] = true
+	var detailed_zombies: Dictionary = {}
 	var zombie_snapshots: Array = snapshot.get("zombies", [])
 	for item in zombie_snapshots:
 		if typeof(item) != TYPE_DICTIONARY:
@@ -304,21 +331,26 @@ func _client_receive_snapshot(snapshot: Dictionary) -> void:
 		var zombie_id := int(zombie_snapshot.get("entity_id", 0))
 		if zombie_id == 0:
 			continue
-		seen_zombies[zombie_id] = true
+		detailed_zombies[zombie_id] = true
 		var zombie := _ensure_client_zombie(zombie_snapshot)
 		if zombie != null:
+			_set_zombie_relevant(zombie, true)
 			if zombie.has_method("apply_network_snapshot"):
 				zombie.call("apply_network_snapshot", zombie_snapshot)
 			var interpolator := zombie.get_node_or_null("NetworkInterpolator")
 			if interpolator != null:
 				interpolator.call("push_snapshot", zombie_snapshot)
-	_prune_client_zombies(seen_zombies)
+	_reconcile_client_zombies(existing_zombie_ids, detailed_zombies)
 
 	if _horde != null and _horde.has_method("apply_replica_snapshot"):
 		_horde.call("apply_replica_snapshot", Dictionary(snapshot.get("horde", {})))
+	snapshot_received.emit(snapshot)
 	if player_snapshots.size() >= 2 and not _snapshot_two_players_logged:
 		_snapshot_two_players_logged = true
 		print("DEADFALL_DUO_SNAPSHOT players=%d zombies=%d" % [player_snapshots.size(), zombie_snapshots.size()])
+	if player_snapshots.size() >= 4 and not _snapshot_four_players_logged:
+		_snapshot_four_players_logged = true
+		print("DEADFALL_SQUAD_SNAPSHOT players=%d zombies=%d" % [player_snapshots.size(), zombie_snapshots.size()])
 
 func _on_local_command(command: Dictionary) -> void:
 	if role == Role.CLIENT and local_entity_id != 0:
@@ -335,40 +367,162 @@ func _on_local_reload_started() -> void:
 	_reload_request_sequence += 1
 	rpc_id(SERVER_PEER_ID, "_server_reload_request", _reload_request_sequence)
 
-func _build_server_snapshot() -> Dictionary:
-	var players: Array = []
+func _process_revives(delta: float) -> void:
 	for peer_id in _peers.keys():
 		var record: Dictionary = _peers[peer_id]
-		var player = record.get("player")
-		if player == null or not is_instance_valid(player):
+		var reviver := record.get("player") as Node3D
+		if reviver == null or not is_instance_valid(reviver) or not _player_is_alive(reviver) or not bool(record.get("interact", false)):
+			_reset_revive_attempt(record)
+			_peers[peer_id] = record
 			continue
-		var state: Dictionary = player.call("get_network_snapshot") if player.has_method("get_network_snapshot") else {}
-		state["entity_id"] = int(record.get("entity_id", 0))
-		state["peer_id"] = int(peer_id)
-		state["name"] = String(record.get("name", "Player"))
-		var health := player.get_node_or_null("Health")
-		if health != null:
-			state["health"] = float(health.get("current_health"))
-			state["max_health"] = float(health.get("max_health"))
-			state["dead"] = bool(health.call("is_dead")) if health.has_method("is_dead") else false
-		var weapon := player.get_node_or_null("PrimaryWeapon")
-		if weapon != null and weapon.has_method("get_authoritative_state"):
-			state["weapon"] = weapon.call("get_authoritative_state")
-		players.append(state)
+		var target := _find_revivable_teammate(reviver)
+		if target == null:
+			_reset_revive_attempt(record)
+			_peers[peer_id] = record
+			continue
+		var target_entity_id := int(target.get("player_entity_id"))
+		if int(record.get("revive_target_id", 0)) != target_entity_id:
+			record["revive_target_id"] = target_entity_id
+			record["revive_elapsed"] = 0.0
+		record["revive_elapsed"] = float(record.get("revive_elapsed", 0.0)) + delta
+		var target_life := target.get_node_or_null("LifeState")
+		var required := float(target_life.call("get_revive_hold_seconds")) if target_life != null and target_life.has_method("get_revive_hold_seconds") else 3.0
+		if float(record.get("revive_elapsed", 0.0)) >= required:
+			var reviver_entity_id := int(record.get("entity_id", 0))
+			if target_life != null and target_life.has_method("revive_authoritative") and bool(target_life.call("revive_authoritative", reviver_entity_id)):
+				print("DEADFALL_SQUAD_REVIVE reviver=%d target=%d" % [reviver_entity_id, target_entity_id])
+				_reset_revive_attempts_for_target(target_entity_id)
+				continue
+		_peers[peer_id] = record
 
-	var zombies: Array = []
+func _find_revivable_teammate(reviver: Node3D) -> Node3D:
+	var best: Node3D = null
+	var best_distance := INF
+	for record in _peers.values():
+		var candidate := record.get("player") as Node3D
+		if candidate == null or candidate == reviver or not is_instance_valid(candidate):
+			continue
+		var life := candidate.get_node_or_null("LifeState")
+		if life == null or not life.has_method("is_downed") or not bool(life.call("is_downed")):
+			continue
+		var allowed := float(life.call("get_revive_distance")) if life.has_method("get_revive_distance") else 2.4
+		var distance := reviver.global_position.distance_to(candidate.global_position)
+		if distance <= allowed and distance < best_distance:
+			best = candidate
+			best_distance = distance
+	return best
+
+func _reset_revive_attempt(record: Dictionary) -> void:
+	record["revive_target_id"] = 0
+	record["revive_elapsed"] = 0.0
+
+func _reset_revive_attempts_for_target(target_entity_id: int) -> void:
+	for peer_id in _peers.keys():
+		var record: Dictionary = _peers[peer_id]
+		if int(record.get("revive_target_id", 0)) == target_entity_id:
+			_reset_revive_attempt(record)
+			_peers[peer_id] = record
+
+func _revive_status_for_target(target_entity_id: int, hold_seconds: float) -> Dictionary:
+	var best_progress := 0.0
+	var best_reviver := 0
+	var duration := maxf(0.25, hold_seconds)
+	for record in _peers.values():
+		if int(record.get("revive_target_id", 0)) != target_entity_id:
+			continue
+		var progress := clampf(float(record.get("revive_elapsed", 0.0)) / duration, 0.0, 1.0)
+		if progress > best_progress:
+			best_progress = progress
+			best_reviver = int(record.get("entity_id", 0))
+	return {"progress": best_progress, "reviver": best_reviver}
+
+func _build_server_snapshot_for_peer(peer_id: int) -> Dictionary:
+	var players := _build_all_player_states()
+	var zombie_ids: Array[int] = []
+	var candidates: Array[Dictionary] = []
+	var reference_position := Vector3.ZERO
+	if _peers.has(peer_id):
+		var reference_player := Dictionary(_peers[peer_id]).get("player") as Node3D
+		if reference_player != null and is_instance_valid(reference_player):
+			reference_position = reference_player.global_position
+
 	if _zombies_root != null:
 		for child in _zombies_root.get_children():
+			var entity_id := int(child.get("entity_id"))
+			if entity_id == 0:
+				continue
+			zombie_ids.append(entity_id)
 			if child.has_method("get_network_snapshot"):
-				zombies.append(child.call("get_network_snapshot"))
-	return {
+				candidates.append({
+					"distance_sq": child.global_position.distance_squared_to(reference_position),
+					"snapshot": child.call("get_network_snapshot"),
+				})
+	candidates.sort_custom(Callable(self, "_sort_zombie_candidate"))
+	var detail_limit := mini(_zombie_detail_budget(), candidates.size())
+	var zombies: Array = []
+	for index in range(detail_limit):
+		zombies.append(Dictionary(candidates[index]).get("snapshot", {}))
+
+	var payload := {
 		"protocol": PROTOCOL_VERSION,
 		"server_tick": _server_tick,
 		"room_code": room_code,
 		"players": players,
+		"zombie_ids": zombie_ids,
 		"zombies": zombies,
 		"horde": _horde.call("get_status_snapshot") if _horde != null and _horde.has_method("get_status_snapshot") else {},
+		"replication": {},
 	}
+	var max_bytes := _max_payload_bytes()
+	while not zombies.is_empty() and var_to_bytes(payload).size() > max_bytes:
+		zombies.pop_back()
+		payload["zombies"] = zombies
+	payload["replication"] = {
+		"total_zombies": zombie_ids.size(),
+		"sent_zombies": zombies.size(),
+		"zombie_budget": _zombie_detail_budget(),
+		"snapshot_hz": _snapshot_hz(),
+		"max_payload_bytes": max_bytes,
+		"estimated_payload_bytes": var_to_bytes(payload).size(),
+	}
+	return payload
+
+func _build_all_player_states() -> Array:
+	var players: Array = []
+	var ordered_peer_ids: Array = _peers.keys()
+	ordered_peer_ids.sort()
+	for peer_id in ordered_peer_ids:
+		var record: Dictionary = _peers[peer_id]
+		var player := record.get("player") as Node3D
+		if player == null or not is_instance_valid(player):
+			continue
+		players.append(_build_player_state(int(peer_id), record, player))
+	return players
+
+func _build_player_state(peer_id: int, record: Dictionary, player: Node3D) -> Dictionary:
+	var state: Dictionary = player.call("get_network_snapshot") if player.has_method("get_network_snapshot") else {}
+	var entity_id := int(record.get("entity_id", 0))
+	state["entity_id"] = entity_id
+	state["peer_id"] = peer_id
+	state["slot"] = int(record.get("slot", 0))
+	state["name"] = String(record.get("name", "Player"))
+	var health := player.get_node_or_null("Health")
+	if health != null:
+		state["health"] = float(health.get("current_health"))
+		state["max_health"] = float(health.get("max_health"))
+		state["dead"] = bool(health.call("is_dead")) if health.has_method("is_dead") else false
+	var life := player.get_node_or_null("LifeState")
+	if life != null and life.has_method("get_network_snapshot"):
+		var hold := float(life.call("get_revive_hold_seconds")) if life.has_method("get_revive_hold_seconds") else 3.0
+		var revive := _revive_status_for_target(entity_id, hold)
+		state["life"] = life.call("get_network_snapshot", float(revive.get("progress", 0.0)), int(revive.get("reviver", 0)))
+	var weapon := player.get_node_or_null("PrimaryWeapon")
+	if weapon != null and weapon.has_method("get_authoritative_state"):
+		state["weapon"] = weapon.call("get_authoritative_state")
+	return state
+
+func _sort_zombie_candidate(a: Dictionary, b: Dictionary) -> bool:
+	return float(a.get("distance_sq", INF)) < float(b.get("distance_sq", INF))
 
 func _ensure_client_player(entity_id: int, local_player: bool) -> Node3D:
 	if _players_root == null:
@@ -417,6 +571,9 @@ func _apply_client_player_snapshot(player: Node3D, snapshot: Dictionary, local_p
 	var network_authority = Game.authority
 	if network_authority != null and network_authority.has_method("apply_health_snapshot"):
 		network_authority.call("apply_health_snapshot", int(snapshot.get("entity_id", 0)), float(snapshot.get("health", 100.0)), float(snapshot.get("max_health", 100.0)), bool(snapshot.get("dead", false)))
+	var life := player.get_node_or_null("LifeState")
+	if life != null and life.has_method("apply_network_snapshot"):
+		life.call("apply_network_snapshot", Dictionary(snapshot.get("life", {})))
 	var weapon := player.get_node_or_null("PrimaryWeapon")
 	if weapon != null and weapon.has_method("apply_authoritative_state"):
 		weapon.call("apply_authoritative_state", Dictionary(snapshot.get("weapon", {})))
@@ -441,6 +598,21 @@ func _ensure_client_zombie(snapshot: Dictionary) -> Node3D:
 	_zombies_root.add_child(zombie)
 	_attach_interpolator(zombie)
 	return zombie
+
+func _set_zombie_relevant(zombie: Node3D, relevant: bool) -> void:
+	if zombie == null or not is_instance_valid(zombie):
+		return
+	zombie.visible = relevant
+	if not relevant:
+		if zombie is CollisionObject3D:
+			(zombie as CollisionObject3D).collision_layer = 0
+			(zombie as CollisionObject3D).collision_mask = 0
+		return
+	var health := zombie.get_node_or_null("Health")
+	var dead := health != null and health.has_method("is_dead") and bool(health.call("is_dead"))
+	if zombie is CollisionObject3D and not dead:
+		(zombie as CollisionObject3D).collision_layer = 8
+		(zombie as CollisionObject3D).collision_mask = 3
 
 func _attach_interpolator(target: Node3D) -> void:
 	if target.get_node_or_null("NetworkInterpolator") != null:
@@ -481,6 +653,11 @@ func _build_client_huds(player: Node3D) -> void:
 		horde_hud.set("director_path", NodePath("../HordeDirector"))
 		horde_hud.set("restart_handler_path", NodePath("../NetworkSession"))
 		arena.add_child(horde_hud)
+	if arena.get_node_or_null("SquadHUD") == null:
+		var squad_hud := SquadHUDScript.new()
+		squad_hud.name = "SquadHUD"
+		arena.add_child(squad_hud)
+		squad_hud.call("bind_session", self)
 
 func _restore_server_player(player: Node3D, snapshot: Dictionary) -> void:
 	if player == null or snapshot.is_empty():
@@ -490,6 +667,9 @@ func _restore_server_player(player: Node3D, snapshot: Dictionary) -> void:
 	var health := player.get_node_or_null("Health")
 	if health != null and health.has_method("restore_authoritative_state"):
 		health.call("restore_authoritative_state", float(snapshot.get("health", 100.0)), float(snapshot.get("max_health", 100.0)), bool(snapshot.get("dead", false)))
+	var life := player.get_node_or_null("LifeState")
+	if life != null and life.has_method("restore_authoritative_snapshot"):
+		life.call("restore_authoritative_snapshot", Dictionary(snapshot.get("life", {})))
 	var weapon := player.get_node_or_null("PrimaryWeapon")
 	if weapon != null and weapon.has_method("restore_authoritative_state"):
 		weapon.call("restore_authoritative_state", Dictionary(snapshot.get("weapon", {})))
@@ -503,6 +683,9 @@ func _capture_server_player(player: Node3D) -> Dictionary:
 		snapshot["health"] = float(health.get("current_health"))
 		snapshot["max_health"] = float(health.get("max_health"))
 		snapshot["dead"] = bool(health.call("is_dead")) if health.has_method("is_dead") else false
+	var life := player.get_node_or_null("LifeState")
+	if life != null and life.has_method("get_network_snapshot"):
+		snapshot["life"] = life.call("get_network_snapshot")
 	var weapon := player.get_node_or_null("PrimaryWeapon")
 	if weapon != null and weapon.has_method("get_authoritative_state"):
 		snapshot["weapon"] = weapon.call("get_authoritative_state")
@@ -513,11 +696,13 @@ func _on_server_peer_disconnected(peer_id: int) -> void:
 		return
 	var record: Dictionary = _peers[peer_id]
 	_peers.erase(peer_id)
-	var player = record.get("player")
+	var player := record.get("player") as Node3D
 	var token := String(record.get("token", ""))
 	if not token.is_empty():
 		_resume_records[token] = {
 			"entity_id": int(record.get("entity_id", 0)),
+			"slot": int(record.get("slot", 0)),
+			"name": String(record.get("name", "Player")),
 			"expires_usec": Time.get_ticks_usec() + int(RECONNECT_GRACE_SECONDS * 1_000_000.0),
 			"snapshot": _capture_server_player(player),
 		}
@@ -525,9 +710,9 @@ func _on_server_peer_disconnected(peer_id: int) -> void:
 		_horde.call("unregister_player", player)
 	if player != null and is_instance_valid(player):
 		player.queue_free()
-	if _peers.is_empty() and _horde != null and _horde.has_method("stop_run"):
+	if _peers.is_empty() and _resume_records.is_empty() and _horde != null and _horde.has_method("stop_run"):
 		_horde.call("stop_run", "empty_room")
-	print("DEADFALL_DUO_SERVER_LEAVE peer=%d players=%d" % [peer_id, _peers.size()])
+	print("DEADFALL_SQUAD_SERVER_LEAVE peer=%d players=%d reserved=%d" % [peer_id, _peers.size(), _reserved_slot_count()])
 
 func _cleanup_expired_resume_records() -> void:
 	var now := Time.get_ticks_usec()
@@ -535,6 +720,8 @@ func _cleanup_expired_resume_records() -> void:
 		var record: Dictionary = _resume_records[token]
 		if int(record.get("expires_usec", 0)) <= now:
 			_resume_records.erase(token)
+	if _peers.is_empty() and _resume_records.is_empty() and _horde != null and _horde.has_method("stop_run") and int(_horde.get("state")) != 0:
+		_horde.call("stop_run", "reconnect_grace_expired")
 
 func _prune_client_players(seen: Dictionary) -> void:
 	if _players_root == null:
@@ -544,13 +731,17 @@ func _prune_client_players(seen: Dictionary) -> void:
 		if entity_id != local_entity_id and not seen.has(entity_id):
 			child.queue_free()
 
-func _prune_client_zombies(seen: Dictionary) -> void:
+func _reconcile_client_zombies(existing: Dictionary, detailed: Dictionary) -> void:
 	if _zombies_root == null:
 		return
 	for child in _zombies_root.get_children():
 		var entity_id := int(child.get("entity_id"))
-		if entity_id != 0 and not seen.has(entity_id):
+		if entity_id == 0:
+			continue
+		if not existing.has(entity_id):
 			child.queue_free()
+		elif not detailed.has(entity_id):
+			_set_zombie_relevant(child as Node3D, false)
 
 func _spawn_for_slot(slot: int) -> Node3D:
 	if _spawn_root == null or _spawn_root.get_child_count() == 0:
@@ -561,10 +752,61 @@ func _first_free_slot() -> int:
 	var used: Dictionary = {}
 	for record in _peers.values():
 		used[int(record.get("slot", 0))] = true
+	for record in _resume_records.values():
+		if int(record.get("expires_usec", 0)) > Time.get_ticks_usec():
+			used[int(record.get("slot", 0))] = true
 	for slot in range(MAX_PLAYERS):
 		if not used.has(slot):
 			return slot
-	return 0
+	return -1
+
+func _slot_is_active(slot: int) -> bool:
+	for record in _peers.values():
+		if int(record.get("slot", -1)) == slot:
+			return true
+	return false
+
+func _reserved_slot_count() -> int:
+	var slots: Dictionary = {}
+	var now := Time.get_ticks_usec()
+	for record in _resume_records.values():
+		if int(record.get("expires_usec", 0)) > now:
+			slots[int(record.get("slot", -1))] = true
+	return slots.size()
+
+func _capacity_used() -> int:
+	var slots: Dictionary = {}
+	for record in _peers.values():
+		slots[int(record.get("slot", -1))] = true
+	var now := Time.get_ticks_usec()
+	for record in _resume_records.values():
+		if int(record.get("expires_usec", 0)) > now:
+			slots[int(record.get("slot", -1))] = true
+	return slots.size()
+
+func _player_is_alive(player: Node3D) -> bool:
+	if player == null or not is_instance_valid(player):
+		return false
+	var life := player.get_node_or_null("LifeState")
+	if life != null and life.has_method("is_alive"):
+		return bool(life.call("is_alive"))
+	var health := player.get_node_or_null("Health")
+	return health != null and (not health.has_method("is_dead") or not bool(health.call("is_dead")))
+
+func _quality_profile() -> Dictionary:
+	var settings := get_node_or_null("/root/Settings")
+	if settings != null and settings.has_method("current_profile"):
+		return settings.call("current_profile")
+	return {"network_snapshot_hz": DEFAULT_SNAPSHOT_HZ, "network_zombie_snapshots": 18, "network_max_payload_bytes": 32000}
+
+func _snapshot_hz() -> float:
+	return clampf(float(_quality_profile().get("network_snapshot_hz", DEFAULT_SNAPSHOT_HZ)), 8.0, 30.0)
+
+func _zombie_detail_budget() -> int:
+	return clampi(int(_quality_profile().get("network_zombie_snapshots", 18)), 4, 64)
+
+func _max_payload_bytes() -> int:
+	return clampi(int(_quality_profile().get("network_max_payload_bytes", 32000)), 12000, 64000)
 
 func _allocate_entity_id() -> int:
 	var result := _next_entity_id
@@ -576,6 +818,9 @@ func _generate_resume_token() -> String:
 	return crypto.generate_random_bytes(18).hex_encode()
 
 func _resume_token_path() -> String:
+	return "user://squad_resume_token.txt"
+
+func _legacy_resume_token_path() -> String:
 	return "user://duo_resume_token.txt"
 
 func _save_resume_token(token: String) -> void:
@@ -584,7 +829,12 @@ func _save_resume_token(token: String) -> void:
 		file.store_string(token)
 
 func _load_resume_token() -> String:
-	if not FileAccess.file_exists(_resume_token_path()):
-		return ""
-	var file := FileAccess.open(_resume_token_path(), FileAccess.READ)
-	return file.get_as_text().strip_edges() if file != null else ""
+	for path in [_resume_token_path(), _legacy_resume_token_path()]:
+		if not FileAccess.file_exists(path):
+			continue
+		var file := FileAccess.open(path, FileAccess.READ)
+		if file != null:
+			var token := file.get_as_text().strip_edges()
+			if not token.is_empty():
+				return token
+	return ""
