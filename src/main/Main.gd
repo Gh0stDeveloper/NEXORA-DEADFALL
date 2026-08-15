@@ -66,7 +66,7 @@ func _boot_duo_arena_client(host: String, port: int, requested_name: String, res
 	if session == null or not session.has_method("start_client"):
 		push_error("DuoArena NetworkSession missing")
 		return
-	var error: Error = session.call("start_client", host, port, name_value, resume)
+	var error := int(session.call("start_client", host, port, name_value, resume))
 	if error != OK:
 		push_error("Unable to start duo client: %s" % error_string(error))
 	_boot_android_diagnostics()
