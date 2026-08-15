@@ -2,7 +2,8 @@ class_name DeadfallAndroidDiagnostics
 extends Node
 
 func _ready() -> void:
-	if not OS.has_feature("android"): return
+	if not OS.has_feature("android"):
+		return
 	await get_tree().process_frame
 	await get_tree().create_timer(0.5).timeout
 	_emit_report()
@@ -19,6 +20,7 @@ func _emit_report() -> void:
 	var safe_area_valid := safe_area.size.x > 0 and safe_area.size.y > 0
 	var gore_manager := get_tree().root.get_node_or_null("Gore")
 	var network := get_tree().root.get_node_or_null("Main/DuoArena/NetworkSession")
+	var profile := Settings.current_profile()
 	var report := {
 		"android": true,
 		"mobile": OS.has_feature("mobile"),
@@ -39,16 +41,36 @@ func _emit_report() -> void:
 		"touchscreen": DisplayServer.has_feature(DisplayServer.FEATURE_TOUCHSCREEN),
 		"gore_budget": gore_manager.call("get_budget_limits") if gore_manager != null else {},
 		"network": network.call("get_status_snapshot") if network != null else {},
+		"squad": _squad_budget_snapshot(profile, network),
 	}
 	print("DEADFALL_ANDROID_READY %s" % JSON.stringify(report))
-	if not landscape: push_error("Android runtime validation: landscape orientation was not applied")
-	if not safe_area_valid: push_error("Android runtime validation: display safe area is invalid")
+	if not landscape:
+		push_error("Android runtime validation: landscape orientation was not applied")
+	if not safe_area_valid:
+		push_error("Android runtime validation: display safe area is invalid")
 
 func _emit_runtime_reports() -> void:
 	var gore_manager := get_tree().root.get_node_or_null("Gore")
-	if gore_manager != null: print("DEADFALL_GORE_STATS %s" % JSON.stringify(gore_manager.call("get_runtime_stats")))
+	if gore_manager != null:
+		print("DEADFALL_GORE_STATS %s" % JSON.stringify(gore_manager.call("get_runtime_stats")))
 	var horde := get_tree().root.get_node_or_null("Main/TestRange/HordeDirector")
-	if horde == null: horde = get_tree().root.get_node_or_null("Main/DuoArena/HordeDirector")
-	if horde != null: print("DEADFALL_HORDE_STATS %s" % JSON.stringify(horde.call("get_status_snapshot")))
+	if horde == null:
+		horde = get_tree().root.get_node_or_null("Main/DuoArena/HordeDirector")
+	if horde != null:
+		print("DEADFALL_HORDE_STATS %s" % JSON.stringify(horde.call("get_status_snapshot")))
 	var network := get_tree().root.get_node_or_null("Main/DuoArena/NetworkSession")
-	if network != null: print("DEADFALL_NETWORK_STATS %s" % JSON.stringify(network.call("get_status_snapshot")))
+	if network != null:
+		print("DEADFALL_NETWORK_STATS %s" % JSON.stringify(network.call("get_status_snapshot")))
+	print("DEADFALL_SQUAD_STATS %s" % JSON.stringify(_squad_budget_snapshot(Settings.current_profile(), network)))
+
+func _squad_budget_snapshot(profile: Dictionary, network: Node) -> Dictionary:
+	var snapshot := {
+		"max_players": 4,
+		"network_zombie_snapshots": int(profile.get("network_zombie_snapshots", 18)),
+		"network_snapshot_hz": float(profile.get("network_snapshot_hz", 15.0)),
+		"network_max_payload_bytes": int(profile.get("network_max_payload_bytes", 32000)),
+		"horde_squad_population_bonus": int(profile.get("horde_squad_population_bonus", 3)),
+	}
+	if network != null and network.has_method("get_status_snapshot"):
+		snapshot["session"] = network.call("get_status_snapshot")
+	return snapshot
