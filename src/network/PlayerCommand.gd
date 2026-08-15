@@ -1,7 +1,7 @@
 class_name DeadfallPlayerCommand
 extends RefCounted
 
-const MAX_PITCH := deg_to_rad(80.0)
+const MAX_PITCH := 1.3962634015954636
 
 static func sanitize(raw: Dictionary, last_sequence: int = -1) -> Dictionary:
 	var sequence := int(raw.get("sequence", -1))
