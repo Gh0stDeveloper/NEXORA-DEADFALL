@@ -8,29 +8,31 @@ const ActionButtonScript = preload("res://src/mobile/TouchActionButton.gd")
 
 @export var player_path := NodePath("../Player")
 @export var show_on_desktop := false
-
 var _safe_root: Control
 var _input_target: Node
 
 func _ready() -> void:
-	var player := get_node_or_null(player_path)
+	bind_player(get_node_or_null(player_path))
+
+func bind_player(player: Node) -> bool:
 	if player == null:
-		push_warning("MobileHUD could not resolve player_path: %s" % player_path)
-		return
+		push_warning("MobileHUD could not resolve player")
+		return false
 	_input_target = player.get_node_or_null("PlayerInput")
 	if _input_target == null:
 		push_warning("MobileHUD could not resolve PlayerInput")
-		return
-
+		return false
+	if _safe_root != null and is_instance_valid(_safe_root):
+		_safe_root.queue_free()
 	_build_hud()
 	visible = OS.has_feature("mobile") or show_on_desktop
+	return true
 
 func _build_hud() -> void:
 	_safe_root = SafeAreaScript.new()
 	_safe_root.name = "SafeArea"
 	add_child(_safe_root)
 	_safe_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-
 	var look_area := LookAreaScript.new()
 	look_area.name = "LookArea"
 	look_area.input_target = _input_target
@@ -39,7 +41,6 @@ func _build_hud() -> void:
 	look_area.anchor_right = 1.0
 	look_area.anchor_bottom = 1.0
 	_safe_root.add_child(look_area)
-
 	var joystick := JoystickScript.new()
 	joystick.name = "MoveJoystick"
 	joystick.input_target = _input_target
@@ -52,7 +53,6 @@ func _build_hud() -> void:
 	joystick.offset_right = 322.0
 	joystick.offset_bottom = -42.0
 	_safe_root.add_child(joystick)
-
 	_add_action_button("RUN", &"sprint", Rect2(-470, -145, 118, 62))
 	_add_action_button("JUMP", &"jump", Rect2(-170, -145, 128, 62))
 	_add_action_button("CROUCH", &"crouch", Rect2(-315, -145, 132, 62))

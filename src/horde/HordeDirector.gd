@@ -19,17 +19,9 @@ const RunnerData = preload("res://src/zombies/data/runner_01.tres")
 const TankData = preload("res://src/zombies/data/tank_01.tres")
 const ScreamerData = preload("res://src/zombies/data/screamer_01.tres")
 const CrawlerData = preload("res://src/zombies/data/crawler_01.tres")
-
 const ARCHETYPES := [WalkerData, RunnerData, CrawlerData, TankData, ScreamerData]
 
-enum State {
-	DISABLED,
-	COUNTDOWN,
-	SPAWNING,
-	ACTIVE,
-	INTERMISSION,
-	GAME_OVER,
-}
+enum State { DISABLED, COUNTDOWN, SPAWNING, ACTIVE, INTERMISSION, GAME_OVER }
 
 @export var auto_start := true
 @export var player_path := NodePath("../Player")
@@ -50,12 +42,9 @@ var wave_spawned := 0
 var wave_killed := 0
 var authority_override: RefCounted
 
-var _player: Node3D
-var _player_health: Node
 var _spawn_root: Node3D
 var _zombie_parent: Node3D
-var _player_start_transform := Transform3D.IDENTITY
-var _player_start_transform_captured := false
+var _players: Dictionary = {}
 var _phase_time_remaining := 0.0
 var _spawn_elapsed := 0.0
 var _last_countdown_value := -1
@@ -67,7 +56,6 @@ var _rng := RandomNumberGenerator.new()
 func _ready() -> void:
 	_resolve_runtime_nodes()
 	_seed_rng()
-	_bind_player_health()
 	if auto_start:
 		call_deferred("start_run")
 
@@ -75,19 +63,15 @@ func _process(delta: float) -> void:
 	if not has_simulation_authority():
 		return
 	_prune_invalid_active()
-	if state != State.DISABLED and state != State.GAME_OVER and not _player_is_alive():
-		_enter_game_over("player_dead")
+	_prune_invalid_players()
+	if state != State.DISABLED and state != State.GAME_OVER and not _players.is_empty() and get_alive_player_count() == 0:
+		_enter_game_over("all_players_dead")
 		return
-
 	match state:
-		State.COUNTDOWN:
-			_tick_countdown(delta, true)
-		State.SPAWNING:
-			_tick_spawning(delta)
-		State.ACTIVE:
-			_check_wave_complete()
-		State.INTERMISSION:
-			_tick_countdown(delta, false)
+		State.COUNTDOWN: _tick_countdown(delta, true)
+		State.SPAWNING: _tick_spawning(delta)
+		State.ACTIVE: _check_wave_complete()
+		State.INTERMISSION: _tick_countdown(delta, false)
 
 func set_authority_override(value: RefCounted) -> void:
 	authority_override = value
@@ -100,16 +84,48 @@ func has_simulation_authority() -> bool:
 	var game := get_tree().root.get_node_or_null("Game")
 	return game != null and game.has_method("is_simulation_authority") and bool(game.call("is_simulation_authority"))
 
+func register_player(player: Node3D) -> bool:
+	if player == null or not is_instance_valid(player):
+		return false
+	var health := player.get_node_or_null("Health")
+	if health == null:
+		return false
+	var key := player.get_instance_id()
+	if _players.has(key):
+		return true
+	_players[key] = {"node": player, "health": health, "start_transform": player.global_transform}
+	if health.has_signal("died"):
+		var callable := Callable(self, "_on_registered_player_died").bind(key)
+		if not health.is_connected("died", callable):
+			health.connect("died", callable)
+	return true
+
+func unregister_player(player: Node3D) -> void:
+	if player == null:
+		return
+	_players.erase(player.get_instance_id())
+
+func get_registered_player_count() -> int:
+	_prune_invalid_players()
+	return _players.size()
+
+func get_alive_player_count() -> int:
+	var count := 0
+	for record in _players.values():
+		if _record_player_alive(record):
+			count += 1
+	return count
+
 func start_run() -> bool:
 	if not has_simulation_authority():
 		_set_state(State.DISABLED, "no_simulation_authority")
 		return false
 	_resolve_runtime_nodes()
-	if _player == null or _spawn_root == null or _zombie_parent == null:
-		_set_state(State.DISABLED, "missing_runtime_nodes")
+	if _players.is_empty() or _spawn_root == null or _zombie_parent == null:
+		_set_state(State.DISABLED, "missing_runtime_nodes_or_players")
 		return false
 	_clear_active_zombies()
-	_reset_player()
+	_reset_players()
 	wave_number = 0
 	score = 0
 	kills = 0
@@ -127,11 +143,42 @@ func start_run() -> bool:
 	_emit_countdown(1)
 	return true
 
+func stop_run(reason: String = "stopped") -> void:
+	if not has_simulation_authority():
+		return
+	_clear_active_zombies()
+	wave_total_enemies = 0
+	wave_spawned = 0
+	wave_killed = 0
+	_set_state(State.DISABLED, reason)
+	_emit_population()
+
 func restart_run() -> bool:
 	var started := start_run()
 	if started:
 		run_restarted.emit()
 	return started
+
+func apply_replica_snapshot(snapshot: Dictionary) -> void:
+	if has_simulation_authority() or snapshot.is_empty():
+		return
+	var previous := state
+	state = int(snapshot.get("state", state))
+	wave_number = int(snapshot.get("wave", wave_number))
+	score = int(snapshot.get("score", score))
+	kills = int(snapshot.get("kills", kills))
+	wave_total_enemies = int(snapshot.get("wave_total", wave_total_enemies))
+	wave_spawned = int(snapshot.get("wave_spawned", wave_spawned))
+	wave_killed = int(snapshot.get("wave_killed", wave_killed))
+	_current_population_cost = int(snapshot.get("active_population_cost", _current_population_cost))
+	_phase_time_remaining = float(snapshot.get("countdown", 0))
+	if previous != state:
+		state_changed.emit(previous, state, "network_snapshot")
+	_emit_score()
+	population_changed.emit(int(snapshot.get("active_zombies", 0)), _current_population_cost, int(snapshot.get("population_budget", get_population_budget())), int(snapshot.get("enemies_remaining", 0)))
+	countdown_changed.emit(int(snapshot.get("countdown", 0)), 1 if state == State.COUNTDOWN else wave_number + 1)
+	if state == State.GAME_OVER:
+		game_over.emit(wave_number, score, kills)
 
 func get_state_name() -> String:
 	return State.keys()[state]
@@ -170,43 +217,31 @@ func get_status_snapshot() -> Dictionary:
 		"active_population_cost": _current_population_cost,
 		"population_budget": get_population_budget(),
 		"countdown": maxi(0, int(ceil(_phase_time_remaining))),
+		"players": get_registered_player_count(),
+		"alive_players": get_alive_player_count(),
 	}
 
 func debug_spawn_archetype(archetype_id: StringName) -> Node3D:
 	var data := _find_archetype(archetype_id)
-	if data == null:
-		return null
-	return _spawn_zombie(data)
+	return _spawn_zombie(data) if data != null else null
 
 func _resolve_runtime_nodes() -> void:
-	_player = get_node_or_null(player_path) as Node3D
 	_spawn_root = get_node_or_null(spawn_points_path) as Node3D
 	_zombie_parent = get_node_or_null(zombie_parent_path) as Node3D
-	if _player != null:
-		if not _player_start_transform_captured:
-			_player_start_transform = _player.global_transform
-			_player_start_transform_captured = true
-		_player_health = _player.get_node_or_null("Health")
-
-func _bind_player_health() -> void:
-	if _player_health == null or not _player_health.has_signal("died"):
-		return
-	var callable := Callable(self, "_on_player_died")
-	if not _player_health.is_connected("died", callable):
-		_player_health.connect("died", callable)
+	if not player_path.is_empty():
+		var legacy_player := get_node_or_null(player_path) as Node3D
+		if legacy_player != null:
+			register_player(legacy_player)
 
 func _seed_rng() -> void:
-	if deterministic_seed != 0:
-		_rng.seed = deterministic_seed
-	else:
-		_rng.randomize()
+	if deterministic_seed != 0: _rng.seed = deterministic_seed
+	else: _rng.randomize()
 
 func _tick_countdown(delta: float, initial: bool) -> void:
 	_phase_time_remaining = maxf(0.0, _phase_time_remaining - delta)
 	_emit_countdown(1 if initial else wave_number + 1)
-	if _phase_time_remaining > 0.0:
-		return
-	_begin_next_wave()
+	if _phase_time_remaining <= 0.0:
+		_begin_next_wave()
 
 func _begin_next_wave() -> void:
 	wave_number += 1
@@ -218,14 +253,13 @@ func _begin_next_wave() -> void:
 	wave_started.emit(wave_number, wave_total_enemies)
 	_emit_population()
 	if OS.is_debug_build():
-		print("DEADFALL_HORDE_WAVE_START wave=%d total=%d budget=%d" % [wave_number, wave_total_enemies, get_population_budget()])
+		print("DEADFALL_HORDE_WAVE_START wave=%d total=%d budget=%d players=%d" % [wave_number, wave_total_enemies, get_population_budget(), get_alive_player_count()])
 
 func _tick_spawning(delta: float) -> void:
 	if wave_spawned >= wave_total_enemies:
 		_set_state(State.ACTIVE, "wave_fully_spawned")
 		_check_wave_complete()
 		return
-
 	_spawn_elapsed += delta
 	var interval := HordeRulesScript.spawn_interval(_current_quality_profile(), spawn_interval_seconds)
 	if _spawn_elapsed < interval:
@@ -246,15 +280,12 @@ func _choose_archetype(for_wave: int, remaining_budget: int) -> Resource:
 	var candidates: Array[Resource] = []
 	var total_weight := 0.0
 	for data in ARCHETYPES:
-		if not HordeRulesScript.is_unlocked(data, for_wave):
-			continue
-		if HordeRulesScript.population_cost(data) > remaining_budget:
+		if not HordeRulesScript.is_unlocked(data, for_wave) or HordeRulesScript.population_cost(data) > remaining_budget:
 			continue
 		var weight := HordeRulesScript.spawn_weight(data, for_wave)
-		if weight <= 0.0:
-			continue
-		candidates.append(data)
-		total_weight += weight
+		if weight > 0.0:
+			candidates.append(data)
+			total_weight += weight
 	if candidates.is_empty() or total_weight <= 0.0:
 		return null
 	var roll := _rng.randf() * total_weight
@@ -282,8 +313,7 @@ func _spawn_zombie(data: Resource) -> Node3D:
 	zombie.set("zombie_data", data)
 	if authority_override != null and zombie.has_method("set_authority_override"):
 		zombie.call("set_authority_override", authority_override)
-	var display_name := String(data.get("display_name"))
-	zombie.name = "%s_%d" % [display_name.replace(" ", ""), entity_id]
+	zombie.name = "%s_%d" % [String(data.get("display_name")).replace(" ", ""), entity_id]
 	_zombie_parent.add_child(zombie)
 	zombie.global_position = spawn_point.global_position
 	var health := zombie.get_node_or_null("Health")
@@ -292,16 +322,9 @@ func _spawn_zombie(data: Resource) -> Node3D:
 		return null
 	if authority_override != null and authority_override.has_method("register_damageable"):
 		authority_override.call("register_damageable", entity_id, health)
-	var died_callable := Callable(self, "_on_zombie_died").bind(zombie)
-	health.connect("died", died_callable)
+	health.connect("died", Callable(self, "_on_zombie_died").bind(zombie))
 	var archetype_id := StringName(data.get("archetype_id"))
-	var score_value := maxi(0, int(data.get("score_value")))
-	_active_zombies[zombie.get_instance_id()] = {
-		"node": zombie,
-		"cost": cost,
-		"score": score_value,
-		"archetype_id": archetype_id,
-	}
+	_active_zombies[zombie.get_instance_id()] = {"node": zombie, "cost": cost, "score": maxi(0, int(data.get("score_value"))), "archetype_id": archetype_id}
 	_current_population_cost += cost
 	zombie_spawned.emit(zombie, archetype_id, cost)
 	return zombie
@@ -313,22 +336,24 @@ func _choose_spawn_point() -> Node3D:
 	var safe_points: Array[Node3D] = []
 	for child in _spawn_root.get_children():
 		var point := child as Node3D
-		if point == null:
-			continue
+		if point == null: continue
 		all_points.append(point)
-		if _player == null or point.global_position.distance_to(_player.global_position) >= spawn_safety_radius:
-			safe_points.append(point)
+		if _spawn_is_safe(point.global_position): safe_points.append(point)
 	var pool: Array[Node3D] = safe_points if not safe_points.is_empty() else all_points
-	if pool.is_empty():
-		return null
-	return pool[_rng.randi_range(0, pool.size() - 1)]
+	return null if pool.is_empty() else pool[_rng.randi_range(0, pool.size() - 1)]
+
+func _spawn_is_safe(position: Vector3) -> bool:
+	for record in _players.values():
+		if not _record_player_alive(record): continue
+		var player := record.get("node") as Node3D
+		if player != null and position.distance_to(player.global_position) < spawn_safety_radius:
+			return false
+	return true
 
 func _on_zombie_died(_event, zombie: Node3D) -> void:
-	if zombie == null:
-		return
+	if zombie == null: return
 	var instance_id := zombie.get_instance_id()
-	if not _active_zombies.has(instance_id):
-		return
+	if not _active_zombies.has(instance_id): return
 	var record: Dictionary = _active_zombies[instance_id]
 	_active_zombies.erase(instance_id)
 	_current_population_cost = maxi(0, _current_population_cost - int(record.get("cost", 1)))
@@ -336,16 +361,14 @@ func _on_zombie_died(_event, zombie: Node3D) -> void:
 	kills += 1
 	var awarded := maxi(0, int(record.get("score", 0)))
 	score += awarded
-	var archetype_id := StringName(record.get("archetype_id", &"walker"))
-	zombie_killed.emit(archetype_id, awarded)
+	zombie_killed.emit(StringName(record.get("archetype_id", &"walker")), awarded)
 	_emit_score()
 	_emit_population()
 	zombie.call_deferred("queue_free")
 	_check_wave_complete()
 
 func _check_wave_complete() -> void:
-	if wave_total_enemies <= 0 or wave_spawned < wave_total_enemies or not _active_zombies.is_empty():
-		return
+	if wave_total_enemies <= 0 or wave_spawned < wave_total_enemies or not _active_zombies.is_empty(): return
 	var bonus := HordeRulesScript.wave_completion_bonus(wave_number)
 	score += bonus
 	_emit_score()
@@ -354,40 +377,32 @@ func _check_wave_complete() -> void:
 	_last_countdown_value = -1
 	_set_state(State.INTERMISSION, "wave_cleared")
 	_emit_countdown(wave_number + 1)
-	if OS.is_debug_build():
-		print("DEADFALL_HORDE_WAVE_COMPLETE wave=%d score=%d kills=%d" % [wave_number, score, kills])
 
-func _on_player_died(_event) -> void:
-	_enter_game_over("player_health_depleted")
+func _on_registered_player_died(_event, _player_instance_id: int) -> void:
+	if get_alive_player_count() == 0:
+		_enter_game_over("all_players_dead")
 
 func _enter_game_over(reason: String) -> void:
-	if state == State.GAME_OVER:
-		return
+	if state == State.GAME_OVER: return
 	_set_state(State.GAME_OVER, reason)
 	for record in _active_zombies.values():
 		var zombie = record.get("node")
-		if zombie != null and is_instance_valid(zombie):
-			zombie.set_physics_process(false)
+		if zombie != null and is_instance_valid(zombie): zombie.set_physics_process(false)
 	game_over.emit(wave_number, score, kills)
-	if OS.is_debug_build():
-		print("DEADFALL_HORDE_GAME_OVER wave=%d score=%d kills=%d" % [wave_number, score, kills])
 
-func _reset_player() -> void:
-	if _player == null:
-		return
-	if _player_health == null:
-		_player_health = _player.get_node_or_null("Health")
-	if _player_health != null and _player_health.has_method("reset_health"):
-		_player_health.call("reset_health")
-	_player.global_transform = _player_start_transform
-	var body := _player as CharacterBody3D
-	if body != null:
-		body.velocity = Vector3.ZERO
+func _reset_players() -> void:
+	for record in _players.values():
+		var player := record.get("node") as Node3D
+		var health := record.get("health")
+		if player == null or not is_instance_valid(player): continue
+		if health != null and is_instance_valid(health) and health.has_method("reset_health"): health.call("reset_health")
+		player.global_transform = Transform3D(record.get("start_transform", player.global_transform))
+		if player is CharacterBody3D: (player as CharacterBody3D).velocity = Vector3.ZERO
+		player.set_physics_process(true)
 
 func _clear_active_zombies() -> void:
 	if _zombie_parent != null:
-		for child in _zombie_parent.get_children():
-			child.queue_free()
+		for child in _zombie_parent.get_children(): child.queue_free()
 	_active_zombies.clear()
 	_current_population_cost = 0
 
@@ -395,48 +410,41 @@ func _prune_invalid_active() -> void:
 	for key in _active_zombies.keys():
 		var record: Dictionary = _active_zombies[key]
 		var zombie = record.get("node")
-		if zombie != null and is_instance_valid(zombie):
-			continue
+		if zombie != null and is_instance_valid(zombie): continue
 		_current_population_cost = maxi(0, _current_population_cost - int(record.get("cost", 1)))
 		_active_zombies.erase(key)
 
-func _player_is_alive() -> bool:
-	if _player == null or not is_instance_valid(_player):
-		return false
-	if _player_health == null:
-		_player_health = _player.get_node_or_null("Health")
-	if _player_health == null:
-		return false
-	return not _player_health.has_method("is_dead") or not bool(_player_health.call("is_dead"))
+func _prune_invalid_players() -> void:
+	for key in _players.keys():
+		var record: Dictionary = _players[key]
+		var player = record.get("node")
+		if player == null or not is_instance_valid(player): _players.erase(key)
+
+func _record_player_alive(record: Dictionary) -> bool:
+	var player = record.get("node")
+	var health = record.get("health")
+	if player == null or not is_instance_valid(player) or health == null or not is_instance_valid(health): return false
+	return not health.has_method("is_dead") or not bool(health.call("is_dead"))
 
 func _find_archetype(archetype_id: StringName) -> Resource:
 	for data in ARCHETYPES:
-		if StringName(data.get("archetype_id")) == archetype_id:
-			return data
+		if StringName(data.get("archetype_id")) == archetype_id: return data
 	return null
 
 func _current_quality_profile() -> Dictionary:
 	var settings := get_node_or_null("/root/Settings")
-	if settings != null and settings.has_method("current_profile"):
-		return settings.call("current_profile")
+	if settings != null and settings.has_method("current_profile"): return settings.call("current_profile")
 	return {"horde_population": 10, "horde_spawn_rate": 1.0}
 
-func _emit_score() -> void:
-	score_changed.emit(score, kills)
-
-func _emit_population() -> void:
-	population_changed.emit(get_active_zombie_count(), _current_population_cost, get_population_budget(), get_enemies_remaining())
-
+func _emit_score() -> void: score_changed.emit(score, kills)
+func _emit_population() -> void: population_changed.emit(get_active_zombie_count(), _current_population_cost, get_population_budget(), get_enemies_remaining())
 func _emit_countdown(target_wave: int) -> void:
 	var value := maxi(0, int(ceil(_phase_time_remaining)))
-	if value == _last_countdown_value:
-		return
+	if value == _last_countdown_value: return
 	_last_countdown_value = value
 	countdown_changed.emit(value, target_wave)
-
 func _set_state(next_state: int, reason: String) -> void:
-	if state == next_state:
-		return
+	if state == next_state: return
 	var previous := state
 	state = next_state
 	state_changed.emit(previous, state, reason)

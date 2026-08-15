@@ -18,7 +18,6 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
-
       - name: Install Godot
         shell: bash
         run: |
@@ -28,36 +27,31 @@ jobs:
           sudo mv "/tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
           sudo chmod +x /usr/local/bin/godot
           godot --version
-
       - name: Import project and parse scripts
         run: godot --headless --editor --path . --quit
-
       - name: Run project smoke test
         run: godot --headless --path . --script scripts/ci/smoke.gd
-
       - name: Run combat authority tests
         run: godot --headless --path . --script scripts/ci/combat_smoke.gd
-
       - name: Run zombie AI and combat tests
         run: godot --headless --path . --script scripts/ci/zombie_smoke.gd
-
       - name: Run gore and dismemberment tests
         run: godot --headless --path . --script scripts/ci/gore_smoke.gd
-
-      - name: Run offline Horde tests
+      - name: Run Horde tests
         run: godot --headless --path . --script scripts/ci/horde_smoke.gd
-
+      - name: Run networking tests
+        run: godot --headless --path . --script scripts/ci/network_smoke.gd
+      - name: Run two-peer ENet integration
+        run: bash scripts/ci/duo_integration.sh
       - name: Validate shell scripts
-        run: bash -n scripts/server/run_server.sh scripts/ci/android_runtime_smoke.sh
+        run: bash -n scripts/server/run_server.sh scripts/ci/android_runtime_smoke.sh scripts/ci/duo_integration.sh
 
   docker-server-build:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
-
       - name: Build dedicated server container
         run: docker build -f deploy/docker/Dockerfile -t nexora-deadfall-server:ci .
-
       - name: Boot dedicated server container
         shell: bash
         run: |
