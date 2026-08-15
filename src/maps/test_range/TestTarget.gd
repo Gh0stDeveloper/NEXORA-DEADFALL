@@ -1,17 +1,17 @@
 class_name DeadfallTestTarget
 extends Node3D
 
-@onready var health: Node = $Health
-@onready var hitboxes: Node3D = $Hitboxes
+@onready var health = $Health
+@onready var hitboxes = $Hitboxes
 
 var _status_label: Label3D
 
 func _ready() -> void:
-	health.health_changed.connect(_on_health_changed)
-	health.died.connect(_on_died)
+	health.connect(&"health_changed", _on_health_changed)
+	health.connect(&"died", _on_died)
 	if DisplayServer.get_name() != "headless":
 		_build_debug_visuals()
-		_update_label(health.current_health)
+		_update_label(float(health.get("current_health")))
 
 func _build_debug_visuals() -> void:
 	for child in hitboxes.get_children():
@@ -26,7 +26,7 @@ func _build_debug_visuals() -> void:
 		var mesh := BoxMesh.new()
 		mesh.size = (shape_node.shape as BoxShape3D).size
 		var material := StandardMaterial3D.new()
-		material.albedo_color = _color_for_body_part(int(child.body_part))
+		material.albedo_color = _color_for_body_part(int(child.get("body_part")))
 		material.roughness = 0.78
 		mesh.material = material
 		mesh_instance.mesh = mesh

@@ -43,10 +43,13 @@ func _register_with_active_authority() -> void:
 	if entity_id == 0 or get_tree() == null:
 		return
 	var game := get_tree().root.get_node_or_null("Game")
-	if game == null or game.authority == null:
+	if game == null:
 		return
-	if game.authority.has_method("register_damageable") and game.authority.register_damageable(entity_id, self):
-		_registered_authority = game.authority
+	var active_authority = game.get("authority")
+	if active_authority == null:
+		return
+	if active_authority.has_method("register_damageable") and active_authority.register_damageable(entity_id, self):
+		_registered_authority = active_authority
 
 func _unregister_from_authority() -> void:
 	if _registered_authority != null and _registered_authority.has_method("unregister_damageable"):
