@@ -71,11 +71,26 @@
 
 ## Phase 5 — Offline horde
 
-- [ ] Spawn director.
-- [ ] Round progression.
-- [ ] Multiple zombie archetypes.
-- [ ] Score and end state.
-- [ ] Performance profiling across tiers.
+- [x] Authority-gated HordeDirector state machine.
+- [x] Initial countdown, spawning, active wave and intermission lifecycle.
+- [x] Quality-tier population-cost budgets and spawn-rate scaling.
+- [x] Player-distance-aware spawn-point selection.
+- [x] Progressive wave growth and completion bonuses.
+- [x] Walker archetype.
+- [x] Runner archetype.
+- [x] Native Crawler archetype.
+- [x] Tank archetype.
+- [x] Screamer archetype with temporary nearby-zombie rage buff.
+- [x] Per-archetype population cost, score value, unlock wave and spawn weight.
+- [x] Score, kills, enemies remaining and wave counters.
+- [x] Player death → GAME_OVER.
+- [x] Restart/reset flow.
+- [x] Safe-area-aware Horde HUD.
+- [x] Headless deterministic Horde smoke tests committed to CI.
+- [x] Android Horde runtime telemetry hooks.
+- [x] Phase 5 technical documentation.
+- [ ] Record physical-Android Horde population/FPS profiling across quality tiers.
+- [ ] Re-run Phase 5 Godot/Docker/Android gates after GitHub Actions billing/spending is unblocked.
 
 ## Phase 6 — Multiplayer duo
 
