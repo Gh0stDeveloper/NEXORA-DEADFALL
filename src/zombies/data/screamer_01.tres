@@ -1,0 +1,38 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/zombies/base/ZombieData.gd" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+archetype_id = &"screamer"
+display_name = "Screamer"
+prototype_color = Color(0.43, 0.25, 0.34, 1)
+population_cost = 2
+score_value = 250
+unlock_wave = 5
+spawn_weight = 0.42
+screamer_enabled = true
+scream_radius = 12.0
+scream_cooldown_seconds = 8.0
+scream_rage_seconds = 5.0
+scream_speed_multiplier = 1.35
+scream_damage_multiplier = 1.25
+max_health = 90.0
+move_speed = 3.0
+detection_range = 26.0
+lose_target_range = 36.0
+attack_range = 1.50
+attack_damage = 8.0
+attack_cooldown_seconds = 1.30
+attack_windup_seconds = 0.28
+stagger_seconds = 0.32
+search_seconds = 5.0
+scan_interval_seconds = 0.16
+repath_interval_seconds = 0.22
+sight_memory_seconds = 1.35
+head_dismember_damage = 40.0
+arm_dismember_damage = 34.0
+leg_dismember_damage = 36.0
+crawler_speed_multiplier = 0.40
+crawler_attack_range_multiplier = 0.80
+crawler_height = 0.82
