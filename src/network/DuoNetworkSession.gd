@@ -237,6 +237,9 @@ func _client_join_rejected(reason: String) -> void:
 	join_failed.emit(reason)
 	print("DEADFALL_SQUAD_JOIN_REJECTED reason=%s" % reason)
 	push_error("Squad join rejected: %s" % reason)
+	if _client_peer != null:
+		_client_peer.close()
+	Game.stop_session()
 
 @rpc("any_peer", "call_remote", "unreliable_ordered", 0)
 func _server_submit_command(raw_command: Dictionary) -> void:
@@ -442,7 +445,8 @@ func _build_server_snapshot_for_peer(peer_id: int) -> Dictionary:
 	var candidates: Array[Dictionary] = []
 	var reference_position := Vector3.ZERO
 	if _peers.has(peer_id):
-		var reference_player := Dictionary(_peers[peer_id]).get("player") as Node3D
+		var reference_record: Dictionary = _peers[peer_id]
+		var reference_player := reference_record.get("player") as Node3D
 		if reference_player != null and is_instance_valid(reference_player):
 			reference_position = reference_player.global_position
 
@@ -477,14 +481,17 @@ func _build_server_snapshot_for_peer(peer_id: int) -> Dictionary:
 	while not zombies.is_empty() and var_to_bytes(payload).size() > max_bytes:
 		zombies.pop_back()
 		payload["zombies"] = zombies
-	payload["replication"] = {
+	var replication := {
 		"total_zombies": zombie_ids.size(),
 		"sent_zombies": zombies.size(),
 		"zombie_budget": _zombie_detail_budget(),
 		"snapshot_hz": _snapshot_hz(),
 		"max_payload_bytes": max_bytes,
-		"estimated_payload_bytes": var_to_bytes(payload).size(),
+		"estimated_payload_bytes": 0,
 	}
+	payload["replication"] = replication
+	replication["estimated_payload_bytes"] = var_to_bytes(payload).size()
+	payload["replication"] = replication
 	return payload
 
 func _build_all_player_states() -> Array:
