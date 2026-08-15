@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://src/maps/test_range/TestRange.gd" id="1_range"]
 [ext_resource type="PackedScene" path="res://src/player/Player.tscn" id="2_player"]
 [ext_resource type="PackedScene" path="res://src/mobile/MobileHUD.tscn" id="3_hud"]
 [ext_resource type="PackedScene" path="res://src/maps/test_range/TestTarget.tscn" id="4_target"]
-[ext_resource type="PackedScene" path="res://src/zombies/base/Zombie.tscn" id="5_zombie"]
+[ext_resource type="Script" path="res://src/horde/HordeDirector.gd" id="5_horde"]
+[ext_resource type="PackedScene" path="res://src/horde/HordeHUD.tscn" id="6_horde_hud"]
 
 [node name="TestRange" type="Node3D"]
 script = ExtResource("1_range")
@@ -15,8 +16,44 @@ position = Vector3(0, 0.05, 8)
 [node name="TestTarget" parent="." instance=ExtResource("4_target")]
 position = Vector3(12, 0, -4)
 
-[node name="Zombie" parent="." instance=ExtResource("5_zombie")]
-position = Vector3(7, 0.05, 0)
+[node name="HordeSpawnPoints" type="Node3D" parent="."]
+
+[node name="NorthWest" type="Marker3D" parent="HordeSpawnPoints"]
+position = Vector3(-16, 0.05, -16)
+
+[node name="North" type="Marker3D" parent="HordeSpawnPoints"]
+position = Vector3(0, 0.05, -18)
+
+[node name="NorthEast" type="Marker3D" parent="HordeSpawnPoints"]
+position = Vector3(16, 0.05, -16)
+
+[node name="East" type="Marker3D" parent="HordeSpawnPoints"]
+position = Vector3(18, 0.05, 0)
+
+[node name="SouthEast" type="Marker3D" parent="HordeSpawnPoints"]
+position = Vector3(16, 0.05, 16)
+
+[node name="SouthWest" type="Marker3D" parent="HordeSpawnPoints"]
+position = Vector3(-16, 0.05, 16)
+
+[node name="West" type="Marker3D" parent="HordeSpawnPoints"]
+position = Vector3(-18, 0.05, 0)
+
+[node name="HordeZombies" type="Node3D" parent="."]
+
+[node name="HordeDirector" type="Node" parent="."]
+script = ExtResource("5_horde")
+auto_start = true
+player_path = NodePath("../Player")
+spawn_points_path = NodePath("../HordeSpawnPoints")
+zombie_parent_path = NodePath("../HordeZombies")
+initial_countdown_seconds = 3.0
+intermission_seconds = 6.0
+spawn_interval_seconds = 0.55
+spawn_safety_radius = 8.0
 
 [node name="MobileHUD" parent="." instance=ExtResource("3_hud")]
 player_path = NodePath("../Player")
+
+[node name="HordeHUD" parent="." instance=ExtResource("6_horde_hud")]
+director_path = NodePath("../HordeDirector")
