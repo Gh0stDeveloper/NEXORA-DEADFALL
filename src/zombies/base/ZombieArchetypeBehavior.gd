@@ -134,7 +134,7 @@ func _apply_prototype_color() -> void:
 	var rig := _zombie.get_node_or_null("VisualRoot/PreparedRig")
 	if rig == null:
 		return
-	var color := Color(_data.get("prototype_color"))
+	var color: Color = _data.get("prototype_color")
 	for child in rig.get_children():
 		var mesh_instance := child as MeshInstance3D
 		if mesh_instance == null:
