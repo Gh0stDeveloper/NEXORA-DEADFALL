@@ -26,6 +26,8 @@ func _test_quality_budgets() -> bool:
 	for tier in range(4):
 		var profile: Dictionary = SettingsScript.QUALITY_PROFILES[tier]
 		budget.configure(profile)
+		if int(profile.get("decals", 0)) > 8:
+			return _fail("Mobile gore profile exceeded the eight-decal safety limit")
 		for kind in [GoreBudgetScript.LIMBS, GoreBudgetScript.BLOOD, GoreBudgetScript.DECALS]:
 			var limit := budget.get_limit(kind)
 			if limit <= 0:
@@ -36,8 +38,8 @@ func _test_quality_budgets() -> bool:
 					return _fail("Gore pool cursor escaped configured budget")
 	if int(SettingsScript.QUALITY_PROFILES[SettingsScript.QualityTier.SMOOTH].get("gore_parts", 0)) != 4:
 		return _fail("Smooth gore limb budget changed unexpectedly")
-	if int(SettingsScript.QUALITY_PROFILES[SettingsScript.QualityTier.ULTRA_HD].get("decals", 0)) != 80:
-		return _fail("Ultra HD decal budget changed unexpectedly")
+	if int(SettingsScript.QUALITY_PROFILES[SettingsScript.QualityTier.ULTRA_HD].get("decals", 0)) != 8:
+		return _fail("Ultra HD mobile decal budget changed unexpectedly")
 	return true
 
 func _test_prepared_rig_contract() -> bool:
