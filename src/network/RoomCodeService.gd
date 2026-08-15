@@ -4,6 +4,7 @@ extends RefCounted
 const ALPHABET := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 const CODE_LENGTH := 6
 const PROTOCOL_VERSION := 2
+const MAX_PLAYERS := 4
 
 static func generate_code(rng: RandomNumberGenerator = null) -> String:
 	var source := rng
@@ -50,4 +51,5 @@ static func parse_resolution_payload(text: String) -> Dictionary:
 		"port": port,
 		"room_code": normalize(String(payload.get("room_code", ""))),
 		"protocol": PROTOCOL_VERSION,
+		"max_players": clampi(int(payload.get("max_players", MAX_PLAYERS)), 1, MAX_PLAYERS),
 	}
