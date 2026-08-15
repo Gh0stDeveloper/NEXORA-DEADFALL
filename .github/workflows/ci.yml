@@ -17,7 +17,7 @@ jobs:
   godot-validation:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install Godot
         shell: bash
@@ -36,12 +36,12 @@ jobs:
         run: godot --headless --path . --script scripts/ci/smoke.gd
 
       - name: Validate shell scripts
-        run: bash -n scripts/server/run_server.sh
+        run: bash -n scripts/server/run_server.sh scripts/ci/android_runtime_smoke.sh
 
   docker-server-build:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Build dedicated server container
         run: docker build -f deploy/docker/Dockerfile -t nexora-deadfall-server:ci .

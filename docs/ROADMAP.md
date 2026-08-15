@@ -22,7 +22,16 @@
 - [x] Mobile HUD safe areas.
 - [x] Desktop keyboard/mouse debug controls.
 - [x] Dedicated movement/camera test range.
-- [ ] Validate controls and HUD on at least one physical Android phone.
+
+### Phase 1.1 — Android validation
+
+- [x] Separate x86_64 Android emulator export preset for runtime CI.
+- [x] Android runtime diagnostics for orientation, safe area, cutouts and DPI.
+- [x] Emulator install/start/process-liveness gate.
+- [x] Android-injected RUN/JUMP/CROUCH/PRONE/CAM touch validation.
+- [x] Android-injected joystick and touch-look validation.
+- [x] Logcat scan for GDScript/runtime errors, fatal exceptions and ANRs.
+- [ ] Validate ergonomics and safe-area placement on at least one physical Android phone.
 
 ## Phase 2 — Weapons and damage
 

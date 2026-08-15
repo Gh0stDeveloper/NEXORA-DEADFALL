@@ -17,6 +17,9 @@ var _mobile_move := Vector2.ZERO
 var _mobile_look := Vector2.ZERO
 var _mobile_pressed: Dictionary = {}
 var _mobile_just_pressed: Dictionary = {}
+var _debug_move_logged := false
+var _debug_look_logged := false
+var _debug_actions_logged: Dictionary = {}
 
 func _init() -> void:
 	_ensure_input_map()
@@ -53,15 +56,27 @@ func consume_action_just_pressed(action: StringName) -> bool:
 
 func set_mobile_move(value: Vector2) -> void:
 	_mobile_move = value.limit_length(1.0)
+	if _android_debug_enabled() and not _debug_move_logged and _mobile_move.length() >= 0.2:
+		_debug_move_logged = true
+		print("DEADFALL_TOUCH_JOYSTICK active")
 
 func add_mobile_look(delta: Vector2) -> void:
 	_mobile_look += delta
+	if _android_debug_enabled() and not _debug_look_logged and delta.length_squared() > 0.0:
+		_debug_look_logged = true
+		print("DEADFALL_TOUCH_LOOK active")
 
 func set_mobile_action(action: StringName, pressed: bool) -> void:
 	var was_pressed := bool(_mobile_pressed.get(action, false))
 	_mobile_pressed[action] = pressed
 	if pressed and not was_pressed:
 		_mobile_just_pressed[action] = true
+		if _android_debug_enabled() and not bool(_debug_actions_logged.get(action, false)):
+			_debug_actions_logged[action] = true
+			print("DEADFALL_TOUCH_ACTION %s" % action)
+
+func _android_debug_enabled() -> bool:
+	return OS.has_feature("android") and OS.is_debug_build()
 
 func _ensure_input_map() -> void:
 	for action in KEY_BINDINGS:

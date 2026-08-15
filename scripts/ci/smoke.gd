@@ -13,7 +13,9 @@ const REQUIRED_FILES := [
 	"res://src/player/PlayerInput.gd",
 	"res://src/player/CameraRig.gd",
 	"res://src/mobile/MobileHUD.tscn",
+	"res://src/mobile/AndroidDiagnostics.gd",
 	"res://src/maps/test_range/TestRange.tscn",
+	"res://scripts/ci/android_runtime_smoke.sh",
 ]
 
 func _initialize() -> void:
