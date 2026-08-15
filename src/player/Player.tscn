@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://src/player/PlayerController.gd" id="1_controller"]
 [ext_resource type="Script" path="res://src/player/PlayerInput.gd" id="2_input"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://src/core/health/HealthComponent.gd" id="4_health"]
 [ext_resource type="Script" path="res://src/weapons/rifles/HitscanRifle.gd" id="5_weapon"]
 [ext_resource type="Resource" path="res://src/weapons/data/nxr_rifle_01.tres" id="6_rifle"]
+[ext_resource type="Script" path="res://src/player/PlayerLifeState.gd" id="7_life"]
 
 [sub_resource type="CapsuleShape3D" id="Capsule_player"]
 radius = 0.4
@@ -27,6 +28,16 @@ script = ExtResource("2_input")
 script = ExtResource("4_health")
 entity_id = 1
 max_health = 100.0
+
+[node name="LifeState" type="Node" parent="."]
+script = ExtResource("7_life")
+health_path = NodePath("../Health")
+downed_enabled = false
+bleedout_seconds = 30.0
+revive_hold_seconds = 3.0
+revive_distance = 2.4
+revive_health_fraction = 0.35
+downed_move_multiplier = 0.35
 
 [node name="PrimaryWeapon" type="Node3D" parent="."]
 script = ExtResource("5_weapon")
