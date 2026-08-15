@@ -1,0 +1,28 @@
+; Engine configuration file.
+; NEXORA: DEADFALL
+config_version=5
+
+[application]
+config/name="NEXORA: DEADFALL"
+config/description="Android zombie survival shooter by Ghost Developer / Nexora"
+run/main_scene="res://src/main/Main.tscn"
+config/features=PackedStringArray("4.6", "Mobile")
+
+[autoload]
+Game="*res://src/autoload/Game.gd"
+Settings="*res://src/autoload/Settings.gd"
+
+[display]
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/size/window_width_override=1280
+window/size/window_height_override=720
+window/stretch/mode="canvas_items"
+
+[rendering]
+renderer/rendering_method="mobile"
+renderer/rendering_method.mobile="mobile"
+textures/default_filters/use_nearest_mipmap_filter=false
+
+[physics]
+common/physics_ticks_per_second=60
