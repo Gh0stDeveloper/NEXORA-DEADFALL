@@ -11,6 +11,7 @@ const KEY_BINDINGS := {
 	"crouch": KEY_C,
 	"prone": KEY_Z,
 	"camera_cycle": KEY_V,
+	"reload": KEY_R,
 }
 
 var _mobile_move := Vector2.ZERO
@@ -86,3 +87,10 @@ func _ensure_input_map() -> void:
 			var key_event := InputEventKey.new()
 			key_event.physical_keycode = KEY_BINDINGS[action]
 			InputMap.action_add_event(action, key_event)
+
+	if not InputMap.has_action(&"fire"):
+		InputMap.add_action(&"fire", 0.2)
+	if InputMap.action_get_events(&"fire").is_empty():
+		var mouse_event := InputEventMouseButton.new()
+		mouse_event.button_index = MOUSE_BUTTON_LEFT
+		InputMap.action_add_event(&"fire", mouse_event)

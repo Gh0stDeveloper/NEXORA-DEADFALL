@@ -53,13 +53,15 @@ func _build_hud() -> void:
 	joystick.offset_bottom = -42.0
 	_safe_root.add_child(joystick)
 
-	_add_action_button("RUN", "sprint", Rect2(-470, -145, 118, 62))
-	_add_action_button("JUMP", "jump", Rect2(-170, -145, 128, 62))
-	_add_action_button("CROUCH", "crouch", Rect2(-315, -145, 132, 62))
-	_add_action_button("PRONE", "prone", Rect2(-315, -220, 132, 62))
-	_add_action_button("CAM", "camera_cycle", Rect2(-170, -220, 128, 62))
+	_add_action_button("RUN", &"sprint", Rect2(-470, -145, 118, 62))
+	_add_action_button("JUMP", &"jump", Rect2(-170, -145, 128, 62))
+	_add_action_button("CROUCH", &"crouch", Rect2(-315, -145, 132, 62))
+	_add_action_button("PRONE", &"prone", Rect2(-315, -220, 132, 62))
+	_add_action_button("CAM", &"camera_cycle", Rect2(-170, -220, 128, 62))
+	_add_action_button("RELOAD", &"reload", Rect2(-315, -295, 132, 62))
+	_add_action_button("FIRE", &"fire", Rect2(-170, -365, 128, 128), 22)
 
-func _add_action_button(label_text: String, action: StringName, rect: Rect2) -> void:
+func _add_action_button(label_text: String, action: StringName, rect: Rect2, font_size: int = 18) -> void:
 	var button := ActionButtonScript.new()
 	button.name = "%sButton" % label_text.capitalize()
 	button.text = label_text
@@ -71,6 +73,6 @@ func _add_action_button(label_text: String, action: StringName, rect: Rect2) -> 
 	button.anchor_bottom = 1.0
 	button.position = rect.position
 	button.size = rect.size
-	button.add_theme_font_size_override("font_size", 18)
+	button.add_theme_font_size_override("font_size", font_size)
 	button.modulate = Color(1.0, 1.0, 1.0, 0.82)
 	_safe_root.add_child(button)

@@ -22,25 +22,22 @@
 - [x] Mobile HUD safe areas.
 - [x] Desktop keyboard/mouse debug controls.
 - [x] Dedicated movement/camera test range.
-
-### Phase 1.1 — Android validation
-
-- [x] Separate x86_64 Android emulator export preset for runtime CI.
-- [x] Android runtime diagnostics for orientation, safe area, cutouts and DPI.
-- [x] Emulator install/start/process-liveness gate.
-- [x] Android-injected RUN/JUMP/CROUCH/PRONE/CAM touch validation.
-- [x] Android-injected joystick and touch-look validation.
-- [x] Logcat scan for GDScript/runtime errors, fatal exceptions and ANRs.
-- [ ] Validate ergonomics and safe-area placement on at least one physical Android phone.
+- [x] Android runtime diagnostics and emulator validation workflow.
+- [x] Installable ARM64 Phase 1.1 test APK workflow.
+- [ ] Validate controls and HUD ergonomics on at least one physical Android phone.
 
 ## Phase 2 — Weapons and damage
 
-- [ ] Weapon data resources.
-- [ ] First rifle.
-- [ ] Fire/reload/ammo.
-- [ ] Body-part hitboxes.
-- [ ] Health component.
-- [ ] Damage resolver and critical hits.
+- [x] Weapon data resources.
+- [x] First NXR-4 hitscan rifle.
+- [x] Fire cadence, ammunition and timed reload.
+- [x] Shot-intent boundary for future network authority.
+- [x] Seven body-part hitboxes.
+- [x] Health component and authority registry.
+- [x] Damage resolver, body multipliers and critical hits.
+- [x] Desktop FIRE/RELOAD and Android FIRE/RELOAD input.
+- [x] Combat smoke tests for damage, cadence, ammo and reload.
+- [ ] Re-run Phase 2 CI/Android gates after GitHub Actions billing/spending is unblocked.
 
 ## Phase 3 — First zombie
 

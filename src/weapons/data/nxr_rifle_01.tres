@@ -1,0 +1,16 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/weapons/base/WeaponData.gd" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+weapon_id = &"nxr_rifle_01"
+display_name = "NXR-4 Carbine"
+base_damage = 28.0
+magazine_size = 30
+starting_reserve_ammo = 120
+rounds_per_minute = 600.0
+reload_seconds = 2.1
+max_distance = 160.0
+penetration = 0.1
+automatic = true
