@@ -31,9 +31,16 @@ func _test_rules_and_unlocks() -> bool:
 		if HordeRulesScript.spawn_interval(profile, 0.55) <= 0.0:
 			return _fail("Horde spawn interval must remain positive")
 
+	var no_authority_director = HordeDirectorScript.new()
+	no_authority_director.auto_start = false
+	if no_authority_director.start_run():
+		return _fail("HordeDirector started without simulation authority")
+	no_authority_director.free()
+
 	var director = HordeDirectorScript.new()
 	director.auto_start = false
-	if director.get_available_archetype_ids(1) != [&"walker"]:
+	var wave_one_ids: Array[StringName] = director.get_available_archetype_ids(1)
+	if wave_one_ids.size() != 1 or wave_one_ids[0] != &"walker":
 		return _fail("Wave 1 must unlock only Walker")
 	if &"runner" not in director.get_available_archetype_ids(2):
 		return _fail("Runner must unlock on wave 2")
@@ -120,6 +127,7 @@ func _test_director_runtime() -> bool:
 	if int(director.get("kills")) != 1 or int(director.get("score")) != 350:
 		return _fail("Zombie death awarded score more than once")
 
+	player.global_position = Vector3(5, 0, 5)
 	var player_lethal := _make_damage_event(int(player_health.get("entity_id")), 999.0)
 	if not authority.resolve_damage(player_lethal):
 		return _fail("Authority rejected lethal player damage")
@@ -131,6 +139,8 @@ func _test_director_runtime() -> bool:
 		return _fail("Horde restart did not reset run counters")
 	if bool(player_health.call("is_dead")) or absf(float(player_health.get("current_health")) - float(player_health.get("max_health"))) > 0.001:
 		return _fail("Horde restart did not reset player health")
+	if player.global_position.distance_to(Vector3.ZERO) > 0.001:
+		return _fail("Horde restart did not restore the original player spawn transform")
 
 	director.call("_begin_next_wave")
 	var total := int(director.get("wave_total_enemies"))
