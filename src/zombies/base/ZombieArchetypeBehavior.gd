@@ -18,10 +18,15 @@ func _ready() -> void:
 	if _zombie == null:
 		set_physics_process(false)
 		return
-	_data = _zombie.get("zombie_data") as Resource
-	if _data == null:
+	var source_data := _zombie.get("zombie_data") as Resource
+	if source_data == null:
 		set_physics_process(false)
 		return
+	_data = source_data.duplicate(true) as Resource
+	_zombie.set("zombie_data", _data)
+	var gore := _zombie.get_node_or_null("Gore")
+	if gore != null:
+		gore.set("zombie_data", _data)
 	_base_move_speed = float(_data.get("move_speed"))
 	_base_attack_damage = float(_data.get("attack_damage"))
 	_scream_elapsed = float(_data.get("scream_cooldown_seconds")) * 0.45
