@@ -58,10 +58,10 @@
 - [x] Local prediction and authoritative reconciliation.
 - [x] Remote-player and zombie snapshot interpolation.
 - [x] Server-authoritative fire cadence/ammo/reload/hitscan/damage.
-- [x] Player/weapon/zombie/Horde snapshots at 15 Hz.
-- [x] HordeDirector generalized for multiple living players and server ownership.
+- [x] Player/weapon/zombie/Horde snapshots.
+- [x] HordeDirector generalized for multiplayer/server ownership.
 - [x] Six-character room code plus lightweight directory service contract.
-- [x] Resume token and 20-second reconnect grace groundwork.
+- [x] Resume token/reconnect groundwork.
 - [x] Network authority/command/room smoke tests.
 - [x] Real headless two-client ENet integration harness committed to CI.
 - [x] Android network diagnostics hooks.
@@ -69,10 +69,27 @@
 - [ ] Physical two-phone Android soak/profile test.
 
 ## Phase 7 — Four-player squad
-- [ ] Four-player replication budget.
-- [ ] Downed/revive.
-- [ ] Reconnect grace period expansion.
-- [ ] Four-player horde balance.
+- [x] Four-player ENet capacity and four stable player spawn slots.
+- [x] Protocol v2 room/session contract.
+- [x] ALIVE → DOWNED → DEAD authoritative player life state.
+- [x] 30-second bleedout and authoritative final death.
+- [x] Server-selected, range-validated, three-second revive hold.
+- [x] DOWNED movement restriction and weapon/reload lock.
+- [x] Squad HUD with HP/downed/bleedout/revive/dead presentation.
+- [x] Android REVIVE/INTERACT control and Squad telemetry.
+- [x] 45-second reconnect reservations that preserve entity ID and player slot.
+- [x] Reserved reconnect slots count against four-player room capacity.
+- [x] Four-player Horde wave and population scaling.
+- [x] Recoverable-player-aware Horde GAME_OVER and spawn safety.
+- [x] Per-quality snapshot frequency, zombie-detail and payload budgets.
+- [x] Per-client zombie relevance prioritization by distance.
+- [x] `network_smoke.gd` upgraded for Squad protocol/capacity.
+- [x] `squad_smoke.gd` for downed/revive/bleedout/Horde/weapon restrictions.
+- [x] Two-peer regression integration remains in CI.
+- [x] Real four-client ENet Squad integration harness committed to CI.
+- [x] Phase 7 technical documentation.
+- [ ] Execute Phase 7 Godot/network/Docker/Android gates after Actions billing/spending is unblocked.
+- [ ] Physical four-phone Android soak, revive, latency/reconciliation and FPS profiling.
 
 ## Phase 8 — Campaign vertical slice
 - [ ] First environment.
