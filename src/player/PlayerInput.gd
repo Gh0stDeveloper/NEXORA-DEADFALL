@@ -12,6 +12,7 @@ const KEY_BINDINGS := {
 	"prone": KEY_Z,
 	"camera_cycle": KEY_V,
 	"reload": KEY_R,
+	"interact": KEY_E,
 }
 
 var _mobile_move := Vector2.ZERO
