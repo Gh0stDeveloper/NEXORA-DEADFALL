@@ -14,10 +14,9 @@ var quality_tier: QualityTier = QualityTier.STANDARD
 var gore_enabled: bool = true
 var target_fps: int = 60
 
-# NEXORA: DEADFALL targets Godot's Mobile renderer on Android. Keep the
-# concurrent decal budget at or below the renderer's per-mesh decal limit;
-# higher tiers spend their extra gore budget on parts, emitters, particles,
-# lifetime and controlled Horde population instead of unbounded effects.
+# Android remains the limiting renderer/device class. Phase 7 extends each
+# profile with Squad/Horde and replication budgets so four-player networking
+# scales without sending the complete zombie population every snapshot.
 const QUALITY_PROFILES := {
 	QualityTier.SMOOTH: {
 		"render_scale": 0.65,
@@ -29,6 +28,10 @@ const QUALITY_PROFILES := {
 		"decal_lifetime": 12.0,
 		"horde_population": 8,
 		"horde_spawn_rate": 0.85,
+		"horde_squad_population_bonus": 2,
+		"network_zombie_snapshots": 12,
+		"network_snapshot_hz": 12.0,
+		"network_max_payload_bytes": 24000,
 	},
 	QualityTier.STANDARD: {
 		"render_scale": 0.90,
@@ -40,6 +43,10 @@ const QUALITY_PROFILES := {
 		"decal_lifetime": 20.0,
 		"horde_population": 14,
 		"horde_spawn_rate": 1.0,
+		"horde_squad_population_bonus": 3,
+		"network_zombie_snapshots": 18,
+		"network_snapshot_hz": 15.0,
+		"network_max_payload_bytes": 32000,
 	},
 	QualityTier.ULTRA: {
 		"render_scale": 1.0,
@@ -51,6 +58,10 @@ const QUALITY_PROFILES := {
 		"decal_lifetime": 35.0,
 		"horde_population": 20,
 		"horde_spawn_rate": 1.15,
+		"horde_squad_population_bonus": 4,
+		"network_zombie_snapshots": 24,
+		"network_snapshot_hz": 18.0,
+		"network_max_payload_bytes": 40000,
 	},
 	QualityTier.ULTRA_HD: {
 		"render_scale": 1.0,
@@ -62,6 +73,10 @@ const QUALITY_PROFILES := {
 		"decal_lifetime": 50.0,
 		"horde_population": 28,
 		"horde_spawn_rate": 1.30,
+		"horde_squad_population_bonus": 5,
+		"network_zombie_snapshots": 32,
+		"network_snapshot_hz": 20.0,
+		"network_max_payload_bytes": 48000,
 	},
 }
 
