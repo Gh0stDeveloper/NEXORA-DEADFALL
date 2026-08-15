@@ -14,13 +14,17 @@ var quality_tier: QualityTier = QualityTier.STANDARD
 var gore_enabled: bool = true
 var target_fps: int = 60
 
+# NEXORA: DEADFALL targets Godot's Mobile renderer on Android. Keep the
+# concurrent decal budget at or below the renderer's per-mesh decal limit;
+# higher tiers spend their extra gore budget on parts, emitters, particles
+# and effect lifetime instead of unsafe additional overlapping decals.
 const QUALITY_PROFILES := {
 	QualityTier.SMOOTH: {
 		"render_scale": 0.65,
 		"gore_parts": 4,
 		"blood_emitters": 2,
 		"blood_particles": 10,
-		"decals": 8,
+		"decals": 4,
 		"limb_lifetime": 5.0,
 		"decal_lifetime": 12.0,
 	},
@@ -29,7 +33,7 @@ const QUALITY_PROFILES := {
 		"gore_parts": 8,
 		"blood_emitters": 4,
 		"blood_particles": 18,
-		"decals": 20,
+		"decals": 6,
 		"limb_lifetime": 8.0,
 		"decal_lifetime": 20.0,
 	},
@@ -38,7 +42,7 @@ const QUALITY_PROFILES := {
 		"gore_parts": 16,
 		"blood_emitters": 6,
 		"blood_particles": 28,
-		"decals": 40,
+		"decals": 8,
 		"limb_lifetime": 12.0,
 		"decal_lifetime": 35.0,
 	},
@@ -47,7 +51,7 @@ const QUALITY_PROFILES := {
 		"gore_parts": 32,
 		"blood_emitters": 8,
 		"blood_particles": 40,
-		"decals": 80,
+		"decals": 8,
 		"limb_lifetime": 16.0,
 		"decal_lifetime": 50.0,
 	},
