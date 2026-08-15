@@ -22,3 +22,6 @@ func stop_session() -> void:
 		authority.stop()
 	authority = null
 	session_mode = SessionMode.NONE
+
+func is_local_session() -> bool:
+	return session_mode == SessionMode.LOCAL and authority != null

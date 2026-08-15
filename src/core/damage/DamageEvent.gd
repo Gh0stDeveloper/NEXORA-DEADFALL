@@ -23,7 +23,9 @@ enum BodyPart {
 var attacker_id: int = 0
 var victim_id: int = 0
 var weapon_id: StringName = &""
+# Base amount requested by the combat source. Authority calculates resolved_amount.
 var amount: float = 0.0
+var resolved_amount: float = 0.0
 var damage_type: DamageType = DamageType.BULLET
 var body_part: BodyPart = BodyPart.CHEST
 var hit_position := Vector3.ZERO
