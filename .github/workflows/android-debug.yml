@@ -62,10 +62,14 @@ jobs:
       - name: Export unsigned debug APK
         shell: bash
         run: |
+          set -euo pipefail
           mkdir -p build/android
           godot --verbose --headless --path . --export-debug "Android Debug" build/android/NEXORA-DEADFALL-debug.apk
+          test -s build/android/NEXORA-DEADFALL-debug.apk
+          ls -lh build/android/NEXORA-DEADFALL-debug.apk
 
-      - name: Upload APK
+      - name: Upload APK when artifact storage is available
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: NEXORA-DEADFALL-debug-apk
