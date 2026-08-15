@@ -2,7 +2,7 @@ extends Node
 
 const DedicatedServerScript = preload("res://src/server/DedicatedServer.gd")
 const TestRangeScene = preload("res://src/maps/test_range/TestRange.tscn")
-const DuoArenaScene = preload("res://src/maps/duo/DuoArena.tscn")
+const SquadArenaScene = preload("res://src/maps/duo/DuoArena.tscn")
 const DirectoryClientScript = preload("res://src/network/RoomDirectoryClient.gd")
 const AndroidDiagnosticsScript = preload("res://src/mobile/AndroidDiagnostics.gd")
 
@@ -38,7 +38,7 @@ func _boot_direct_network_client(endpoint: String, args: PackedStringArray) -> v
 	if endpoint.contains(":"):
 		host = endpoint.get_slice(":", 0)
 		port = int(endpoint.get_slice(":", 1))
-	_boot_duo_arena_client(host, port, _arg_value(args, "--name="), _arg_value(args, "--resume-token="))
+	_boot_squad_arena_client(host, port, _arg_value(args, "--name="), _arg_value(args, "--resume-token="))
 
 func _boot_room_network_client(code: String, directory: String, args: PackedStringArray) -> void:
 	_pending_room_name = _arg_value(args, "--name=")
@@ -50,27 +50,27 @@ func _boot_room_network_client(code: String, directory: String, args: PackedStri
 	resolver.call_deferred("resolve_room", code, directory)
 
 func _on_room_resolved(endpoint: Dictionary, resolver: Node, resume: String) -> void:
-	_boot_duo_arena_client(String(endpoint.get("host", "")), int(endpoint.get("port", 24560)), _pending_room_name, resume)
+	_boot_squad_arena_client(String(endpoint.get("host", "")), int(endpoint.get("port", 24560)), _pending_room_name, resume)
 	resolver.queue_free()
 
 func _on_room_resolution_failed(reason: String, resolver: Node) -> void:
 	push_error("Room resolution failed: %s" % reason)
 	resolver.queue_free()
 
-func _boot_duo_arena_client(host: String, port: int, requested_name: String, resume: String) -> void:
-	var arena := DuoArenaScene.instantiate()
+func _boot_squad_arena_client(host: String, port: int, requested_name: String, resume: String) -> void:
+	var arena := SquadArenaScene.instantiate()
 	arena.name = "DuoArena"
 	add_child(arena)
 	var session := arena.get_node_or_null("NetworkSession")
 	var name_value := requested_name if not requested_name.strip_edges().is_empty() else "Player"
 	if session == null or not session.has_method("start_client"):
-		push_error("DuoArena NetworkSession missing")
+		push_error("Squad arena NetworkSession missing")
 		return
 	var error := int(session.call("start_client", host, port, name_value, resume))
 	if error != OK:
-		push_error("Unable to start duo client: %s" % error_string(error))
+		push_error("Unable to start Squad client: %s" % error_string(error))
 	_boot_android_diagnostics()
-	print("NEXORA: DEADFALL duo client connecting to %s:%d" % [host, port])
+	print("NEXORA: DEADFALL Squad client connecting to %s:%d" % [host, port])
 
 func _boot_android_diagnostics() -> void:
 	if not OS.has_feature("android") or not OS.is_debug_build():
@@ -87,7 +87,7 @@ func _boot_dedicated_server(args: PackedStringArray) -> void:
 	var server := DedicatedServerScript.new()
 	server.name = "DedicatedServer"
 	add_child(server)
-	server.start(port, 2, directory_port, public_host, requested_room)
+	server.start(port, 4, directory_port, public_host, requested_room)
 
 func _arg_value(args: PackedStringArray, prefix: String, fallback: String = "") -> String:
 	for arg in args:
