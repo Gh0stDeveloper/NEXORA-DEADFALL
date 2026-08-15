@@ -4,7 +4,13 @@
 
 [resource]
 script = ExtResource("1_data")
+archetype_id = &"walker"
 display_name = "Walker"
+prototype_color = Color(0.28, 0.34, 0.27, 1)
+population_cost = 1
+score_value = 100
+unlock_wave = 1
+spawn_weight = 1.0
 max_health = 100.0
 move_speed = 3.2
 detection_range = 20.0
