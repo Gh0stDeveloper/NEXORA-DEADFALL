@@ -60,6 +60,7 @@ func _respond(peer: StreamPeerTCP, request: String) -> void:
 		"host": public_host if ok else "",
 		"port": gameplay_port if ok else 0,
 		"protocol": RoomCodeScript.PROTOCOL_VERSION,
+		"max_players": RoomCodeScript.MAX_PLAYERS,
 	}
 	var body := JSON.stringify(payload)
 	var status := "200 OK" if ok else "404 Not Found"
