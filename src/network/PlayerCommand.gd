@@ -17,6 +17,7 @@ static func sanitize(raw: Dictionary, last_sequence: int = -1) -> Dictionary:
 		"yaw": yaw,
 		"pitch": pitch,
 		"sprint": bool(raw.get("sprint", false)),
+		"interact": bool(raw.get("interact", false)),
 		"jump_serial": maxi(0, int(raw.get("jump_serial", 0))),
 		"crouch_serial": maxi(0, int(raw.get("crouch_serial", 0))),
 		"prone_serial": maxi(0, int(raw.get("prone_serial", 0))),
