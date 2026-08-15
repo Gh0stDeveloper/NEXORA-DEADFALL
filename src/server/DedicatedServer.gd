@@ -27,7 +27,11 @@ func start(port: int = 24560, max_clients: int = DEFAULT_MAX_CLIENTS, directory_
 	_directory = DirectoryServerScript.new()
 	_directory.name = "RoomDirectoryServer"
 	add_child(_directory)
-	_directory.call("start", directory_port, room_code, public_host, listen_port)
+	var directory_error := int(_directory.call("start", directory_port, room_code, public_host, listen_port))
+	if directory_error != OK:
+		push_error("Unable to start Duo room directory on TCP %d: %s" % [directory_port, error_string(directory_error)])
+		stop()
+		return directory_error as Error
 	print("NEXORA: DEADFALL dedicated server listening on UDP %d" % listen_port)
 	print("DEADFALL_DUO_ROOM code=%s directory_port=%d public_host=%s" % [room_code, directory_port, public_host])
 	return OK
