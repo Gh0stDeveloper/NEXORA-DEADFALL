@@ -1,10 +1,11 @@
-[gd_scene load_steps=21 format=3]
+[gd_scene load_steps=22 format=3]
 
 [ext_resource type="Script" path="res://src/zombies/base/ZombieController.gd" id="1_controller"]
 [ext_resource type="Script" path="res://src/core/health/HealthComponent.gd" id="2_health"]
 [ext_resource type="Script" path="res://src/core/hitbox/Hitbox3D.gd" id="3_hitbox"]
 [ext_resource type="Resource" path="res://src/zombies/data/walker_01.tres" id="4_data"]
 [ext_resource type="Script" path="res://src/gore/GoreComponent.gd" id="5_gore"]
+[ext_resource type="Script" path="res://src/zombies/base/ZombieArchetypeBehavior.gd" id="6_archetype"]
 
 [sub_resource type="CapsuleShape3D" id="BodyShape"]
 radius = 0.40
@@ -81,6 +82,9 @@ health_path = NodePath("../Health")
 hitboxes_path = NodePath("../Hitboxes")
 rig_path = NodePath("../VisualRoot/PreparedRig")
 wounds_path = NodePath("../VisualRoot/Wounds")
+
+[node name="ArchetypeBehavior" type="Node" parent="."]
+script = ExtResource("6_archetype")
 
 [node name="NavigationAgent3D" type="NavigationAgent3D" parent="."]
 path_desired_distance = 0.35
