@@ -44,6 +44,12 @@ func get_active_camera() -> Camera3D:
 		_:
 			return first_person
 
+# Aim is simulation-facing and intentionally independent from the visual camera.
+# This prevents the front/selfie camera from reversing weapon direction and keeps
+# third-person cameras from firing rays from behind/through cover.
+func get_aim_camera() -> Camera3D:
+	return first_person
+
 func _apply_mode() -> void:
 	first_person.current = mode == CameraMode.FIRST_PERSON
 	third_person_rear.current = mode == CameraMode.THIRD_PERSON_REAR

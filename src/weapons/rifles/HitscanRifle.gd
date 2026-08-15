@@ -65,17 +65,17 @@ func _try_fire(now_usec: int) -> bool:
 	return true
 
 func _build_shot_intent():
-	if _camera_rig == null or not _camera_rig.has_method("get_active_camera"):
+	if _camera_rig == null or not _camera_rig.has_method("get_aim_camera"):
 		return null
-	var camera = _camera_rig.get_active_camera() as Camera3D
-	if camera == null:
+	var aim_camera = _camera_rig.get_aim_camera() as Camera3D
+	if aim_camera == null:
 		return null
 	_shot_sequence += 1
 	var intent = ShotIntentScript.new()
 	intent.attacker_id = shooter_entity_id
 	intent.weapon_id = StringName(weapon_data.get("weapon_id"))
-	intent.origin = camera.global_position
-	intent.direction = -camera.global_transform.basis.z.normalized()
+	intent.origin = aim_camera.global_position
+	intent.direction = -aim_camera.global_transform.basis.z.normalized()
 	intent.max_distance = float(weapon_data.get("max_distance"))
 	intent.simulation_tick = Engine.get_physics_frames()
 	intent.sequence = _shot_sequence

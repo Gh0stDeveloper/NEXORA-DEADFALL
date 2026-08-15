@@ -12,7 +12,7 @@ script = ExtResource("1_range")
 position = Vector3(0, 0.05, 8)
 
 [node name="TestTarget" parent="." instance=ExtResource("4_target")]
-position = Vector3(0, 0, -8)
+position = Vector3(12, 0, -4)
 
 [node name="MobileHUD" parent="." instance=ExtResource("3_hud")]
 player_path = NodePath("../Player")
