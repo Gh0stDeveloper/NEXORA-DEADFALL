@@ -28,9 +28,12 @@ func _build_geometry() -> void:
 	_create_box("Floor", Vector3(0, -0.25, 0), Vector3(42, 0.5, 42), Color(0.13, 0.15, 0.18))
 	_create_box("CoverA", Vector3(-4.5, 1.0, -6.0), Vector3(2.0, 2.0, 0.8), Color(0.24, 0.27, 0.31))
 	_create_box("CoverB", Vector3(4.5, 0.7, -3.0), Vector3(3.0, 1.4, 0.8), Color(0.24, 0.27, 0.31))
-	_create_box("LowTunnelTop", Vector3(0.0, 2.15, 5.0), Vector3(5.0, 0.35, 4.0), Color(0.20, 0.22, 0.25))
-	_create_box("LowTunnelLeft", Vector3(-2.35, 1.0, 5.0), Vector3(0.35, 2.0, 4.0), Color(0.20, 0.22, 0.25))
-	_create_box("LowTunnelRight", Vector3(2.35, 1.0, 5.0), Vector3(0.35, 2.0, 4.0), Color(0.20, 0.22, 0.25))
+
+	# Clearance tunnel: 1.45 m from floor to ceiling. Standing (1.80 m)
+	# must be rejected while crouch (1.25 m) and prone (0.80 m) can fit.
+	_create_box("LowTunnelTop", Vector3(0.0, 1.625, 5.0), Vector3(5.0, 0.35, 4.0), Color(0.20, 0.22, 0.25))
+	_create_box("LowTunnelLeft", Vector3(-2.35, 0.725, 5.0), Vector3(0.35, 1.45, 4.0), Color(0.20, 0.22, 0.25))
+	_create_box("LowTunnelRight", Vector3(2.35, 0.725, 5.0), Vector3(0.35, 1.45, 4.0), Color(0.20, 0.22, 0.25))
 
 func _create_box(node_name: String, position_value: Vector3, size_value: Vector3, color: Color) -> void:
 	var body := StaticBody3D.new()
