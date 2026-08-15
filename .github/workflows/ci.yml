@@ -17,7 +17,7 @@ jobs:
   godot-validation:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Godot
         shell: bash
@@ -41,6 +41,17 @@ jobs:
   docker-server-build:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+
       - name: Build dedicated server container
         run: docker build -f deploy/docker/Dockerfile -t nexora-deadfall-server:ci .
+
+      - name: Boot dedicated server container
+        shell: bash
+        run: |
+          set -euo pipefail
+          trap 'docker rm -f deadfall-ci >/dev/null 2>&1 || true' EXIT
+          docker run -d --name deadfall-ci nexora-deadfall-server:ci
+          sleep 3
+          docker logs deadfall-ci 2>&1 | tee /tmp/deadfall-server.log
+          grep -q "dedicated server listening on UDP 24560" /tmp/deadfall-server.log
