@@ -9,6 +9,9 @@ User=deadfall
 Group=deadfall
 WorkingDirectory=/opt/nexora-deadfall
 Environment=DEADFALL_PORT=24560
+Environment=DEADFALL_DIRECTORY_PORT=24561
+Environment=DEADFALL_PUBLIC_HOST=127.0.0.1
+Environment=DEADFALL_ROOM_CODE=
 ExecStart=/opt/nexora-deadfall/scripts/server/run_server.sh
 Restart=on-failure
 RestartSec=3
