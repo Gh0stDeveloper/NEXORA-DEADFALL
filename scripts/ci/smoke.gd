@@ -7,6 +7,7 @@ const REQUIRED_FILES := [
 	"res://src/core/authority/GameAuthority.gd",
 	"res://src/core/authority/LocalAuthority.gd",
 	"res://src/core/authority/DedicatedAuthority.gd",
+	"res://src/core/authority/NetworkAuthority.gd",
 	"res://src/core/damage/DamageEvent.gd",
 	"res://src/core/damage/DamageRules.gd",
 	"res://src/core/health/HealthComponent.gd",
@@ -18,6 +19,12 @@ const REQUIRED_FILES := [
 	"res://src/horde/HordeDirector.gd",
 	"res://src/horde/HordeHUD.gd",
 	"res://src/horde/HordeHUD.tscn",
+	"res://src/network/PlayerCommand.gd",
+	"res://src/network/NetworkReplicaInterpolator.gd",
+	"res://src/network/DuoNetworkSession.gd",
+	"res://src/network/RoomCodeService.gd",
+	"res://src/network/RoomDirectoryServer.gd",
+	"res://src/network/RoomDirectoryClient.gd",
 	"res://src/server/DedicatedServer.gd",
 	"res://src/player/Player.tscn",
 	"res://src/player/PlayerController.gd",
@@ -41,11 +48,14 @@ const REQUIRED_FILES := [
 	"res://src/mobile/AndroidDiagnostics.gd",
 	"res://src/maps/test_range/TestRange.tscn",
 	"res://src/maps/test_range/TestTarget.tscn",
+	"res://src/maps/duo/DuoArena.tscn",
 	"res://scripts/ci/android_runtime_smoke.sh",
 	"res://scripts/ci/combat_smoke.gd",
 	"res://scripts/ci/zombie_smoke.gd",
 	"res://scripts/ci/gore_smoke.gd",
 	"res://scripts/ci/horde_smoke.gd",
+	"res://scripts/ci/network_smoke.gd",
+	"res://scripts/ci/duo_integration.sh",
 ]
 
 func _initialize() -> void:
@@ -53,23 +63,19 @@ func _initialize() -> void:
 		if not FileAccess.file_exists(path):
 			_fail("Missing required project file: %s" % path)
 			return
-
 	if root.get_node_or_null("Gore") == null:
 		_fail("Gore autoload missing")
 		return
-
 	var main_scene := load("res://src/main/Main.tscn") as PackedScene
 	if main_scene == null or main_scene.instantiate() == null:
 		_fail("Main scene could not be instantiated")
 		return
-
 	var range_scene := load("res://src/maps/test_range/TestRange.tscn") as PackedScene
 	if range_scene == null:
 		_fail("Test range scene could not be loaded")
 		return
 	var range_instance := range_scene.instantiate()
 	root.add_child(range_instance)
-
 	var player := range_instance.get_node_or_null("Player")
 	if player == null or not player is CharacterBody3D:
 		_fail("Test range Player must be a CharacterBody3D")
@@ -83,12 +89,10 @@ func _initialize() -> void:
 	if range_instance.get_node_or_null("MobileHUD") == null:
 		_fail("Mobile HUD missing")
 		return
-
 	var target := range_instance.get_node_or_null("TestTarget")
 	if target == null or target.get_node_or_null("Health") == null or target.get_node_or_null("Hitboxes/Head") == null:
 		_fail("Phase 2 test target/hitboxes missing")
 		return
-
 	var horde_director := range_instance.get_node_or_null("HordeDirector")
 	var horde_spawns := range_instance.get_node_or_null("HordeSpawnPoints")
 	var horde_zombies := range_instance.get_node_or_null("HordeZombies")
@@ -99,25 +103,30 @@ func _initialize() -> void:
 	if horde_spawns.get_child_count() < 4:
 		_fail("Horde arena needs multiple spawn points")
 		return
-	if not horde_director.has_method("get_population_budget") or not horde_director.has_method("restart_run"):
-		_fail("HordeDirector public contract incomplete")
+	if not horde_director.has_method("get_population_budget") or not horde_director.has_method("register_player"):
+		_fail("HordeDirector multiplayer contract incomplete")
 		return
-
 	var zombie_scene := load("res://src/zombies/base/Zombie.tscn") as PackedScene
 	var zombie := zombie_scene.instantiate() as CharacterBody3D
 	if zombie == null or zombie.get_node_or_null("NavigationAgent3D") == null or zombie.get_node_or_null("Health") == null or zombie.get_node_or_null("Gore") == null or zombie.get_node_or_null("ArchetypeBehavior") == null:
 		_fail("Zombie AI/health/gore/archetype components missing")
 		return
-	if zombie.get_node_or_null("VisualRoot/PreparedRig/Head") == null or zombie.get_node_or_null("VisualRoot/Wounds/LeftLeg") == null:
-		_fail("Prepared dismemberment rig missing")
+	if not zombie.has_method("get_network_snapshot") or not zombie.has_method("apply_network_snapshot"):
+		_fail("Zombie network snapshot contract missing")
 		return
 	zombie.free()
-
+	var duo_scene := load("res://src/maps/duo/DuoArena.tscn") as PackedScene
+	var duo := duo_scene.instantiate()
+	root.add_child(duo)
+	for node_path in ["NetworkSession", "NetworkPlayers", "PlayerSpawnPoints/SpawnA", "PlayerSpawnPoints/SpawnB", "HordeDirector", "HordeZombies"]:
+		if duo.get_node_or_null(node_path) == null:
+			_fail("Phase 6 DuoArena missing %s" % node_path)
+			return
+	duo.free()
 	for action in ["move_forward", "move_back", "move_left", "move_right", "jump", "sprint", "crouch", "prone", "camera_cycle", "fire", "reload"]:
 		if not InputMap.has_action(action):
 			_fail("Input action was not registered: %s" % action)
 			return
-
 	range_instance.free()
 	print("NEXORA: DEADFALL smoke test passed")
 	quit(0)

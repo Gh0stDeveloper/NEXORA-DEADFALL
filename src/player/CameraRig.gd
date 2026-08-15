@@ -19,17 +19,24 @@ enum CameraMode {
 
 var mode: CameraMode = CameraMode.FIRST_PERSON
 var _pitch_radians := 0.0
+var _camera_enabled := true
 
 func _ready() -> void:
 	_apply_mode()
 
 func add_pitch(delta_radians: float) -> void:
-	_pitch_radians = clampf(
-		_pitch_radians + delta_radians,
-		deg_to_rad(min_pitch_degrees),
-		deg_to_rad(max_pitch_degrees)
-	)
+	set_pitch(_pitch_radians + delta_radians)
+
+func set_pitch(value: float) -> void:
+	_pitch_radians = clampf(value, deg_to_rad(min_pitch_degrees), deg_to_rad(max_pitch_degrees))
 	pitch.rotation.x = _pitch_radians
+
+func get_pitch() -> float:
+	return _pitch_radians
+
+func set_camera_enabled(enabled: bool) -> void:
+	_camera_enabled = enabled
+	_apply_mode()
 
 func cycle_camera() -> void:
 	mode = ((int(mode) + 1) % CameraMode.size()) as CameraMode
@@ -44,14 +51,11 @@ func get_active_camera() -> Camera3D:
 		_:
 			return first_person
 
-# Aim is simulation-facing and intentionally independent from the visual camera.
-# This prevents the front/selfie camera from reversing weapon direction and keeps
-# third-person cameras from firing rays from behind/through cover.
 func get_aim_camera() -> Camera3D:
 	return first_person
 
 func _apply_mode() -> void:
-	first_person.current = mode == CameraMode.FIRST_PERSON
-	third_person_rear.current = mode == CameraMode.THIRD_PERSON_REAR
-	third_person_front.current = mode == CameraMode.THIRD_PERSON_FRONT
+	first_person.current = _camera_enabled and mode == CameraMode.FIRST_PERSON
+	third_person_rear.current = _camera_enabled and mode == CameraMode.THIRD_PERSON_REAR
+	third_person_front.current = _camera_enabled and mode == CameraMode.THIRD_PERSON_FRONT
 	camera_mode_changed.emit(int(mode))
