@@ -1,7 +1,23 @@
 class_name DeadfallZombieData
 extends Resource
 
+@export_category("Identity / Horde")
+@export var archetype_id: StringName = &"walker"
 @export var display_name := "Walker"
+@export var prototype_color := Color(0.28, 0.34, 0.27, 1.0)
+@export var population_cost := 1
+@export var score_value := 100
+@export var unlock_wave := 1
+@export var spawn_weight := 1.0
+@export var native_crawler := false
+@export var screamer_enabled := false
+@export var scream_radius := 11.0
+@export var scream_cooldown_seconds := 8.0
+@export var scream_rage_seconds := 4.0
+@export var scream_speed_multiplier := 1.30
+@export var scream_damage_multiplier := 1.20
+
+@export_category("Combat / AI")
 @export var max_health := 100.0
 @export var move_speed := 3.2
 @export var detection_range := 20.0
