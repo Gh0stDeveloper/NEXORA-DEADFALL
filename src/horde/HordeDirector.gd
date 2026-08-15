@@ -55,6 +55,7 @@ var _player_health: Node
 var _spawn_root: Node3D
 var _zombie_parent: Node3D
 var _player_start_transform := Transform3D.IDENTITY
+var _player_start_transform_captured := false
 var _phase_time_remaining := 0.0
 var _spawn_elapsed := 0.0
 var _last_countdown_value := -1
@@ -182,7 +183,9 @@ func _resolve_runtime_nodes() -> void:
 	_spawn_root = get_node_or_null(spawn_points_path) as Node3D
 	_zombie_parent = get_node_or_null(zombie_parent_path) as Node3D
 	if _player != null:
-		_player_start_transform = _player.global_transform
+		if not _player_start_transform_captured:
+			_player_start_transform = _player.global_transform
+			_player_start_transform_captured = true
 		_player_health = _player.get_node_or_null("Health")
 
 func _bind_player_health() -> void:
