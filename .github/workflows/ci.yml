@@ -44,6 +44,9 @@ jobs:
       - name: Run gore and dismemberment tests
         run: godot --headless --path . --script scripts/ci/gore_smoke.gd
 
+      - name: Run offline Horde tests
+        run: godot --headless --path . --script scripts/ci/horde_smoke.gd
+
       - name: Validate shell scripts
         run: bash -n scripts/server/run_server.sh scripts/ci/android_runtime_smoke.sh
 
