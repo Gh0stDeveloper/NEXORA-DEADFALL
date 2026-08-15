@@ -42,6 +42,10 @@ func _process(_delta: float) -> void:
 	if _state.update_reload(now_usec):
 		reload_completed.emit()
 		ammo_changed.emit(_state.ammo_in_mag, _state.reserve_ammo)
+	if not _owner_can_use_weapon():
+		if _state.reloading:
+			_state.cancel_reload()
+		return
 	if not input_enabled or _input_source == null:
 		return
 	if _input_source.consume_action_just_pressed(&"reload") and _state.try_start_reload(now_usec):
@@ -51,7 +55,7 @@ func _process(_delta: float) -> void:
 		_try_fire(now_usec)
 
 func _try_fire(now_usec: int) -> bool:
-	if _state.reloading:
+	if not _owner_can_use_weapon() or _state.reloading:
 		return false
 	if _state.ammo_in_mag <= 0:
 		dry_fired.emit()
@@ -69,7 +73,7 @@ func _try_fire(now_usec: int) -> bool:
 	return true
 
 func server_try_fire(request_sequence: int, client_tick: int = 0) -> bool:
-	if not _is_simulation_authority() or request_sequence <= _last_server_fire_sequence:
+	if not _is_simulation_authority() or not _owner_can_use_weapon() or request_sequence <= _last_server_fire_sequence:
 		return false
 	_last_server_fire_sequence = request_sequence
 	var now_usec := Time.get_ticks_usec()
@@ -85,7 +89,7 @@ func server_try_fire(request_sequence: int, client_tick: int = 0) -> bool:
 	return true
 
 func server_try_reload(request_sequence: int) -> bool:
-	if not _is_simulation_authority() or request_sequence <= _last_server_reload_sequence:
+	if not _is_simulation_authority() or not _owner_can_use_weapon() or request_sequence <= _last_server_reload_sequence:
 		return false
 	_last_server_reload_sequence = request_sequence
 	var started := _state.try_start_reload(Time.get_ticks_usec())
@@ -161,6 +165,10 @@ func apply_authoritative_state(snapshot: Dictionary) -> void:
 
 func restore_authoritative_state(snapshot: Dictionary) -> void:
 	apply_authoritative_state(snapshot)
+
+func _owner_can_use_weapon() -> bool:
+	var owner := get_parent()
+	return owner == null or not owner.has_method("can_use_weapon") or bool(owner.call("can_use_weapon"))
 
 func _is_local_session() -> bool:
 	return Game.is_local_session() if get_tree() != null else false
