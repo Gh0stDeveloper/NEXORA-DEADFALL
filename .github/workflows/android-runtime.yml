@@ -71,6 +71,31 @@ jobs:
           test -s build/android/NEXORA-DEADFALL-emulator.apk
           ls -lh build/android/NEXORA-DEADFALL-emulator.apk
 
+      - name: Sign emulator APK with ephemeral CI key
+        shell: bash
+        run: |
+          set -euo pipefail
+          keytool -genkeypair -noprompt \
+            -keystore /tmp/deadfall-ci.keystore \
+            -storepass android \
+            -keypass android \
+            -alias deadfall-ci \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 2 \
+            -dname "CN=NEXORA DEADFALL CI,O=Ghost Developer,C=MX"
+
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$APKSIGNER"
+          "$APKSIGNER" sign \
+            --ks /tmp/deadfall-ci.keystore \
+            --ks-pass pass:android \
+            --key-pass pass:android \
+            --out /tmp/NEXORA-DEADFALL-emulator-signed.apk \
+            build/android/NEXORA-DEADFALL-emulator.apk
+          mv /tmp/NEXORA-DEADFALL-emulator-signed.apk build/android/NEXORA-DEADFALL-emulator.apk
+          "$APKSIGNER" verify --verbose build/android/NEXORA-DEADFALL-emulator.apk
+
       - name: Enable KVM
         shell: bash
         run: |
