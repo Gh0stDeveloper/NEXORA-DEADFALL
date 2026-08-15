@@ -1,9 +1,16 @@
 class_name DeadfallTestRange
 extends Node3D
 
+const NAV_SOURCE_GROUP: StringName = &"deadfall_nav_source"
+var _navigation_region: NavigationRegion3D
+
 func _ready() -> void:
 	_build_environment()
 	_build_geometry()
+	# The prototype range bakes a tiny runtime navmesh on visual clients. Server
+	# production maps will ship prebaked navigation data rather than doing this.
+	if DisplayServer.get_name() != "headless":
+		call_deferred("_build_navigation")
 
 func _build_environment() -> void:
 	var environment_node := WorldEnvironment.new()
@@ -35,6 +42,26 @@ func _build_geometry() -> void:
 	_create_box("LowTunnelLeft", Vector3(-2.35, 0.725, 5.0), Vector3(0.35, 1.45, 4.0), Color(0.20, 0.22, 0.25))
 	_create_box("LowTunnelRight", Vector3(2.35, 0.725, 5.0), Vector3(0.35, 1.45, 4.0), Color(0.20, 0.22, 0.25))
 
+func _build_navigation() -> void:
+	if _navigation_region != null:
+		return
+	_navigation_region = NavigationRegion3D.new()
+	_navigation_region.name = "NavigationRegion"
+	var nav_mesh := NavigationMesh.new()
+	nav_mesh.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
+	nav_mesh.geometry_source_geometry_mode = NavigationMesh.SOURCE_GEOMETRY_GROUPS_EXPLICIT
+	nav_mesh.geometry_source_group_name = NAV_SOURCE_GROUP
+	nav_mesh.geometry_collision_mask = 1
+	nav_mesh.agent_radius = 0.45
+	nav_mesh.agent_height = 1.75
+	nav_mesh.agent_max_climb = 0.35
+	nav_mesh.cell_size = 0.25
+	nav_mesh.cell_height = 0.20
+	nav_mesh.filter_walkable_low_height_spans = true
+	_navigation_region.navigation_mesh = nav_mesh
+	add_child(_navigation_region)
+	_navigation_region.bake_navigation_mesh(true)
+
 func _create_box(node_name: String, position_value: Vector3, size_value: Vector3, color: Color) -> void:
 	var body := StaticBody3D.new()
 	body.name = node_name
@@ -60,3 +87,4 @@ func _create_box(node_name: String, position_value: Vector3, size_value: Vector3
 		body.add_child(mesh_node)
 
 	add_child(body)
+	body.add_to_group(NAV_SOURCE_GROUP)

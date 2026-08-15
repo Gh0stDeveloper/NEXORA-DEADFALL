@@ -6,6 +6,7 @@ const REQUIRED_FILES := [
 	"res://src/main/Main.gd",
 	"res://src/core/authority/GameAuthority.gd",
 	"res://src/core/authority/LocalAuthority.gd",
+	"res://src/core/authority/DedicatedAuthority.gd",
 	"res://src/core/damage/DamageEvent.gd",
 	"res://src/core/damage/DamageRules.gd",
 	"res://src/core/health/HealthComponent.gd",
@@ -20,12 +21,17 @@ const REQUIRED_FILES := [
 	"res://src/weapons/base/ShotIntent.gd",
 	"res://src/weapons/rifles/HitscanRifle.gd",
 	"res://src/weapons/data/nxr_rifle_01.tres",
+	"res://src/zombies/base/ZombieData.gd",
+	"res://src/zombies/base/ZombieController.gd",
+	"res://src/zombies/base/Zombie.tscn",
+	"res://src/zombies/data/walker_01.tres",
 	"res://src/mobile/MobileHUD.tscn",
 	"res://src/mobile/AndroidDiagnostics.gd",
 	"res://src/maps/test_range/TestRange.tscn",
 	"res://src/maps/test_range/TestTarget.tscn",
 	"res://scripts/ci/android_runtime_smoke.sh",
 	"res://scripts/ci/combat_smoke.gd",
+	"res://scripts/ci/zombie_smoke.gd",
 ]
 
 func _initialize() -> void:
@@ -50,31 +56,35 @@ func _initialize() -> void:
 	if player == null or not player is CharacterBody3D:
 		_fail("Test range Player must be a CharacterBody3D")
 		return
-	if player.get_node_or_null("PlayerInput") == null:
-		_fail("PlayerInput node missing")
+	if not player.is_in_group(&"deadfall_player"):
+		_fail("Player target group missing")
 		return
-	if player.get_node_or_null("Health") == null:
-		_fail("Player Health component missing")
+	if player.get_node_or_null("PlayerInput") == null or player.get_node_or_null("Health") == null or player.get_node_or_null("PrimaryWeapon") == null:
+		_fail("Player Phase 1/2 components missing")
 		return
-	if player.get_node_or_null("PrimaryWeapon") == null:
-		_fail("Player primary weapon missing")
-		return
-	if player.get_node_or_null("CameraRig/Pitch/FirstPerson") == null:
-		_fail("First-person camera missing")
-		return
-	if player.get_node_or_null("CameraRig/Pitch/ThirdPersonRear") == null:
-		_fail("Rear third-person camera missing")
-		return
-	if player.get_node_or_null("CameraRig/Pitch/ThirdPersonFront") == null:
-		_fail("Front third-person camera missing")
+	if player.get_node_or_null("CameraRig/Pitch/FirstPerson") == null or player.get_node_or_null("CameraRig/Pitch/ThirdPersonRear") == null or player.get_node_or_null("CameraRig/Pitch/ThirdPersonFront") == null:
+		_fail("Player camera rig incomplete")
 		return
 	if range_instance.get_node_or_null("MobileHUD") == null:
 		_fail("Mobile HUD missing")
 		return
+
 	var target := range_instance.get_node_or_null("TestTarget")
 	if target == null or target.get_node_or_null("Health") == null or target.get_node_or_null("Hitboxes/Head") == null:
 		_fail("Phase 2 test target/hitboxes missing")
 		return
+
+	var zombie := range_instance.get_node_or_null("Zombie")
+	if zombie == null or not zombie is CharacterBody3D:
+		_fail("Phase 3 zombie missing")
+		return
+	if zombie.get_node_or_null("NavigationAgent3D") == null or zombie.get_node_or_null("Health") == null:
+		_fail("Zombie navigation/health missing")
+		return
+	for hitbox_name in ["Head", "Chest", "Abdomen", "LeftArm", "RightArm", "LeftLeg", "RightLeg"]:
+		if zombie.get_node_or_null("Hitboxes/%s" % hitbox_name) == null:
+			_fail("Zombie hitbox missing: %s" % hitbox_name)
+			return
 
 	for action in ["move_forward", "move_back", "move_left", "move_right", "jump", "sprint", "crouch", "prone", "camera_cycle", "fire", "reload"]:
 		if not InputMap.has_action(action):

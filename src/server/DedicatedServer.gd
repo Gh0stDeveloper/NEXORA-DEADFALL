@@ -15,9 +15,19 @@ func start(port: int = 24560, max_clients: int = DEFAULT_MAX_CLIENTS) -> Error:
 	multiplayer.multiplayer_peer = peer
 	multiplayer.peer_connected.connect(_on_peer_connected)
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
-	Game.session_mode = Game.SessionMode.DEDICATED_SERVER
+	Game.start_dedicated_server_session()
 	print("NEXORA: DEADFALL dedicated server listening on UDP %d" % listen_port)
 	return OK
+
+func stop() -> void:
+	if peer != null:
+		peer.close()
+	if Game.session_mode == Game.SessionMode.DEDICATED_SERVER:
+		Game.stop_session()
+
+func _exit_tree() -> void:
+	if Game.session_mode == Game.SessionMode.DEDICATED_SERVER:
+		Game.stop_session()
 
 func _on_peer_connected(peer_id: int) -> void:
 	print("Peer connected: %d" % peer_id)

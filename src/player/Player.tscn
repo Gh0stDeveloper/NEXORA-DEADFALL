@@ -14,7 +14,7 @@ height = 1.8
 [sub_resource type="BoxMesh" id="Box_body"]
 size = Vector3(0.72, 1.8, 0.46)
 
-[node name="Player" type="CharacterBody3D"]
+[node name="Player" type="CharacterBody3D" groups=["deadfall_player"]]
 collision_layer = 2
 collision_mask = 1
 floor_snap_length = 0.25

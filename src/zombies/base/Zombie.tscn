@@ -1,0 +1,146 @@
+[gd_scene load_steps=13 format=3]
+
+[ext_resource type="Script" path="res://src/zombies/base/ZombieController.gd" id="1_controller"]
+[ext_resource type="Script" path="res://src/core/health/HealthComponent.gd" id="2_health"]
+[ext_resource type="Script" path="res://src/core/hitbox/Hitbox3D.gd" id="3_hitbox"]
+[ext_resource type="Resource" path="res://src/zombies/data/walker_01.tres" id="4_data"]
+
+[sub_resource type="CapsuleShape3D" id="BodyShape"]
+radius = 0.40
+height = 1.75
+
+[sub_resource type="StandardMaterial3D" id="ZombieMaterial"]
+albedo_color = Color(0.28, 0.34, 0.27, 1)
+roughness = 0.9
+
+[sub_resource type="BoxMesh" id="BodyMesh"]
+size = Vector3(0.72, 1.75, 0.46)
+material = SubResource("ZombieMaterial")
+
+[sub_resource type="BoxShape3D" id="HeadShape"]
+size = Vector3(0.46, 0.46, 0.42)
+
+[sub_resource type="BoxShape3D" id="ChestShape"]
+size = Vector3(0.78, 0.62, 0.40)
+
+[sub_resource type="BoxShape3D" id="AbdomenShape"]
+size = Vector3(0.68, 0.50, 0.36)
+
+[sub_resource type="BoxShape3D" id="ArmShape"]
+size = Vector3(0.24, 0.78, 0.26)
+
+[sub_resource type="BoxShape3D" id="LegShape"]
+size = Vector3(0.28, 0.66, 0.30)
+
+[node name="Zombie" type="CharacterBody3D" groups=["deadfall_zombie"]]
+collision_layer = 8
+collision_mask = 1
+floor_snap_length = 0.25
+script = ExtResource("1_controller")
+entity_id = 2001
+zombie_data = ExtResource("4_data")
+
+[node name="Health" type="Node" parent="."]
+script = ExtResource("2_health")
+entity_id = 2001
+max_health = 100.0
+
+[node name="NavigationAgent3D" type="NavigationAgent3D" parent="."]
+path_desired_distance = 0.35
+target_desired_distance = 1.15
+radius = 0.45
+avoidance_enabled = false
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+position = Vector3(0, 0.875, 0)
+shape = SubResource("BodyShape")
+
+[node name="VisualRoot" type="Node3D" parent="."]
+
+[node name="Body" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(0, 0.875, 0)
+mesh = SubResource("BodyMesh")
+
+[node name="StateLabel" type="Label3D" parent="."]
+position = Vector3(0, 2.35, 0)
+text = "IDLE"
+font_size = 24
+
+[node name="Hitboxes" type="Node3D" parent="."]
+
+[node name="Head" type="Area3D" parent="Hitboxes"]
+position = Vector3(0, 1.72, 0)
+collision_layer = 4
+collision_mask = 0
+script = ExtResource("3_hitbox")
+victim_id = 2001
+body_part = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Hitboxes/Head"]
+shape = SubResource("HeadShape")
+
+[node name="Chest" type="Area3D" parent="Hitboxes"]
+position = Vector3(0, 1.22, 0)
+collision_layer = 4
+collision_mask = 0
+script = ExtResource("3_hitbox")
+victim_id = 2001
+body_part = 1
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Hitboxes/Chest"]
+shape = SubResource("ChestShape")
+
+[node name="Abdomen" type="Area3D" parent="Hitboxes"]
+position = Vector3(0, 0.68, 0)
+collision_layer = 4
+collision_mask = 0
+script = ExtResource("3_hitbox")
+victim_id = 2001
+body_part = 2
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Hitboxes/Abdomen"]
+shape = SubResource("AbdomenShape")
+
+[node name="LeftArm" type="Area3D" parent="Hitboxes"]
+position = Vector3(-0.54, 1.14, 0)
+collision_layer = 4
+collision_mask = 0
+script = ExtResource("3_hitbox")
+victim_id = 2001
+body_part = 3
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Hitboxes/LeftArm"]
+shape = SubResource("ArmShape")
+
+[node name="RightArm" type="Area3D" parent="Hitboxes"]
+position = Vector3(0.54, 1.14, 0)
+collision_layer = 4
+collision_mask = 0
+script = ExtResource("3_hitbox")
+victim_id = 2001
+body_part = 4
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Hitboxes/RightArm"]
+shape = SubResource("ArmShape")
+
+[node name="LeftLeg" type="Area3D" parent="Hitboxes"]
+position = Vector3(-0.21, 0.25, 0)
+collision_layer = 4
+collision_mask = 0
+script = ExtResource("3_hitbox")
+victim_id = 2001
+body_part = 5
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Hitboxes/LeftLeg"]
+shape = SubResource("LegShape")
+
+[node name="RightLeg" type="Area3D" parent="Hitboxes"]
+position = Vector3(0.21, 0.25, 0)
+collision_layer = 4
+collision_mask = 0
+script = ExtResource("3_hitbox")
+victim_id = 2001
+body_part = 6
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Hitboxes/RightLeg"]
+shape = SubResource("LegShape")

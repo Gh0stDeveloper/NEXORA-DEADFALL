@@ -36,16 +36,21 @@
 - [x] Health component and authority registry.
 - [x] Damage resolver, body multipliers and critical hits.
 - [x] Desktop FIRE/RELOAD and Android FIRE/RELOAD input.
-- [x] Combat smoke tests for damage, cadence, ammo and reload.
+- [x] Combat smoke tests for normal/head/limb damage, cadence, ammo and reload.
 - [ ] Re-run Phase 2 CI/Android gates after GitHub Actions billing/spending is unblocked.
 
 ## Phase 3 — First zombie
 
-- [ ] Navigation and target detection.
-- [ ] Idle/search/chase/attack/dead states.
-- [ ] Stagger.
-- [ ] Basic attack damage.
-- [ ] Death/ragdoll.
+- [x] Data-driven ZombieBase and first Walker configuration.
+- [x] NavigationAgent3D pathing with safe fallback.
+- [x] Player detection, line of sight and last-known-position search.
+- [x] Idle/search/chase/attack/stagger/dead state machine.
+- [x] Authoritative melee DamageEvent attacks.
+- [x] Seven zombie body hitboxes and HealthComponent integration.
+- [x] Dedicated-server simulation authority boundary.
+- [x] Death shutdown and provisional physics corpse proxy.
+- [x] Headless zombie combat smoke tests committed to CI.
+- [ ] Re-run Phase 3 Godot/Docker/Android gates after GitHub Actions billing/spending is unblocked.
 
 ## Phase 4 — Gore vertical slice
 

@@ -18,6 +18,18 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	_unregister_from_authority()
 
+func configure_entity(new_entity_id: int, new_max_health: float = -1.0) -> void:
+	_unregister_from_authority()
+	entity_id = new_entity_id
+	if new_max_health > 0.0:
+		max_health = new_max_health
+	reset_health()
+	if is_inside_tree():
+		_register_with_active_authority()
+
+func get_entity_id() -> int:
+	return entity_id
+
 func reset_health() -> void:
 	current_health = maxf(1.0, max_health)
 	_dead = false

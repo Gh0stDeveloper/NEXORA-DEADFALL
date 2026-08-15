@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="DeadfallZombieData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/zombies/base/ZombieData.gd" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+display_name = "Walker"
+max_health = 100.0
+move_speed = 3.2
+detection_range = 20.0
+lose_target_range = 30.0
+attack_range = 1.55
+attack_damage = 12.0
+attack_cooldown_seconds = 1.1
+attack_windup_seconds = 0.3
+stagger_seconds = 0.35
+search_seconds = 4.0
+scan_interval_seconds = 0.2
+repath_interval_seconds = 0.25
+sight_memory_seconds = 1.0
