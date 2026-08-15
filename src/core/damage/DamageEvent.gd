@@ -30,6 +30,7 @@ var damage_type: DamageType = DamageType.BULLET
 var body_part: BodyPart = BodyPart.CHEST
 var hit_position := Vector3.ZERO
 var hit_direction := Vector3.ZERO
+var hit_normal := Vector3.ZERO
 var penetration: float = 0.0
 var critical: bool = false
 var simulation_tick: int = 0

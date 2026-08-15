@@ -5,6 +5,7 @@ signal state_changed(previous_state: int, current_state: int, reason: String)
 signal target_changed(target)
 signal melee_attack_resolved(event)
 signal navigation_fallback_used()
+signal crawler_mode_changed(enabled: bool)
 
 enum State {
 	IDLE,
@@ -25,6 +26,8 @@ const DamageEventScript = preload("res://src/core/damage/DamageEvent.gd")
 
 @onready var navigation_agent: NavigationAgent3D = $NavigationAgent3D
 @onready var health: Node = $Health
+@onready var gore: Node = $Gore
+@onready var collision_shape: CollisionShape3D = $CollisionShape3D
 @onready var hitboxes: Node3D = $Hitboxes
 @onready var visual_root: Node3D = $VisualRoot
 @onready var state_label: Label3D = $StateLabel
@@ -42,20 +45,32 @@ var _last_known_position := Vector3.ZERO
 var _has_last_known_position := false
 var _navigation_fallback_announced := false
 var _death_hit_direction := Vector3.ZERO
+var _crawler_mode := false
+var _attack_damage_multiplier := 1.0
+var _attack_cooldown_multiplier := 1.0
 
 func _ready() -> void:
 	_gravity = float(ProjectSettings.get_setting("physics/3d/default_gravity", 9.8))
 	if health.has_method("configure_entity"):
 		health.call("configure_entity", entity_id, _cfg_float(&"max_health", 100.0))
 	for child in hitboxes.get_children():
-		child.set("victim_id", entity_id)
+		if child.has_method("set"):
+			child.set("victim_id", entity_id)
 	if health.has_signal("health_changed"):
 		health.connect("health_changed", Callable(self, "_on_health_changed"))
 	if health.has_signal("died"):
 		health.connect("died", Callable(self, "_on_died"))
+	if gore != null:
+		gore.set("zombie_data", zombie_data)
+		if gore.has_signal("crawler_required"):
+			gore.connect("crawler_required", Callable(self, "_on_crawler_required"))
+		if gore.has_signal("attack_capability_changed"):
+			gore.connect("attack_capability_changed", Callable(self, "_on_attack_capability_changed"))
+		if gore.has_signal("head_destroyed"):
+			gore.connect("head_destroyed", Callable(self, "_on_head_destroyed"))
 
 	navigation_agent.path_desired_distance = 0.35
-	navigation_agent.target_desired_distance = maxf(0.8, _cfg_float(&"attack_range", 1.55) * 0.75)
+	navigation_agent.target_desired_distance = maxf(0.8, _effective_attack_range() * 0.75)
 	navigation_agent.radius = 0.45
 	navigation_agent.avoidance_enabled = false
 	state_label.visible = OS.is_debug_build() and DisplayServer.get_name() != "headless"
@@ -103,12 +118,21 @@ func get_state_name() -> String:
 func get_target() -> Node3D:
 	return _target
 
+func is_crawler() -> bool:
+	return _crawler_mode
+
+func get_attack_damage_multiplier() -> float:
+	return _attack_damage_multiplier
+
+func get_attack_cooldown_multiplier() -> float:
+	return _attack_cooldown_multiplier
+
 func perform_melee_attack(target: Node3D) -> bool:
 	if not has_simulation_authority() or state != State.ATTACK:
 		return false
 	if target == null or not _target_is_alive(target):
 		return false
-	if global_position.distance_to(target.global_position) > _cfg_float(&"attack_range", 1.55) * 1.15:
+	if global_position.distance_to(target.global_position) > _effective_attack_range() * 1.15:
 		return false
 	var target_health := target.get_node_or_null("Health")
 	if target_health == null:
@@ -124,11 +148,12 @@ func perform_melee_attack(target: Node3D) -> bool:
 	event.attacker_id = entity_id
 	event.victim_id = victim_id
 	event.weapon_id = &"zombie_melee"
-	event.amount = _cfg_float(&"attack_damage", 12.0)
+	event.amount = _cfg_float(&"attack_damage", 12.0) * _attack_damage_multiplier
 	event.damage_type = DamageEventScript.DamageType.MELEE
 	event.body_part = DamageEventScript.BodyPart.CHEST
 	event.hit_position = target.global_position + Vector3.UP
 	event.hit_direction = (target.global_position - global_position).normalized()
+	event.hit_normal = -event.hit_direction
 	event.simulation_tick = Engine.get_physics_frames()
 	if not active_authority.resolve_damage(event):
 		return false
@@ -181,8 +206,7 @@ func _process_chase(delta: float) -> void:
 		_transition_to(State.SEARCH, "target_out_of_range")
 		return
 
-	var target_visible := _can_see_target(_target)
-	if target_visible:
+	if _can_see_target(_target):
 		_sight_lost_elapsed = 0.0
 		_last_known_position = _target.global_position
 		_has_last_known_position = true
@@ -192,7 +216,7 @@ func _process_chase(delta: float) -> void:
 			_transition_to(State.SEARCH, "line_of_sight_lost")
 			return
 
-	if distance <= _cfg_float(&"attack_range", 1.55) and target_visible:
+	if distance <= _effective_attack_range() and _can_see_target(_target):
 		_transition_to(State.ATTACK, "target_in_attack_range")
 		return
 	_move_towards_destination(_target.global_position)
@@ -204,7 +228,7 @@ func _process_attack() -> void:
 		_transition_to(State.IDLE, "target_invalid")
 		return
 	_face_position(_target.global_position)
-	if global_position.distance_to(_target.global_position) > _cfg_float(&"attack_range", 1.55) * 1.15:
+	if global_position.distance_to(_target.global_position) > _effective_attack_range() * 1.15:
 		_transition_to(State.CHASE, "target_left_attack_range")
 		return
 	if not _can_see_target(_target):
@@ -213,7 +237,7 @@ func _process_attack() -> void:
 	var now_usec := Time.get_ticks_usec()
 	if now_usec >= _next_attack_usec:
 		perform_melee_attack(_target)
-		_next_attack_usec = now_usec + int(_cfg_float(&"attack_cooldown_seconds", 1.1) * 1_000_000.0)
+		_next_attack_usec = now_usec + int(_cfg_float(&"attack_cooldown_seconds", 1.1) * _attack_cooldown_multiplier * 1_000_000.0)
 
 func _process_stagger() -> void:
 	_stop_horizontal()
@@ -261,8 +285,11 @@ func _move_towards_destination(destination: Vector3) -> void:
 		_stop_horizontal()
 		return
 	direction = direction.normalized()
-	velocity.x = direction.x * _cfg_float(&"move_speed", 3.2)
-	velocity.z = direction.z * _cfg_float(&"move_speed", 3.2)
+	var speed := _cfg_float(&"move_speed", 3.2)
+	if _crawler_mode:
+		speed *= _cfg_float(&"crawler_speed_multiplier", 0.42)
+	velocity.x = direction.x * speed
+	velocity.z = direction.z * speed
 	_face_direction(direction)
 
 func _find_visible_target() -> Node3D:
@@ -295,7 +322,8 @@ func _target_is_alive(target: Node3D) -> bool:
 func _can_see_target(target: Node3D) -> bool:
 	if target == null or get_world_3d() == null:
 		return false
-	var origin := global_position + Vector3.UP * 1.35
+	var eye_height := 0.55 if _crawler_mode else 1.35
+	var origin := global_position + Vector3.UP * eye_height
 	var destination := target.global_position + Vector3.UP * 1.0
 	var query := PhysicsRayQueryParameters3D.create(origin, destination, visibility_mask)
 	query.exclude = [get_rid()]
@@ -336,10 +364,50 @@ func _on_health_changed(_current: float, _maximum: float, event) -> void:
 
 func _on_died(event) -> void:
 	if event != null:
-		var hit_direction = event.get("hit_direction")
-		if hit_direction is Vector3:
-			_death_hit_direction = hit_direction
+		_death_hit_direction = Vector3(event.hit_direction)
 	_transition_to(State.DEAD, "health_depleted")
+
+func _on_crawler_required(_event) -> void:
+	if _crawler_mode or state == State.DEAD:
+		return
+	_crawler_mode = true
+	var capsule := collision_shape.shape as CapsuleShape3D
+	if capsule != null:
+		var crawler_height := maxf(capsule.radius * 2.0, _cfg_float(&"crawler_height", 0.85))
+		capsule.height = crawler_height
+		collision_shape.position.y = crawler_height * 0.5
+	navigation_agent.radius = 0.35
+	navigation_agent.target_desired_distance = maxf(0.65, _effective_attack_range() * 0.75)
+	visual_root.rotation_degrees.x = -58.0
+	visual_root.position.y = 0.58
+	state_label.position.y = 1.35
+	crawler_mode_changed.emit(true)
+	_update_debug_label()
+
+func _on_attack_capability_changed(damage_multiplier: float, cooldown_multiplier: float) -> void:
+	_attack_damage_multiplier = clampf(damage_multiplier, 0.1, 1.0)
+	_attack_cooldown_multiplier = maxf(1.0, cooldown_multiplier)
+	_update_debug_label()
+
+func _on_head_destroyed(source_event) -> void:
+	if state == State.DEAD or (health.has_method("is_dead") and bool(health.call("is_dead"))):
+		return
+	var active_authority = _get_active_authority()
+	if active_authority == null or not active_authority.has_method("resolve_damage"):
+		return
+	var lethal = DamageEventScript.new()
+	lethal.attacker_id = int(source_event.attacker_id) if source_event != null else 0
+	lethal.victim_id = entity_id
+	lethal.weapon_id = &"gore_head_destroy"
+	lethal.amount = maxf(1.0, float(health.get("max_health")))
+	lethal.damage_type = DamageEventScript.DamageType.BULLET
+	lethal.body_part = DamageEventScript.BodyPart.HEAD
+	lethal.hit_position = Vector3(source_event.hit_position) if source_event != null else global_position + Vector3.UP * 1.5
+	lethal.hit_direction = Vector3(source_event.hit_direction) if source_event != null else -global_basis.z
+	lethal.hit_normal = Vector3(source_event.hit_normal) if source_event != null else Vector3.UP
+	lethal.critical = true
+	lethal.simulation_tick = Engine.get_physics_frames()
+	active_authority.resolve_damage(lethal)
 
 func _disable_after_death() -> void:
 	velocity = Vector3.ZERO
@@ -347,6 +415,7 @@ func _disable_after_death() -> void:
 	navigation_agent.target_position = global_position
 	collision_layer = 0
 	collision_mask = 0
+	collision_shape.set_deferred("disabled", true)
 	for child in hitboxes.get_children():
 		var area := child as Area3D
 		if area != null:
@@ -354,39 +423,13 @@ func _disable_after_death() -> void:
 			area.collision_mask = 0
 			area.set_deferred("monitoring", false)
 			area.set_deferred("monitorable", false)
-	visual_root.rotation_degrees.z = 82.0
 	state_label.visible = false
-	if DisplayServer.get_name() != "headless":
-		call_deferred("_spawn_death_proxy")
-
-func _spawn_death_proxy() -> void:
-	if not is_inside_tree() or get_parent() == null:
-		return
-	var proxy := RigidBody3D.new()
-	proxy.name = "ZombieCorpse_%d" % entity_id
-	proxy.mass = 35.0
-	proxy.collision_layer = 16
-	proxy.collision_mask = 1
-	var shape_node := CollisionShape3D.new()
-	var shape := BoxShape3D.new()
-	shape.size = Vector3(0.72, 1.70, 0.46)
-	shape_node.shape = shape
-	proxy.add_child(shape_node)
-	var mesh_node := MeshInstance3D.new()
-	var mesh := BoxMesh.new()
-	mesh.size = Vector3(0.72, 1.70, 0.46)
-	var material := StandardMaterial3D.new()
-	material.albedo_color = Color(0.28, 0.34, 0.27)
-	material.roughness = 0.9
-	mesh.material = material
-	mesh_node.mesh = mesh
-	proxy.add_child(mesh_node)
-	get_parent().add_child(proxy)
-	proxy.global_position = global_position + Vector3.UP * 0.85
-	proxy.global_rotation = global_rotation
-	visual_root.visible = false
-	var impulse := _death_hit_direction.normalized() * 2.5 if _death_hit_direction.length_squared() > 0.0 else -global_basis.z * 1.5
-	proxy.apply_central_impulse(impulse + Vector3.UP * 0.6)
+	visual_root.rotation_degrees.z = 82.0
+	var manager := get_tree().root.get_node_or_null("Gore") if get_tree() != null else null
+	if manager != null:
+		var corpse_slot := int(manager.call("spawn_corpse", global_transform, _death_hit_direction))
+		if corpse_slot >= 0:
+			visual_root.visible = false
 
 func _stop_horizontal() -> void:
 	velocity.x = move_toward(velocity.x, 0.0, 0.8)
@@ -400,6 +443,12 @@ func _face_position(position_value: Vector3) -> void:
 
 func _face_direction(direction: Vector3) -> void:
 	look_at(global_position + direction, Vector3.UP, true)
+
+func _effective_attack_range() -> float:
+	var result := _cfg_float(&"attack_range", 1.55)
+	if _crawler_mode:
+		result *= _cfg_float(&"crawler_attack_range_multiplier", 0.82)
+	return result
 
 func _get_active_authority():
 	if authority_override != null:
@@ -416,5 +465,8 @@ func _cfg_float(property_name: StringName, fallback: float) -> float:
 	return fallback if value == null else float(value)
 
 func _update_debug_label() -> void:
-	if state_label != null:
-		state_label.text = "%s\nHP %.0f" % [get_state_name(), float(health.get("current_health")) if health != null else 0.0]
+	if state_label == null:
+		return
+	var mobility := " CRAWLER" if _crawler_mode else ""
+	var arm_penalty := " x%.2f" % _attack_damage_multiplier if _attack_damage_multiplier < 0.999 else ""
+	state_label.text = "%s%s%s\nHP %.0f" % [get_state_name(), mobility, arm_penalty, float(health.get("current_health")) if health != null else 0.0]

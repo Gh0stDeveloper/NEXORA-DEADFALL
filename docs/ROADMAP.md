@@ -48,18 +48,26 @@
 - [x] Authoritative melee DamageEvent attacks.
 - [x] Seven zombie body hitboxes and HealthComponent integration.
 - [x] Dedicated-server simulation authority boundary.
-- [x] Death shutdown and provisional physics corpse proxy.
+- [x] Death shutdown and pooled corpse handoff.
 - [x] Headless zombie combat smoke tests committed to CI.
 - [ ] Re-run Phase 3 Godot/Docker/Android gates after GitHub Actions billing/spending is unblocked.
 
 ## Phase 4 — Gore vertical slice
 
-- [ ] Detachable limb rig.
-- [ ] Wound mesh swap.
-- [ ] Pooled limb rigid bodies.
-- [ ] Blood particles.
-- [ ] Budgeted decals.
-- [ ] Leg loss → crawler transition.
+- [x] Prepared detachable limb rig contract; no runtime mesh cutting.
+- [x] Per-body-part accumulated damage thresholds.
+- [x] Limb mesh hide + wound/stump mesh reveal.
+- [x] Pooled RigidBody3D detached limbs/corpse proxy.
+- [x] Pooled GPUParticles3D blood bursts.
+- [x] Budgeted pooled blood decals.
+- [x] Smooth/Standard/Ultra/Ultra HD gore budgets.
+- [x] Leg loss → crawler locomotion and reduced collision profile.
+- [x] One/two-arm loss → reduced melee capability.
+- [x] Head destruction → critical authoritative death.
+- [x] Gore smoke tests and Android runtime statistics hooks.
+- [x] Phase 4 technical documentation.
+- [ ] Record representative physical-Android profiling after Actions/device validation is available.
+- [ ] Re-run Phase 4 Godot/Docker/Android gates after GitHub Actions billing/spending is unblocked.
 
 ## Phase 5 — Offline horde
 

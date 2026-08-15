@@ -114,6 +114,7 @@ func _resolve_local_hitscan(intent) -> void:
 	event.body_part = int(collider.get_body_part())
 	event.hit_position = hit.get("position", intent.origin)
 	event.hit_direction = intent.direction
+	event.hit_normal = hit.get("normal", Vector3.ZERO)
 	event.penetration = float(weapon_data.get("penetration"))
 	event.simulation_tick = intent.simulation_tick
 	active_authority.resolve_damage(event)

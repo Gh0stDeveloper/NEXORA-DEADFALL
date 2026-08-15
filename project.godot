@@ -11,6 +11,7 @@ config/features=PackedStringArray("4.6", "Mobile")
 [autoload]
 Game="*res://src/autoload/Game.gd"
 Settings="*res://src/autoload/Settings.gd"
+Gore="*res://src/gore/GoreManager.gd"
 
 [display]
 window/size/viewport_width=1920

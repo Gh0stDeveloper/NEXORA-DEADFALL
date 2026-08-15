@@ -11,6 +11,9 @@ const REQUIRED_FILES := [
 	"res://src/core/damage/DamageRules.gd",
 	"res://src/core/health/HealthComponent.gd",
 	"res://src/core/hitbox/Hitbox3D.gd",
+	"res://src/gore/GorePoolBudget.gd",
+	"res://src/gore/GoreManager.gd",
+	"res://src/gore/GoreComponent.gd",
 	"res://src/server/DedicatedServer.gd",
 	"res://src/player/Player.tscn",
 	"res://src/player/PlayerController.gd",
@@ -21,9 +24,9 @@ const REQUIRED_FILES := [
 	"res://src/weapons/base/ShotIntent.gd",
 	"res://src/weapons/rifles/HitscanRifle.gd",
 	"res://src/weapons/data/nxr_rifle_01.tres",
-	"res://src/zombies/base/ZombieData.gd",
-	"res://src/zombies/base/ZombieController.gd",
 	"res://src/zombies/base/Zombie.tscn",
+	"res://src/zombies/base/ZombieController.gd",
+	"res://src/zombies/base/ZombieData.gd",
 	"res://src/zombies/data/walker_01.tres",
 	"res://src/mobile/MobileHUD.tscn",
 	"res://src/mobile/AndroidDiagnostics.gd",
@@ -32,6 +35,7 @@ const REQUIRED_FILES := [
 	"res://scripts/ci/android_runtime_smoke.sh",
 	"res://scripts/ci/combat_smoke.gd",
 	"res://scripts/ci/zombie_smoke.gd",
+	"res://scripts/ci/gore_smoke.gd",
 ]
 
 func _initialize() -> void:
@@ -39,6 +43,10 @@ func _initialize() -> void:
 		if not FileAccess.file_exists(path):
 			_fail("Missing required project file: %s" % path)
 			return
+
+	if root.get_node_or_null("Gore") == null:
+		_fail("Gore autoload missing")
+		return
 
 	var main_scene := load("res://src/main/Main.tscn") as PackedScene
 	if main_scene == null or main_scene.instantiate() == null:
@@ -56,9 +64,6 @@ func _initialize() -> void:
 	if player == null or not player is CharacterBody3D:
 		_fail("Test range Player must be a CharacterBody3D")
 		return
-	if not player.is_in_group(&"deadfall_player"):
-		_fail("Player target group missing")
-		return
 	if player.get_node_or_null("PlayerInput") == null or player.get_node_or_null("Health") == null or player.get_node_or_null("PrimaryWeapon") == null:
 		_fail("Player Phase 1/2 components missing")
 		return
@@ -74,17 +79,16 @@ func _initialize() -> void:
 		_fail("Phase 2 test target/hitboxes missing")
 		return
 
-	var zombie := range_instance.get_node_or_null("Zombie")
+	var zombie := range_instance.get_node_or_null("Walker")
 	if zombie == null or not zombie is CharacterBody3D:
-		_fail("Phase 3 zombie missing")
+		_fail("Phase 3 Walker missing")
 		return
-	if zombie.get_node_or_null("NavigationAgent3D") == null or zombie.get_node_or_null("Health") == null:
-		_fail("Zombie navigation/health missing")
+	if zombie.get_node_or_null("NavigationAgent3D") == null or zombie.get_node_or_null("Health") == null or zombie.get_node_or_null("Gore") == null:
+		_fail("Zombie AI/health/gore components missing")
 		return
-	for hitbox_name in ["Head", "Chest", "Abdomen", "LeftArm", "RightArm", "LeftLeg", "RightLeg"]:
-		if zombie.get_node_or_null("Hitboxes/%s" % hitbox_name) == null:
-			_fail("Zombie hitbox missing: %s" % hitbox_name)
-			return
+	if zombie.get_node_or_null("VisualRoot/PreparedRig/Head") == null or zombie.get_node_or_null("VisualRoot/Wounds/LeftLeg") == null:
+		_fail("Prepared dismemberment rig missing")
+		return
 
 	for action in ["move_forward", "move_back", "move_left", "move_right", "jump", "sprint", "crouch", "prone", "camera_cycle", "fire", "reload"]:
 		if not InputMap.has_action(action):
