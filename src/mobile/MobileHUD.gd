@@ -56,6 +56,7 @@ func _build_hud() -> void:
 	_add_action_button("RUN", &"sprint", Rect2(-470, -145, 118, 62))
 	_add_action_button("JUMP", &"jump", Rect2(-170, -145, 128, 62))
 	_add_action_button("CROUCH", &"crouch", Rect2(-315, -145, 132, 62))
+	_add_action_button("REVIVE", &"interact", Rect2(-470, -220, 132, 62))
 	_add_action_button("PRONE", &"prone", Rect2(-315, -220, 132, 62))
 	_add_action_button("CAM", &"camera_cycle", Rect2(-170, -220, 128, 62))
 	_add_action_button("RELOAD", &"reload", Rect2(-315, -295, 132, 62))
