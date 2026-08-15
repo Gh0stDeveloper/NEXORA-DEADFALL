@@ -14,6 +14,10 @@ const REQUIRED_FILES := [
 	"res://src/gore/GorePoolBudget.gd",
 	"res://src/gore/GoreManager.gd",
 	"res://src/gore/GoreComponent.gd",
+	"res://src/horde/HordeRules.gd",
+	"res://src/horde/HordeDirector.gd",
+	"res://src/horde/HordeHUD.gd",
+	"res://src/horde/HordeHUD.tscn",
 	"res://src/server/DedicatedServer.gd",
 	"res://src/player/Player.tscn",
 	"res://src/player/PlayerController.gd",
@@ -27,7 +31,12 @@ const REQUIRED_FILES := [
 	"res://src/zombies/base/Zombie.tscn",
 	"res://src/zombies/base/ZombieController.gd",
 	"res://src/zombies/base/ZombieData.gd",
+	"res://src/zombies/base/ZombieArchetypeBehavior.gd",
 	"res://src/zombies/data/walker_01.tres",
+	"res://src/zombies/data/runner_01.tres",
+	"res://src/zombies/data/tank_01.tres",
+	"res://src/zombies/data/screamer_01.tres",
+	"res://src/zombies/data/crawler_01.tres",
 	"res://src/mobile/MobileHUD.tscn",
 	"res://src/mobile/AndroidDiagnostics.gd",
 	"res://src/maps/test_range/TestRange.tscn",
@@ -36,6 +45,7 @@ const REQUIRED_FILES := [
 	"res://scripts/ci/combat_smoke.gd",
 	"res://scripts/ci/zombie_smoke.gd",
 	"res://scripts/ci/gore_smoke.gd",
+	"res://scripts/ci/horde_smoke.gd",
 ]
 
 func _initialize() -> void:
@@ -79,16 +89,29 @@ func _initialize() -> void:
 		_fail("Phase 2 test target/hitboxes missing")
 		return
 
-	var zombie := range_instance.get_node_or_null("Walker")
-	if zombie == null or not zombie is CharacterBody3D:
-		_fail("Phase 3 Walker missing")
+	var horde_director := range_instance.get_node_or_null("HordeDirector")
+	var horde_spawns := range_instance.get_node_or_null("HordeSpawnPoints")
+	var horde_zombies := range_instance.get_node_or_null("HordeZombies")
+	var horde_hud := range_instance.get_node_or_null("HordeHUD")
+	if horde_director == null or horde_spawns == null or horde_zombies == null or horde_hud == null:
+		_fail("Phase 5 Horde director/spawn container/HUD missing")
 		return
-	if zombie.get_node_or_null("NavigationAgent3D") == null or zombie.get_node_or_null("Health") == null or zombie.get_node_or_null("Gore") == null:
-		_fail("Zombie AI/health/gore components missing")
+	if horde_spawns.get_child_count() < 4:
+		_fail("Horde arena needs multiple spawn points")
+		return
+	if not horde_director.has_method("get_population_budget") or not horde_director.has_method("restart_run"):
+		_fail("HordeDirector public contract incomplete")
+		return
+
+	var zombie_scene := load("res://src/zombies/base/Zombie.tscn") as PackedScene
+	var zombie := zombie_scene.instantiate() as CharacterBody3D
+	if zombie == null or zombie.get_node_or_null("NavigationAgent3D") == null or zombie.get_node_or_null("Health") == null or zombie.get_node_or_null("Gore") == null or zombie.get_node_or_null("ArchetypeBehavior") == null:
+		_fail("Zombie AI/health/gore/archetype components missing")
 		return
 	if zombie.get_node_or_null("VisualRoot/PreparedRig/Head") == null or zombie.get_node_or_null("VisualRoot/Wounds/LeftLeg") == null:
 		_fail("Prepared dismemberment rig missing")
 		return
+	zombie.free()
 
 	for action in ["move_forward", "move_back", "move_left", "move_right", "jump", "sprint", "crouch", "prone", "camera_cycle", "fire", "reload"]:
 		if not InputMap.has_action(action):
