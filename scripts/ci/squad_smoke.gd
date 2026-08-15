@@ -31,6 +31,26 @@ func _test_capacity_and_budgets() -> bool:
 	for key in ["network_zombie_snapshots", "network_snapshot_hz", "network_max_payload_bytes", "horde_squad_population_bonus"]:
 		if not standard.has(key):
 			return _fail("Standard profile missing Squad budget: %s" % key)
+
+	var capacity_session = SessionScript.new()
+	root.add_child(capacity_session)
+	var expires := Time.get_ticks_usec() + 30_000_000
+	capacity_session.set("_resume_records", {
+		"a": {"slot": 0, "expires_usec": expires},
+		"b": {"slot": 1, "expires_usec": expires},
+		"c": {"slot": 2, "expires_usec": expires},
+		"d": {"slot": 3, "expires_usec": expires},
+	})
+	if int(capacity_session.call("_reserved_slot_count")) != 4:
+		return _fail("Reconnect reservations did not preserve all four Squad slots")
+	if int(capacity_session.call("_first_free_slot")) != -1:
+		return _fail("A fifth gameplay slot remained available while four reconnect slots were reserved")
+	if int(capacity_session.call("_zombie_detail_budget")) != int(standard.get("network_zombie_snapshots")):
+		return _fail("Session zombie replication budget did not come from quality profile")
+	if int(capacity_session.call("_max_payload_bytes")) != int(standard.get("network_max_payload_bytes")):
+		return _fail("Session payload budget did not come from quality profile")
+	capacity_session.free()
+
 	var arena := ArenaScene.instantiate()
 	root.add_child(arena)
 	for path in ["PlayerSpawnPoints/SpawnA", "PlayerSpawnPoints/SpawnB", "PlayerSpawnPoints/SpawnC", "PlayerSpawnPoints/SpawnD"]:
