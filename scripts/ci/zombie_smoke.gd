@@ -46,6 +46,17 @@ func _initialize() -> void:
 		_fail("Zombie must start in IDLE")
 		return
 
+	var detected = zombie.call("_find_visible_target")
+	if detected != player:
+		_fail("Zombie perception did not acquire the visible player")
+		return
+	zombie.call("_set_target", player)
+	zombie.call("_transition_to", ZombieControllerScript.State.CHASE, "smoke_target")
+	zombie.call("_process_chase", 0.0)
+	if int(zombie.get("state")) != ZombieControllerScript.State.ATTACK:
+		_fail("Zombie did not transition CHASE -> ATTACK at melee range")
+		return
+
 	var player_before := float(player_health.get("current_health"))
 	if not bool(zombie.call("perform_melee_attack", player)):
 		_fail("Authoritative zombie melee attack was rejected")

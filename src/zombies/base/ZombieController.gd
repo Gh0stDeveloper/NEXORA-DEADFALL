@@ -48,8 +48,7 @@ func _ready() -> void:
 	if health.has_method("configure_entity"):
 		health.call("configure_entity", entity_id, _cfg_float(&"max_health", 100.0))
 	for child in hitboxes.get_children():
-		if child.has_method("set"):
-			child.set("victim_id", entity_id)
+		child.set("victim_id", entity_id)
 	if health.has_signal("health_changed"):
 		health.connect("health_changed", Callable(self, "_on_health_changed"))
 	if health.has_signal("died"):
@@ -105,7 +104,7 @@ func get_target() -> Node3D:
 	return _target
 
 func perform_melee_attack(target: Node3D) -> bool:
-	if not has_simulation_authority() or state == State.DEAD:
+	if not has_simulation_authority() or state != State.ATTACK:
 		return false
 	if target == null or not _target_is_alive(target):
 		return false
@@ -182,7 +181,8 @@ func _process_chase(delta: float) -> void:
 		_transition_to(State.SEARCH, "target_out_of_range")
 		return
 
-	if _can_see_target(_target):
+	var target_visible := _can_see_target(_target)
+	if target_visible:
 		_sight_lost_elapsed = 0.0
 		_last_known_position = _target.global_position
 		_has_last_known_position = true
@@ -192,7 +192,7 @@ func _process_chase(delta: float) -> void:
 			_transition_to(State.SEARCH, "line_of_sight_lost")
 			return
 
-	if distance <= _cfg_float(&"attack_range", 1.55) and _can_see_target(_target):
+	if distance <= _cfg_float(&"attack_range", 1.55) and target_visible:
 		_transition_to(State.ATTACK, "target_in_attack_range")
 		return
 	_move_towards_destination(_target.global_position)
@@ -336,7 +336,9 @@ func _on_health_changed(_current: float, _maximum: float, event) -> void:
 
 func _on_died(event) -> void:
 	if event != null:
-		_death_hit_direction = Vector3(event.hit_direction)
+		var hit_direction = event.get("hit_direction")
+		if hit_direction is Vector3:
+			_death_hit_direction = hit_direction
 	_transition_to(State.DEAD, "health_depleted")
 
 func _disable_after_death() -> void:
