@@ -22,6 +22,7 @@ const REQUIRED_FILES := [
 	"res://src/network/PlayerCommand.gd",
 	"res://src/network/NetworkReplicaInterpolator.gd",
 	"res://src/network/DuoNetworkSession.gd",
+	"res://src/network/SquadHUD.gd",
 	"res://src/network/RoomCodeService.gd",
 	"res://src/network/RoomDirectoryServer.gd",
 	"res://src/network/RoomDirectoryClient.gd",
@@ -29,6 +30,7 @@ const REQUIRED_FILES := [
 	"res://src/player/Player.tscn",
 	"res://src/player/PlayerController.gd",
 	"res://src/player/PlayerInput.gd",
+	"res://src/player/PlayerLifeState.gd",
 	"res://src/player/CameraRig.gd",
 	"res://src/weapons/base/WeaponData.gd",
 	"res://src/weapons/base/WeaponRuntimeState.gd",
@@ -55,7 +57,9 @@ const REQUIRED_FILES := [
 	"res://scripts/ci/gore_smoke.gd",
 	"res://scripts/ci/horde_smoke.gd",
 	"res://scripts/ci/network_smoke.gd",
+	"res://scripts/ci/squad_smoke.gd",
 	"res://scripts/ci/duo_integration.sh",
+	"res://scripts/ci/squad_integration.sh",
 ]
 
 func _initialize() -> void:
@@ -80,8 +84,8 @@ func _initialize() -> void:
 	if player == null or not player is CharacterBody3D:
 		_fail("Test range Player must be a CharacterBody3D")
 		return
-	if player.get_node_or_null("PlayerInput") == null or player.get_node_or_null("Health") == null or player.get_node_or_null("PrimaryWeapon") == null:
-		_fail("Player Phase 1/2 components missing")
+	if player.get_node_or_null("PlayerInput") == null or player.get_node_or_null("Health") == null or player.get_node_or_null("LifeState") == null or player.get_node_or_null("PrimaryWeapon") == null:
+		_fail("Player combat/Squad components missing")
 		return
 	if player.get_node_or_null("CameraRig/Pitch/FirstPerson") == null or player.get_node_or_null("CameraRig/Pitch/ThirdPersonRear") == null or player.get_node_or_null("CameraRig/Pitch/ThirdPersonFront") == null:
 		_fail("Player camera rig incomplete")
@@ -103,8 +107,8 @@ func _initialize() -> void:
 	if horde_spawns.get_child_count() < 4:
 		_fail("Horde arena needs multiple spawn points")
 		return
-	if not horde_director.has_method("get_population_budget") or not horde_director.has_method("register_player"):
-		_fail("HordeDirector multiplayer contract incomplete")
+	if not horde_director.has_method("get_recoverable_player_count") or not horde_director.has_method("get_scaling_squad_size"):
+		_fail("HordeDirector Squad contract incomplete")
 		return
 	var zombie_scene := load("res://src/zombies/base/Zombie.tscn") as PackedScene
 	var zombie := zombie_scene.instantiate() as CharacterBody3D
@@ -115,15 +119,15 @@ func _initialize() -> void:
 		_fail("Zombie network snapshot contract missing")
 		return
 	zombie.free()
-	var duo_scene := load("res://src/maps/duo/DuoArena.tscn") as PackedScene
-	var duo := duo_scene.instantiate()
-	root.add_child(duo)
-	for node_path in ["NetworkSession", "NetworkPlayers", "PlayerSpawnPoints/SpawnA", "PlayerSpawnPoints/SpawnB", "HordeDirector", "HordeZombies"]:
-		if duo.get_node_or_null(node_path) == null:
-			_fail("Phase 6 DuoArena missing %s" % node_path)
+	var squad_scene := load("res://src/maps/duo/DuoArena.tscn") as PackedScene
+	var squad := squad_scene.instantiate()
+	root.add_child(squad)
+	for node_path in ["NetworkSession", "NetworkPlayers", "PlayerSpawnPoints/SpawnA", "PlayerSpawnPoints/SpawnB", "PlayerSpawnPoints/SpawnC", "PlayerSpawnPoints/SpawnD", "HordeDirector", "HordeZombies"]:
+		if squad.get_node_or_null(node_path) == null:
+			_fail("Phase 7 Squad arena missing %s" % node_path)
 			return
-	duo.free()
-	for action in ["move_forward", "move_back", "move_left", "move_right", "jump", "sprint", "crouch", "prone", "camera_cycle", "fire", "reload"]:
+	squad.free()
+	for action in ["move_forward", "move_back", "move_left", "move_right", "jump", "sprint", "crouch", "prone", "camera_cycle", "fire", "reload", "interact"]:
 		if not InputMap.has_action(action):
 			_fail("Input action was not registered: %s" % action)
 			return
