@@ -16,8 +16,8 @@ var target_fps: int = 60
 
 # NEXORA: DEADFALL targets Godot's Mobile renderer on Android. Keep the
 # concurrent decal budget at or below the renderer's per-mesh decal limit;
-# higher tiers spend their extra gore budget on parts, emitters, particles
-# and effect lifetime instead of unsafe additional overlapping decals.
+# higher tiers spend their extra gore budget on parts, emitters, particles,
+# lifetime and controlled Horde population instead of unbounded effects.
 const QUALITY_PROFILES := {
 	QualityTier.SMOOTH: {
 		"render_scale": 0.65,
@@ -27,6 +27,8 @@ const QUALITY_PROFILES := {
 		"decals": 4,
 		"limb_lifetime": 5.0,
 		"decal_lifetime": 12.0,
+		"horde_population": 8,
+		"horde_spawn_rate": 0.85,
 	},
 	QualityTier.STANDARD: {
 		"render_scale": 0.90,
@@ -36,6 +38,8 @@ const QUALITY_PROFILES := {
 		"decals": 6,
 		"limb_lifetime": 8.0,
 		"decal_lifetime": 20.0,
+		"horde_population": 14,
+		"horde_spawn_rate": 1.0,
 	},
 	QualityTier.ULTRA: {
 		"render_scale": 1.0,
@@ -45,6 +49,8 @@ const QUALITY_PROFILES := {
 		"decals": 8,
 		"limb_lifetime": 12.0,
 		"decal_lifetime": 35.0,
+		"horde_population": 20,
+		"horde_spawn_rate": 1.15,
 	},
 	QualityTier.ULTRA_HD: {
 		"render_scale": 1.0,
@@ -54,6 +60,8 @@ const QUALITY_PROFILES := {
 		"decals": 8,
 		"limb_lifetime": 16.0,
 		"decal_lifetime": 50.0,
+		"horde_population": 28,
+		"horde_spawn_rate": 1.30,
 	},
 }
 
