@@ -14,6 +14,12 @@ RUN apt-get update \
 WORKDIR /opt/nexora-deadfall
 COPY . .
 
-EXPOSE 24560/udp
+ENV DEADFALL_PORT=24560 \
+    DEADFALL_DIRECTORY_PORT=24561 \
+    DEADFALL_PUBLIC_HOST=127.0.0.1 \
+    DEADFALL_ROOM_CODE=""
 
-CMD ["godot", "--headless", "--path", "/opt/nexora-deadfall", "--", "--server", "--port=24560"]
+EXPOSE 24560/udp
+EXPOSE 24561/tcp
+
+CMD ["bash", "scripts/server/run_server.sh"]
