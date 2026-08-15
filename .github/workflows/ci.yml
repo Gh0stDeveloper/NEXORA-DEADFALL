@@ -61,3 +61,5 @@ jobs:
           sleep 3
           docker logs deadfall-ci 2>&1 | tee /tmp/deadfall-server.log
           grep -q "dedicated server listening on UDP 24560" /tmp/deadfall-server.log
+          grep -q "room directory listening on TCP 24561" /tmp/deadfall-server.log
+          grep -q "DEADFALL_DUO_ROOM" /tmp/deadfall-server.log
