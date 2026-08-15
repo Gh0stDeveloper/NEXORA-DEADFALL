@@ -2,14 +2,21 @@ extends SceneTree
 
 const DamageEventScript = preload("res://src/core/damage/DamageEvent.gd")
 const LocalAuthorityScript = preload("res://src/core/authority/LocalAuthority.gd")
+const DedicatedAuthorityScript = preload("res://src/core/authority/DedicatedAuthority.gd")
 const ZombieControllerScript = preload("res://src/zombies/base/ZombieController.gd")
 const PlayerScene = preload("res://src/player/Player.tscn")
 const ZombieScene = preload("res://src/zombies/base/Zombie.tscn")
 
 func _initialize() -> void:
+	var dedicated_authority = DedicatedAuthorityScript.new()
+	dedicated_authority.start()
+	if not bool(dedicated_authority.get("active")):
+		_fail("Dedicated authority did not enter active simulation state")
+		return
+	dedicated_authority.stop()
+
 	var authority = LocalAuthorityScript.new()
 	authority.start()
-
 	var player := PlayerScene.instantiate() as Node3D
 	var zombie := ZombieScene.instantiate() as Node3D
 	if player == null or zombie == null:
@@ -68,8 +75,8 @@ func _initialize() -> void:
 	if not bool(zombie_health.call("is_dead")):
 		_fail("Zombie HealthComponent did not mark death")
 		return
-	if bool((zombie.get_node("NavigationAgent3D") as NavigationAgent3D).avoidance_enabled):
-		_fail("Zombie navigation/avoidance remained active after death")
+	if int(zombie.get("collision_layer")) != 0 or int(zombie.get("collision_mask")) != 0:
+		_fail("Zombie body collision remained active after death")
 		return
 
 	zombie.call("set_authority_override", null)

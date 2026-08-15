@@ -34,7 +34,7 @@ size = Vector3(0.28, 0.66, 0.30)
 
 [node name="Zombie" type="CharacterBody3D" groups=["deadfall_zombie"]]
 collision_layer = 8
-collision_mask = 1
+collision_mask = 3
 floor_snap_length = 0.25
 script = ExtResource("1_controller")
 entity_id = 2001
