@@ -1,8 +1,8 @@
 class_name DeadfallDedicatedServer
 extends Node
 
-const DEFAULT_MAX_CLIENTS := 2
-const DuoArenaScene = preload("res://src/maps/duo/DuoArena.tscn")
+const DEFAULT_MAX_CLIENTS := 4
+const SquadArenaScene = preload("res://src/maps/duo/DuoArena.tscn")
 const RoomCodeScript = preload("res://src/network/RoomCodeService.gd")
 const DirectoryServerScript = preload("res://src/network/RoomDirectoryServer.gd")
 
@@ -29,15 +29,15 @@ func start(port: int = 24560, max_clients: int = DEFAULT_MAX_CLIENTS, directory_
 	add_child(_directory)
 	var directory_error := int(_directory.call("start", directory_port, room_code, public_host, listen_port))
 	if directory_error != OK:
-		push_error("Unable to start Duo room directory on TCP %d: %s" % [directory_port, error_string(directory_error)])
+		push_error("Unable to start Squad room directory on TCP %d: %s" % [directory_port, error_string(directory_error)])
 		stop()
 		return directory_error
 	print("NEXORA: DEADFALL dedicated server listening on UDP %d" % listen_port)
-	print("DEADFALL_DUO_ROOM code=%s directory_port=%d public_host=%s" % [room_code, directory_port, public_host])
+	print("DEADFALL_SQUAD_ROOM code=%s directory_port=%d public_host=%s max_players=%d" % [room_code, directory_port, public_host, DEFAULT_MAX_CLIENTS])
 	return OK
 
 func _boot_network_arena() -> void:
-	_arena = DuoArenaScene.instantiate() as Node3D
+	_arena = SquadArenaScene.instantiate() as Node3D
 	_arena.name = "DuoArena"
 	get_parent().add_child(_arena)
 	var session := _arena.get_node_or_null("NetworkSession")
