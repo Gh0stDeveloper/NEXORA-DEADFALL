@@ -12,7 +12,8 @@ static func generate_code(rng: RandomNumberGenerator = null) -> String:
 		source.randomize()
 	var result := ""
 	for _index in range(CODE_LENGTH):
-		result += ALPHABET[source.randi_range(0, ALPHABET.length() - 1)]
+		var alphabet_index := source.randi_range(0, ALPHABET.length() - 1)
+		result += ALPHABET.substr(alphabet_index, 1)
 	return result
 
 static func normalize(code: String) -> String:
@@ -22,8 +23,8 @@ static func is_valid(code: String) -> bool:
 	var normalized := normalize(code)
 	if normalized.length() != CODE_LENGTH:
 		return false
-	for character in normalized:
-		if ALPHABET.find(character) < 0:
+	for index in range(normalized.length()):
+		if ALPHABET.find(normalized.substr(index, 1)) < 0:
 			return false
 	return true
 
