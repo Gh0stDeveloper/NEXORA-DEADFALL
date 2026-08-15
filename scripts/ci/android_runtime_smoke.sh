@@ -31,6 +31,7 @@ echo "DEADFALL Android process: $PID"
 adb shell input tap 1886 966   # RUN
 adb shell input tap 2268 966   # JUMP
 adb shell input tap 2088 966   # CROUCH
+adb shell input tap 1905 891   # REVIVE / INTERACT
 adb shell input tap 2088 891   # PRONE
 adb shell input tap 2268 891   # CAM
 adb shell input swipe 228 898 360 898 450   # joystick
@@ -40,7 +41,7 @@ sleep 3
 adb logcat -d > "$LOG"
 
 echo "--- DEADFALL runtime markers ---"
-grep -E "NEXORA: DEADFALL client bootstrap ready|DEADFALL_ANDROID_READY|DEADFALL_GORE_STATS|DEADFALL_HORDE_STATS|DEADFALL_TOUCH_" "$LOG" || true
+grep -E "NEXORA: DEADFALL client bootstrap ready|DEADFALL_ANDROID_READY|DEADFALL_GORE_STATS|DEADFALL_HORDE_STATS|DEADFALL_SQUAD_STATS|DEADFALL_TOUCH_" "$LOG" || true
 
 grep -Fq "NEXORA: DEADFALL client bootstrap ready" "$LOG"
 grep -Fq "DEADFALL_ANDROID_READY" "$LOG"
@@ -48,12 +49,18 @@ grep -Fq '"landscape":true' "$LOG"
 grep -Fq '"safe_area_valid":true' "$LOG"
 grep -Fq '"gore_budget"' "$LOG"
 grep -Fq '"horde"' "$LOG"
+grep -Fq '"squad"' "$LOG"
 grep -Fq "DEADFALL_GORE_STATS" "$LOG"
 grep -Fq "DEADFALL_HORDE_STATS" "$LOG"
+grep -Fq "DEADFALL_SQUAD_STATS" "$LOG"
+grep -Fq '"max_players":4' "$LOG"
+grep -Fq '"network_zombie_snapshots"' "$LOG"
+grep -Fq '"network_max_payload_bytes"' "$LOG"
 grep -Fq '"population_budget"' "$LOG"
 grep -Fq "DEADFALL_TOUCH_ACTION sprint" "$LOG"
 grep -Fq "DEADFALL_TOUCH_ACTION jump" "$LOG"
 grep -Fq "DEADFALL_TOUCH_ACTION crouch" "$LOG"
+grep -Fq "DEADFALL_TOUCH_ACTION interact" "$LOG"
 grep -Fq "DEADFALL_TOUCH_ACTION prone" "$LOG"
 grep -Fq "DEADFALL_TOUCH_ACTION camera_cycle" "$LOG"
 grep -Fq "DEADFALL_TOUCH_JOYSTICK active" "$LOG"
