@@ -3,10 +3,34 @@
 ## Baseline
 
 - Godot 4.6.3 stable.
-- Landscape gameplay.
+- Landscape gameplay locked through the handheld orientation project setting.
 - ARM64 is the primary architecture.
 - Mobile renderer is the default project renderer.
 - Target entry hardware: approximately 2–3 GB RAM, subject to real-device profiling.
+
+## Phase 1 controls
+
+The first playable controller supports both desktop development input and Android touch input.
+
+Desktop debug bindings:
+
+- W/A/S/D: movement.
+- Shift: sprint.
+- Space: jump.
+- C: crouch toggle.
+- Z: prone toggle.
+- V: camera cycle.
+- Mouse: look.
+- Escape: release/capture mouse.
+
+Android controls:
+
+- Left virtual joystick: movement.
+- Right touch region: camera/look.
+- Dedicated RUN, JUMP, CROUCH, PRONE and CAM buttons.
+- HUD layout is placed inside a safe-area-aware root for display cutouts/notches.
+
+Touch-look uses unscaled screen-relative drag motion so sensitivity is not unintentionally altered by viewport stretching. The project uses `canvas_items` with `expand` to better cover elongated phone aspect ratios.
 
 ## Build strategy
 
@@ -48,4 +72,4 @@ Smooth, Standard, Ultra and Ultra HD are user-facing profiles. Automatic recomme
 
 ## CI
 
-The Android workflow downloads the pinned Godot binary and export templates, configures JDK 17 and uses the runner Android SDK. It produces an APK artifact for build verification; signed release automation is intentionally deferred until release signing secrets are configured.
+The Android workflow downloads the pinned Godot binary and export templates, configures JDK 17 and uses the runner Android SDK. It compiles an ARM64 debug APK for every relevant pull request. Artifact upload is best-effort while the GitHub account artifact quota is constrained; compilation itself remains a required quality gate.

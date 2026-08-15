@@ -1,0 +1,54 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://src/player/PlayerController.gd" id="1_controller"]
+[ext_resource type="Script" path="res://src/player/PlayerInput.gd" id="2_input"]
+[ext_resource type="Script" path="res://src/player/CameraRig.gd" id="3_camera"]
+
+[sub_resource type="CapsuleShape3D" id="Capsule_player"]
+radius = 0.4
+height = 1.8
+
+[sub_resource type="BoxMesh" id="Box_body"]
+size = Vector3(0.72, 1.8, 0.46)
+
+[node name="Player" type="CharacterBody3D"]
+collision_layer = 2
+collision_mask = 1
+floor_snap_length = 0.25
+script = ExtResource("1_controller")
+
+[node name="PlayerInput" type="Node" parent="."]
+script = ExtResource("2_input")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+position = Vector3(0, 0.9, 0)
+shape = SubResource("Capsule_player")
+
+[node name="VisualRoot" type="Node3D" parent="."]
+
+[node name="Body" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(0, 0.9, 0)
+mesh = SubResource("Box_body")
+cast_shadow = 1
+
+[node name="CameraRig" type="Node3D" parent="."]
+position = Vector3(0, 1.62, 0)
+script = ExtResource("3_camera")
+
+[node name="Pitch" type="Node3D" parent="CameraRig"]
+
+[node name="FirstPerson" type="Camera3D" parent="CameraRig/Pitch"]
+current = true
+fov = 75.0
+near = 0.05
+
+[node name="ThirdPersonRear" type="Camera3D" parent="CameraRig/Pitch"]
+position = Vector3(0, 0.25, 3.2)
+fov = 75.0
+near = 0.08
+
+[node name="ThirdPersonFront" type="Camera3D" parent="CameraRig/Pitch"]
+position = Vector3(0, 0.2, -3.0)
+rotation = Vector3(0, 3.1415927, 0)
+fov = 75.0
+near = 0.08

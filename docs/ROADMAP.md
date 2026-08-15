@@ -9,17 +9,20 @@
 - [x] Dedicated ENet server bootstrap.
 - [x] CI/server deployment scaffolding.
 - [x] Living GDD and technical docs.
-- [ ] Confirm CI green on bootstrap PR.
+- [x] Bootstrap CI validated on Ubuntu/Godot/Android.
 
 ## Phase 1 — Player vertical slice
 
-- [ ] CharacterBody3D controller.
-- [ ] Walk/run/jump/crouch/prone.
-- [ ] Touch joystick and look region.
-- [ ] First-person camera.
-- [ ] Rear third-person camera.
-- [ ] Front third-person camera.
-- [ ] Mobile HUD safe areas.
+- [x] CharacterBody3D controller.
+- [x] Walk/run/jump/crouch/prone.
+- [x] Touch joystick and look region.
+- [x] First-person camera.
+- [x] Rear third-person camera.
+- [x] Front third-person camera.
+- [x] Mobile HUD safe areas.
+- [x] Desktop keyboard/mouse debug controls.
+- [x] Dedicated movement/camera test range.
+- [ ] Validate controls and HUD on at least one physical Android phone.
 
 ## Phase 2 — Weapons and damage
 
