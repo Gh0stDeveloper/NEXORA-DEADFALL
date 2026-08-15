@@ -10,10 +10,16 @@ script = ExtResource("1_range")
 [node name="PlayerSpawnPoints" type="Node3D" parent="."]
 
 [node name="SpawnA" type="Marker3D" parent="PlayerSpawnPoints"]
-position = Vector3(-2, 0.05, 8)
+position = Vector3(-3, 0.05, 8)
 
 [node name="SpawnB" type="Marker3D" parent="PlayerSpawnPoints"]
-position = Vector3(2, 0.05, 8)
+position = Vector3(3, 0.05, 8)
+
+[node name="SpawnC" type="Marker3D" parent="PlayerSpawnPoints"]
+position = Vector3(-3, 0.05, 5.5)
+
+[node name="SpawnD" type="Marker3D" parent="PlayerSpawnPoints"]
+position = Vector3(3, 0.05, 5.5)
 
 [node name="NetworkPlayers" type="Node3D" parent="."]
 
