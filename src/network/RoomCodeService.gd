@@ -3,7 +3,7 @@ extends RefCounted
 
 const ALPHABET := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 const CODE_LENGTH := 6
-const PROTOCOL_VERSION := 1
+const PROTOCOL_VERSION := 2
 
 static func generate_code(rng: RandomNumberGenerator = null) -> String:
 	var source := rng
