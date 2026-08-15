@@ -18,8 +18,10 @@ var _mobile_look := Vector2.ZERO
 var _mobile_pressed: Dictionary = {}
 var _mobile_just_pressed: Dictionary = {}
 
-func _ready() -> void:
+func _init() -> void:
 	_ensure_input_map()
+
+func _ready() -> void:
 	if DisplayServer.get_name() != "headless" and not OS.has_feature("mobile"):
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
