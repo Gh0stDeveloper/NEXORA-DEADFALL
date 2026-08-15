@@ -1,8 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://src/player/PlayerController.gd" id="1_controller"]
 [ext_resource type="Script" path="res://src/player/PlayerInput.gd" id="2_input"]
 [ext_resource type="Script" path="res://src/player/CameraRig.gd" id="3_camera"]
+[ext_resource type="Script" path="res://src/core/health/HealthComponent.gd" id="4_health"]
+[ext_resource type="Script" path="res://src/weapons/rifles/HitscanRifle.gd" id="5_weapon"]
+[ext_resource type="Resource" path="res://src/weapons/data/nxr_rifle_01.tres" id="6_rifle"]
 
 [sub_resource type="CapsuleShape3D" id="Capsule_player"]
 radius = 0.4
@@ -19,6 +22,19 @@ script = ExtResource("1_controller")
 
 [node name="PlayerInput" type="Node" parent="."]
 script = ExtResource("2_input")
+
+[node name="Health" type="Node" parent="."]
+script = ExtResource("4_health")
+entity_id = 1
+max_health = 100.0
+
+[node name="PrimaryWeapon" type="Node3D" parent="."]
+script = ExtResource("5_weapon")
+weapon_data = ExtResource("6_rifle")
+shooter_entity_id = 1
+input_path = NodePath("../PlayerInput")
+camera_rig_path = NodePath("../CameraRig")
+hitscan_mask = 5
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 position = Vector3(0, 0.9, 0)

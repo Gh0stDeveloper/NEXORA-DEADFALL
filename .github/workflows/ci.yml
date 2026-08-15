@@ -35,6 +35,9 @@ jobs:
       - name: Run project smoke test
         run: godot --headless --path . --script scripts/ci/smoke.gd
 
+      - name: Run combat authority tests
+        run: godot --headless --path . --script scripts/ci/combat_smoke.gd
+
       - name: Validate shell scripts
         run: bash -n scripts/server/run_server.sh scripts/ci/android_runtime_smoke.sh
 

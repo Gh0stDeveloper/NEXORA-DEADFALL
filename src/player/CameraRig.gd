@@ -35,6 +35,15 @@ func cycle_camera() -> void:
 	mode = ((int(mode) + 1) % CameraMode.size()) as CameraMode
 	_apply_mode()
 
+func get_active_camera() -> Camera3D:
+	match mode:
+		CameraMode.THIRD_PERSON_REAR:
+			return third_person_rear
+		CameraMode.THIRD_PERSON_FRONT:
+			return third_person_front
+		_:
+			return first_person
+
 func _apply_mode() -> void:
 	first_person.current = mode == CameraMode.FIRST_PERSON
 	third_person_rear.current = mode == CameraMode.THIRD_PERSON_REAR
