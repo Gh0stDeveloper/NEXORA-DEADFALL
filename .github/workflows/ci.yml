@@ -41,10 +41,14 @@ jobs:
         run: godot --headless --path . --script scripts/ci/horde_smoke.gd
       - name: Run networking tests
         run: godot --headless --path . --script scripts/ci/network_smoke.gd
-      - name: Run two-peer ENet integration
+      - name: Run Squad life/revive tests
+        run: godot --headless --path . --script scripts/ci/squad_smoke.gd
+      - name: Run two-peer regression integration
         run: bash scripts/ci/duo_integration.sh
+      - name: Run four-peer Squad integration
+        run: bash scripts/ci/squad_integration.sh
       - name: Validate shell scripts
-        run: bash -n scripts/server/run_server.sh scripts/ci/android_runtime_smoke.sh scripts/ci/duo_integration.sh
+        run: bash -n scripts/server/run_server.sh scripts/ci/android_runtime_smoke.sh scripts/ci/duo_integration.sh scripts/ci/squad_integration.sh
 
   docker-server-build:
     runs-on: ubuntu-24.04
@@ -62,4 +66,4 @@ jobs:
           docker logs deadfall-ci 2>&1 | tee /tmp/deadfall-server.log
           grep -q "dedicated server listening on UDP 24560" /tmp/deadfall-server.log
           grep -q "room directory listening on TCP 24561" /tmp/deadfall-server.log
-          grep -q "DEADFALL_DUO_ROOM" /tmp/deadfall-server.log
+          grep -q "DEADFALL_SQUAD_ROOM" /tmp/deadfall-server.log
