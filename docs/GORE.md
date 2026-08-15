@@ -45,12 +45,14 @@ The manager may retain previously allocated slots if the user lowers quality aft
 
 ## Quality budgets
 
+NEXORA: DEADFALL targets Godot's Mobile renderer on Android. Concurrent decal counts stay at or below eight, while higher tiers scale detached parts, blood emitters, particle density, and effect lifetimes.
+
 | Tier | Detached parts | Blood emitters | Particles/burst | Decals | Limb lifetime | Decal lifetime |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Smooth | 4 | 2 | 10 | 8 | 5 s | 12 s |
-| Standard | 8 | 4 | 18 | 20 | 8 s | 20 s |
-| Ultra | 16 | 6 | 28 | 40 | 12 s | 35 s |
-| Ultra HD | 32 | 8 | 40 | 80 | 16 s | 50 s |
+| Smooth | 4 | 2 | 10 | 4 | 5 s | 12 s |
+| Standard | 8 | 4 | 18 | 6 | 8 s | 20 s |
+| Ultra | 16 | 6 | 28 | 8 | 12 s | 35 s |
+| Ultra HD | 32 | 8 | 40 | 8 | 16 s | 50 s |
 
 Smooth remains mechanically uncensored: dismemberment and crawler/arm/head consequences still occur; only visual effect concurrency and lifetime are reduced.
 
@@ -63,6 +65,7 @@ Android debug builds include the current gore budget inside `DEADFALL_ANDROID_RE
 `scripts/ci/gore_smoke.gd` validates:
 
 - every quality tier has bounded positive pool limits;
+- mobile profiles never exceed eight concurrent decals;
 - ring allocation never returns a slot outside the configured limit;
 - the prepared rig/wound contract exists;
 - arm destruction swaps visual state and disables its hitbox;
