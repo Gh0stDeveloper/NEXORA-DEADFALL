@@ -133,3 +133,25 @@
 - [x] Closed Beta hardening smoke test integrated with all prior regression gates.
 - [ ] Execute Phase 9 current-head CI/release gates after Actions billing/spending is unblocked.
 - [ ] Complete representative physical-device compatibility matrix and closed-beta soak.
+
+## Phase 10 — VPS production installer and beta distribution
+- [x] First-install vs existing-install detection and persistent VPS state.
+- [x] Ubuntu 24.04 x86_64/ARM64 bootstrap for Godot 4.6.3 and export templates.
+- [x] OpenJDK 17 and Android SDK/API 35+36/NDK/CMake compiler setup.
+- [x] Node.js 24 LTS, Nginx, Certbot and GitHub CLI setup.
+- [x] Private repository GitHub login/setup-git flow for persistent updates.
+- [x] Persistent Android release keystore generated only on first install.
+- [x] Root-only signing storage with temporary build-user keystore exposure.
+- [x] Signed ARM64 Closed Beta APK export and `apksigner` verification on VPS.
+- [x] Atomic stable APK publication plus version/size/SHA-256 release metadata.
+- [x] Self-hosted Next.js 16/TypeScript mobile download portal.
+- [x] Nginx reverse proxy and direct APK delivery.
+- [x] Optional Certbot/Let's Encrypt HTTPS bootstrap for supplied domain.
+- [x] systemd game-server and download-portal services enabled across reboots.
+- [x] One-command updater with app/server/web/deploy change classification.
+- [x] Production server defaults to Campaign while retaining env-configurable mode.
+- [x] Phase 10 shell/installer contract smoke and real Next.js build gate added to CI.
+- [x] README/runbook with private GitHub bootstrap, DNS, first install, updates and troubleshooting commands.
+- [ ] Execute clean-VPS installation on a real Ubuntu host after Actions/billing is unblocked or a VPS is supplied.
+- [ ] Point the real beta domain at the VPS and issue the production TLS certificate.
+- [ ] Build/install the first APK on a physical phone and complete the Closed Beta matrix.
