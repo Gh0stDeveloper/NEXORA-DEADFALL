@@ -24,23 +24,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Sync and validate provisional 3D models
+      - name: Sync and validate required 3D models
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.DEADFALL_MODELS_TOKEN }}
-        run: |
-          set -euo pipefail
-          test -n "$GH_TOKEN" || {
-            echo "Missing DEADFALL_MODELS_TOKEN. Closed Beta releases must include the private Objetos3D runtime assets." >&2
-            exit 1
-          }
-          bash scripts/assets/sync_objetos3d.sh "$GITHUB_WORKSPACE"
-          for model in operator_01.glb operator_02.glb zombie_animated.glb zombie_static.glb; do
-            test -s "assets/external/objetos3d/$model" || {
-              echo "Required Closed Beta model missing after sync: $model" >&2
-              exit 1
-            }
-          done
+        run: bash scripts/ci/sync_required_models.sh "$GITHUB_WORKSPACE"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
