@@ -26,6 +26,37 @@ sudo -Hu deadfall gh auth setup-git --hostname github.com
 sudo -Hu deadfall gh auth status --hostname github.com
 ```
 
+The installer intentionally uses no `--skip-ssh-key` flag. Ubuntu 24.04 may provide a GitHub CLI build that does not implement that option, and HTTPS Git authentication does not need SSH key creation anyway.
+
+## Interrupted/partial installation recovery
+
+The installer is designed to be rerun. If it stops after installing packages but before cloning `/opt/nexora-deadfall`, generating the keystore or creating services, do not delete the VPS and do not reinstall Godot/Android manually.
+
+From the bootstrap clone, update to the newest installer and run it again:
+
+```bash
+cd ~/NEXORA-DEADFALL
+git pull --ff-only origin agent/bootstrap-deadfall
+
+sudo bash deploy/vps/install.sh \
+  --domain beta.example.com \
+  --email admin@example.com \
+  --repo Gh0stDeveloper/NEXORA-DEADFALL \
+  --branch agent/bootstrap-deadfall
+```
+
+If you prefer to complete the service-account login before rerunning:
+
+```bash
+sudo -Hu deadfall gh auth login --hostname github.com --git-protocol https
+sudo -Hu deadfall gh auth setup-git --hostname github.com
+sudo -Hu deadfall gh auth status --hostname github.com
+```
+
+A partial bootstrap can legitimately have no `nexora-deadfall` command and no `/opt/nexora-deadfall` checkout yet if it stopped before those steps. Current installer revisions install the administration command earlier so future authentication failures still leave a recovery entry point.
+
+If Ubuntu reports `/var/run/reboot-required`, finish/verify the installation first and then reboot the VPS to load the new kernel. The installer never reboots the machine automatically.
+
 ## What the installer does
 
 - Detects a first install versus `/var/lib/nexora-deadfall/install-state.json`/existing Git checkout.
