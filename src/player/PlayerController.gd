@@ -221,22 +221,36 @@ func _try_set_stance(target: Stance) -> bool:
 	if target == stance:
 		return true
 	var target_height := _height_for_stance(target)
-	if target_height > _height_for_stance(stance) and not _has_headroom(target_height):
+	if target_height > _height_for_stance(stance) and not _can_fit_height(target_height):
 		return false
 	stance = target
-	_apply_stance_geometry(stance)
+	_apply_stance_geometry(target)
 	return true
 
-func _apply_replica_stance(value: int) -> void:
-	stance = clampi(value, Stance.STAND, Stance.PRONE) as Stance
-	_apply_stance_geometry(stance)
+func _can_fit_height(target_height: float) -> bool:
+	var capsule := collision_shape.shape as CapsuleShape3D
+	if capsule == null or not is_inside_tree():
+		return true
+	var test_shape := CapsuleShape3D.new()
+	test_shape.radius = capsule.radius
+	test_shape.height = target_height
+	var query := PhysicsShapeQueryParameters3D.new()
+	query.shape = test_shape
+	query.collision_mask = collision_mask
+	query.exclude = [get_rid()]
+	query.margin = 0.01
+	query.transform = Transform3D(global_basis, global_position + Vector3.UP * (target_height * 0.5 + 0.025))
+	return get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty()
 
-func _apply_stance_geometry(value: Stance) -> void:
+func _apply_stance_geometry(target: Stance) -> void:
+	var target_height := _height_for_stance(target)
 	var capsule := collision_shape.shape as CapsuleShape3D
 	if capsule != null:
-		capsule.height = _height_for_stance(value)
-	collision_shape.position.y = _height_for_stance(value) * 0.5
-	camera_rig.position.y = _eye_height_for_stance(value)
+		capsule.height = target_height
+		collision_shape.position.y = target_height * 0.5
+	visual_body.scale.y = target_height / standing_height
+	visual_body.position.y = target_height * 0.5
+	camera_rig.position.y = _eye_height_for_stance(target)
 
 func _height_for_stance(value: Stance) -> float:
 	match value:
@@ -250,52 +264,76 @@ func _eye_height_for_stance(value: Stance) -> float:
 		Stance.PRONE: return prone_eye_height
 		_: return standing_eye_height
 
-func _has_headroom(target_height: float) -> bool:
-	var current_height := _height_for_stance(stance)
-	var extra := target_height - current_height
-	if extra <= 0.0:
-		return true
-	var query := PhysicsShapeQueryParameters3D.new()
-	query.shape = collision_shape.shape
-	query.transform = collision_shape.global_transform.translated(Vector3.UP * extra)
-	query.collision_mask = collision_mask
-	query.exclude = [get_rid()]
-	return get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty()
+func _on_camera_mode_changed(mode: int) -> void:
+	if control_mode in [ControlMode.OFFLINE_LOCAL, ControlMode.NETWORK_PREDICTED]:
+		visual_root.visible = mode != DeadfallCameraRig.CameraMode.FIRST_PERSON
+	else:
+		visual_root.visible = true
 
-func _on_camera_mode_changed(mode_value: int) -> void:
-	if visual_root == null:
-		return
-	visual_root.visible = mode_value != DeadfallCameraRig.CameraMode.FIRST_PERSON
-
-func _on_life_state_changed(_previous: int, current: int, _source_peer_id: int) -> void:
+func _on_life_state_changed(_previous: int, current: int, _reason: String) -> void:
 	if current == 1:
 		_apply_replica_stance(Stance.PRONE)
+	elif current == 2:
+		velocity = Vector3.ZERO
 
-func _life_is_dead() -> bool:
-	return life_state != null and life_state.has_method("is_dead") and bool(life_state.call("is_dead"))
+func get_stance_name() -> String:
+	return Stance.keys()[int(stance)]
+
+func get_network_snapshot() -> Dictionary:
+	return {
+		"entity_id": player_entity_id,
+		"position": global_position,
+		"yaw": rotation.y,
+		"pitch": camera_rig.get_pitch(),
+		"velocity": velocity,
+		"stance": int(stance),
+		"ack_sequence": _last_server_sequence if control_mode == ControlMode.SERVER_REMOTE else _command_sequence,
+		"life": life_state.call("get_network_snapshot") if life_state != null and life_state.has_method("get_network_snapshot") else {},
+	}
+
+func apply_authoritative_snapshot(snapshot: Dictionary) -> void:
+	if control_mode != ControlMode.NETWORK_PREDICTED:
+		return
+	if life_state != null and life_state.has_method("apply_network_snapshot"):
+		life_state.call("apply_network_snapshot", Dictionary(snapshot.get("life", {})))
+	var authoritative_position := Vector3(snapshot.get("position", global_position))
+	var error := global_position.distance_to(authoritative_position)
+	if error >= hard_reconciliation_distance:
+		global_position = authoritative_position
+		rotation.y = float(snapshot.get("yaw", rotation.y))
+	else:
+		global_position = global_position.lerp(authoritative_position, reconciliation_strength)
+		rotation.y = lerp_angle(rotation.y, float(snapshot.get("yaw", rotation.y)), reconciliation_strength)
+	velocity = Vector3(snapshot.get("velocity", velocity))
+	camera_rig.set_pitch(lerpf(camera_rig.get_pitch(), float(snapshot.get("pitch", camera_rig.get_pitch())), reconciliation_strength))
+	_apply_replica_stance(int(snapshot.get("stance", int(stance))))
+
+func restore_authoritative_snapshot(snapshot: Dictionary) -> void:
+	global_position = Vector3(snapshot.get("position", global_position))
+	rotation.y = float(snapshot.get("yaw", rotation.y))
+	velocity = Vector3(snapshot.get("velocity", Vector3.ZERO))
+	camera_rig.set_pitch(float(snapshot.get("pitch", 0.0)))
+	_apply_replica_stance(int(snapshot.get("stance", int(stance))))
+	if life_state != null and life_state.has_method("restore_authoritative_snapshot"):
+		life_state.call("restore_authoritative_snapshot", Dictionary(snapshot.get("life", {})))
+
+func apply_replica_presentation(snapshot: Dictionary) -> void:
+	_apply_replica_stance(int(snapshot.get("stance", int(stance))))
+	camera_rig.set_pitch(float(snapshot.get("pitch", camera_rig.get_pitch())))
+	if life_state != null and life_state.has_method("apply_network_snapshot"):
+		life_state.call("apply_network_snapshot", Dictionary(snapshot.get("life", {})))
+
+func _apply_replica_stance(value: int) -> void:
+	var next := clampi(value, Stance.STAND, Stance.PRONE) as Stance
+	if next != stance:
+		stance = next
+		_apply_stance_geometry(stance)
 
 func _life_is_downed() -> bool:
 	return life_state != null and life_state.has_method("is_downed") and bool(life_state.call("is_downed"))
 
-func _life_move_multiplier() -> float:
-	if life_state != null and life_state.has_method("get_move_multiplier"):
-		return float(life_state.call("get_move_multiplier"))
-	return 1.0
+func _life_is_dead() -> bool:
+	return life_state != null and life_state.has_method("is_dead") and bool(life_state.call("is_dead"))
 
-func apply_server_state(state: Dictionary) -> void:
-	if state.is_empty():
-		return
-	var server_position := Vector3(state.get("position", global_position))
-	if control_mode == ControlMode.NETWORK_PREDICTED:
-		var error := server_position - global_position
-		if error.length() >= hard_reconciliation_distance:
-			global_position = server_position
-		else:
-			global_position += error * reconciliation_strength
-		velocity = Vector3(state.get("velocity", velocity))
-	elif control_mode == ControlMode.REMOTE_PROXY:
-		global_position = server_position
-		rotation.y = float(state.get("yaw", rotation.y))
-		camera_rig.set_pitch(float(state.get("pitch", camera_rig.get_pitch())))
-		velocity = Vector3(state.get("velocity", velocity))
-		_apply_replica_stance(int(state.get("stance", int(stance))))
+func _life_move_multiplier() -> float:
+	return float(life_state.call("get_movement_multiplier")) if life_state != null and life_state.has_method("get_movement_multiplier") else 1.0
