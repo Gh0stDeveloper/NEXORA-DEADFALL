@@ -14,14 +14,38 @@ run_deadfall_home gh auth status --hostname github.com >/dev/null 2>&1 || die "G
 run_deadfall_home git -C "$DEADFALL_ROOT" fetch --prune origin "$DEADFALL_BRANCH"
 OLD="$(run_deadfall_home git -C "$DEADFALL_ROOT" rev-parse HEAD)"
 NEW="$(run_deadfall_home git -C "$DEADFALL_ROOT" rev-parse "origin/$DEADFALL_BRANCH")"
+DEPLOYED=""
+if [[ -f "$DEADFALL_STATE" ]]; then
+  DEPLOYED="$(jq -r '.last_deployed_sha // empty' "$DEADFALL_STATE" 2>/dev/null || true)"
+fi
+
+mark_failed_attempt(){
+  local status=$?
+  if [[ "$status" -ne 0 ]]; then
+    json_state "last_attempted_sha=$NEW" "last_deploy_status=failed"
+    warn "El despliegue de $NEW no terminó. El próximo 'nexora-deadfall update' volverá a ejecutar los gates/builds."
+  fi
+  return "$status"
+}
+trap mark_failed_attempt EXIT
 
 if [[ "$INITIAL" -eq 1 || "$FORCE" -eq 1 ]]; then
   CHANGED="ALL"
-elif [[ "$OLD" == "$NEW" ]]; then
-  log "Sin actualizaciones ($OLD)."
+elif [[ -z "$DEPLOYED" ]]; then
+  warn "No existe un last_deployed_sha exitoso; se repetirá un despliegue completo."
+  CHANGED="ALL"
+elif [[ "$DEPLOYED" == "$NEW" ]]; then
+  if [[ "$OLD" != "$NEW" ]]; then
+    run_deadfall_home git -C "$DEADFALL_ROOT" reset --hard "$NEW"
+  fi
+  log "Sin actualizaciones desplegables ($NEW)."
+  trap - EXIT
   exit 0
+elif run_deadfall_home git -C "$DEADFALL_ROOT" cat-file -e "${DEPLOYED}^{commit}" 2>/dev/null; then
+  CHANGED="$(run_deadfall_home git -C "$DEADFALL_ROOT" diff --name-only "$DEPLOYED..$NEW")"
 else
-  CHANGED="$(run_deadfall_home git -C "$DEADFALL_ROOT" diff --name-only "$OLD..$NEW")"
+  warn "El último SHA desplegado ($DEPLOYED) no está disponible localmente; se hará despliegue completo."
+  CHANGED="ALL"
 fi
 
 run_deadfall_home git -C "$DEADFALL_ROOT" reset --hard "$NEW"
@@ -55,5 +79,12 @@ if [[ "$WEB" -eq 1 || "$APP" -eq 1 ]]; then "$DEADFALL_ROOT/scripts/build/build_
 if [[ "$SERVER" -eq 1 ]]; then systemctl restart nexora-deadfall; fi
 if [[ "$WEB" -eq 1 || "$APP" -eq 1 ]]; then systemctl restart nexora-deadfall-download; fi
 
-json_state "last_deployed_sha=$NEW" "last_app_rebuild=$APP" "last_server_restart=$SERVER" "last_web_rebuild=$WEB"
+json_state \
+  "last_deployed_sha=$NEW" \
+  "last_attempted_sha=$NEW" \
+  "last_deploy_status=success" \
+  "last_app_rebuild=$APP" \
+  "last_server_restart=$SERVER" \
+  "last_web_rebuild=$WEB"
+trap - EXIT
 log "Actualización completada: $NEW"
