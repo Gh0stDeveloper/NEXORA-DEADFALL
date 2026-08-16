@@ -1,6 +1,7 @@
 extends SceneTree
 
 const REQUIRED_FILES := [
+	"res://.gitmodules",
 	"res://src/identity/GuestIdentity.gd",
 	"res://src/social/SocialClient.gd",
 	"res://src/server/GuestAccountStore.gd",
@@ -203,6 +204,12 @@ func _initialize() -> void:
 		_fail("Phase 11 night environment script could not compile")
 		return
 
+	var gitmodules_file := FileAccess.open("res://.gitmodules", FileAccess.READ)
+	var gitmodules_text := gitmodules_file.get_as_text() if gitmodules_file != null else ""
+	if not gitmodules_text.contains("vendor/Objetos3D") or not gitmodules_text.contains("Gh0stDeveloper/Objetos3D.git"):
+		_fail("Phase 11.3 vendored Objetos3D submodule contract missing")
+		return
+
 	var nginx_file := FileAccess.open("res://deploy/nginx/nexora-deadfall.conf.template", FileAccess.READ)
 	var nginx_text := nginx_file.get_as_text() if nginx_file != null else ""
 	if not nginx_text.contains("location /api/deadfall/") or not nginx_text.contains("127.0.0.1:24562"):
@@ -211,8 +218,8 @@ func _initialize() -> void:
 
 	var updater_file := FileAccess.open("res://deploy/vps/update.sh", FileAccess.READ)
 	var updater_text := updater_file.get_as_text() if updater_file != null else ""
-	if not updater_text.contains("24600:24749/udp") or not updater_text.contains("sync_objetos3d.sh") or not updater_text.contains("DEADFALL_UPDATE_REEXEC"):
-		_fail("Phase 11.3 VPS dynamic match/model/self-update deployment contract missing")
+	if not updater_text.contains("24600:24749/udp") or not updater_text.contains("sync_objetos3d.sh") or not updater_text.contains("submodule update --init --recursive") or not updater_text.contains("vendor/Objetos3D") or not updater_text.contains("DEADFALL_UPDATE_REEXEC"):
+		_fail("Phase 11.3 VPS dynamic match/vendored-model/self-update deployment contract missing")
 		return
 
 	var service_file := FileAccess.open("res://deploy/systemd/nexora-deadfall.service", FileAccess.READ)
@@ -223,8 +230,8 @@ func _initialize() -> void:
 
 	var model_sync_file := FileAccess.open("res://scripts/assets/sync_objetos3d.sh", FileAccess.READ)
 	var model_sync_text := model_sync_file.get_as_text() if model_sync_file != null else ""
-	if not model_sync_text.contains("validate_glb") or not model_sync_text.contains("Invalid GLB magic") or not model_sync_text.contains("destination_path"):
-		_fail("Phase 11.3 external GLB staging is not deterministic/validated")
+	if not model_sync_text.contains("validate_glb") or not model_sync_text.contains("Invalid GLB magic") or not model_sync_text.contains("destination_path") or not model_sync_text.contains("vendor/Objetos3D") or not model_sync_text.contains("submodule update --init --recursive"):
+		_fail("Phase 11.3 vendored GLB staging is not deterministic/validated")
 		return
 
 	var android_build_file := FileAccess.open("res://scripts/build/build_android_vps.sh", FileAccess.READ)
