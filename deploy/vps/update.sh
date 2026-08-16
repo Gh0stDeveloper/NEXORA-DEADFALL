@@ -65,7 +65,16 @@ if [[ "$DEPLOY" -eq 1 ]]; then
   cp "$DEADFALL_ROOT/deploy/systemd/nexora-deadfall.service" /etc/systemd/system/nexora-deadfall.service
   cp "$DEADFALL_ROOT/deploy/systemd/nexora-deadfall-download.service" /etc/systemd/system/nexora-deadfall-download.service
   configure_nginx_site "$DEADFALL_ROOT/deploy/nginx/nexora-deadfall.conf.template" "${DEADFALL_DOMAIN:-_}"
-  ufw allow 24600:24749/udp >/dev/null || true
+  ufw allow 24600:24749/udp >/dev/null
+  ufw show added | grep -Fq 'ufw allow 24600:24749/udp' || \
+    die "UFW no registró la regla UDP 24600:24749 requerida por MatchOrchestrator."
+  if ufw status | grep -Eq '^Status: active'; then
+    ufw status | grep -Eq '24600:24749/udp[[:space:]]+ALLOW' || \
+      die "UFW está activo pero UDP 24600:24749 no aparece como ALLOW."
+    log "UFW activo: rango dinámico UDP 24600:24749 verificado como ALLOW."
+  else
+    warn "UFW está inactivo. La regla UDP 24600:24749 quedó registrada, pero la Security List/NSG de Oracle sigue siendo un gate externo obligatorio."
+  fi
   systemctl daemon-reload
   systemctl reload nginx
 fi
