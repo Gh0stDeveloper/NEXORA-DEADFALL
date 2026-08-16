@@ -12,9 +12,9 @@ dist/
 *.pck
 *.zip
 
-# Provisional external 3D assets are synchronized from Gh0stDeveloper/Objetos3D
-# by scripts/assets/sync_objetos3d.sh before VPS production builds.
-assets/external/objetos3d/*.glb
+# Third-party 3D model source is pinned under vendor/Objetos3D.
+# Canonical runtime GLB paths under assets/external/objetos3d are tracked links
+# to that vendored source and must remain version-controlled.
 
 # Node / Next.js
 node_modules/
