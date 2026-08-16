@@ -63,8 +63,8 @@ func _run() -> void:
 	if not bool(joined.get("ok", false)):
 		_fail("Member could not join leader party")
 		return
-	var leader_before := _service.party_snapshot_for_token(leader_token)
-	var member_before := _service.party_snapshot_for_token(member_token)
+	var leader_before: Dictionary = Dictionary(_service.party_snapshot_for_token(leader_token))
+	var member_before: Dictionary = Dictionary(_service.party_snapshot_for_token(member_token))
 	if String(leader_before.get("code", "")) != code or String(member_before.get("code", "")) != code:
 		_fail("Party members do not observe the same squad code")
 		return
@@ -72,7 +72,7 @@ func _run() -> void:
 		_fail("Party members do not observe the same two-member roster")
 		return
 
-	var assignment := {
+	var assignment: Dictionary = {
 		"match_id": MATCH_ID,
 		"host": "203.0.113.77",
 		"port": 24642,
@@ -87,9 +87,9 @@ func _run() -> void:
 	if not bool(_service.set_party_match_assignment(code, assignment)):
 		_fail("Social service rejected a valid match assignment")
 		return
-	if not _validate_private_match_snapshot(_service.party_snapshot_for_token(leader_token), LEADER_TICKET, MEMBER_TICKET, "leader"):
+	if not _validate_private_match_snapshot(Dictionary(_service.party_snapshot_for_token(leader_token)), LEADER_TICKET, MEMBER_TICKET, "leader"):
 		return
-	if not _validate_private_match_snapshot(_service.party_snapshot_for_token(member_token), MEMBER_TICKET, LEADER_TICKET, "member"):
+	if not _validate_private_match_snapshot(Dictionary(_service.party_snapshot_for_token(member_token)), MEMBER_TICKET, LEADER_TICKET, "member"):
 		return
 
 	var kick_locked: Dictionary = _service.kick_member(leader_token, MEMBER_GUEST)
@@ -104,8 +104,8 @@ func _run() -> void:
 	if not bool(_service.update_party_match_status(code, MATCH_ID, "READY")):
 		_fail("Could not transition social match assignment to READY")
 		return
-	var leader_ready: Dictionary = _service.party_snapshot_for_token(leader_token)
-	var member_ready: Dictionary = _service.party_snapshot_for_token(member_token)
+	var leader_ready: Dictionary = Dictionary(_service.party_snapshot_for_token(leader_token))
+	var member_ready: Dictionary = Dictionary(_service.party_snapshot_for_token(member_token))
 	if String(Dictionary(leader_ready.get("match", {})).get("status", "")) != "READY" or String(Dictionary(member_ready.get("match", {})).get("status", "")) != "READY":
 		_fail("READY state is not shared by both party members")
 		return
@@ -117,7 +117,7 @@ func _run() -> void:
 	if not bool(kick_open.get("ok", false)):
 		_fail("Leader could not kick a member after party returned to OPEN")
 		return
-	var member_after_kick: Dictionary = _service.party_snapshot_for_token(member_token)
+	var member_after_kick: Dictionary = Dictionary(_service.party_snapshot_for_token(member_token))
 	if not member_after_kick.is_empty():
 		_fail("Kicked member still sees the old party")
 		return
@@ -130,7 +130,7 @@ func _run() -> void:
 	if not bool(left.get("ok", false)):
 		_fail("Member could not leave an open party")
 		return
-	if not _service.party_snapshot_for_token(member_token).is_empty():
+	if not Dictionary(_service.party_snapshot_for_token(member_token)).is_empty():
 		_fail("Member still sees a party after leaving")
 		return
 
