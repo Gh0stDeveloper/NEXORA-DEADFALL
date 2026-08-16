@@ -14,6 +14,7 @@ Game="*res://src/autoload/Game.gd"
 Settings="*res://src/autoload/Settings.gd"
 GuestIdentity="*res://src/identity/GuestIdentity.gd"
 SocialClient="*res://src/social/SocialClient.gd"
+NetworkTelemetry="*res://src/network/NetworkTelemetry.gd"
 Gore="*res://src/gore/GoreManager.gd"
 BetaRuntime="*res://src/diagnostics/BetaRuntime.gd"
 
