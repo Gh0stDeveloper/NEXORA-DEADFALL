@@ -72,7 +72,10 @@ static func _load_one(path: String) -> Dictionary:
 	var file := FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		return {}
-	var parsed = JSON.parse_string(file.get_as_text())
+	var wrapper_parser: JSON = JSON.new()
+	if wrapper_parser.parse(file.get_as_text()) != OK:
+		return {}
+	var parsed: Variant = wrapper_parser.data
 	if typeof(parsed) != TYPE_DICTIONARY:
 		return {}
 	var wrapper: Dictionary = parsed
@@ -89,7 +92,10 @@ static func _load_one(path: String) -> Dictionary:
 	var checksum := String(wrapper.get("checksum", ""))
 	if payload_json.is_empty() or checksum.is_empty() or payload_json.sha256_text() != checksum:
 		return {}
-	var payload = JSON.parse_string(payload_json)
+	var payload_parser: JSON = JSON.new()
+	if payload_parser.parse(payload_json) != OK:
+		return {}
+	var payload: Variant = payload_parser.data
 	return payload if typeof(payload) == TYPE_DICTIONARY else {}
 
 static func _path_for_slot(slot: String) -> String:
