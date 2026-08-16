@@ -76,10 +76,34 @@ if [[ "$APP" -eq 1 || "$SERVER" -eq 1 ]]; then
   run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/smoke.gd
   run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/beta_hardening_smoke.gd
 fi
-if [[ "$APP" -eq 1 ]]; then "$DEADFALL_ROOT/scripts/build/build_android_vps.sh"; fi
-if [[ "$WEB" -eq 1 || "$APP" -eq 1 ]]; then "$DEADFALL_ROOT/scripts/build/build_download_site.sh"; fi
-if [[ "$SERVER" -eq 1 ]]; then systemctl restart nexora-deadfall; fi
-if [[ "$WEB" -eq 1 || "$APP" -eq 1 ]]; then systemctl restart nexora-deadfall-download; fi
+
+if [[ "$WEB" -eq 1 || "$APP" -eq 1 ]]; then
+  "$DEADFALL_ROOT/scripts/build/build_download_site.sh"
+  systemctl restart nexora-deadfall-download
+  PORTAL_OK=0
+  for _attempt in $(seq 1 12); do
+    if curl -fsS --max-time 3 http://127.0.0.1:3100/ >/dev/null; then
+      PORTAL_OK=1
+      break
+    fi
+    sleep 1
+  done
+  [[ "$PORTAL_OK" -eq 1 ]] || die "El portal Next.js no responde en 127.0.0.1:3100. Revisa: journalctl -u nexora-deadfall-download -n 100 --no-pager"
+  if [[ -n "${DEADFALL_DOMAIN:-}" && "${DEADFALL_DOMAIN:-}" != "_" ]]; then
+    curl -fsS --max-time 5 -H "Host: $DEADFALL_DOMAIN" http://127.0.0.1/ >/dev/null || die "Nginx no está sirviendo el portal para $DEADFALL_DOMAIN por HTTP."
+    if [[ -f "/etc/letsencrypt/live/$DEADFALL_DOMAIN/fullchain.pem" ]]; then
+      curl -kfsS --max-time 5 --resolve "$DEADFALL_DOMAIN:443:127.0.0.1" "https://$DEADFALL_DOMAIN/" >/dev/null || die "Nginx HTTPS devuelve error para $DEADFALL_DOMAIN."
+    fi
+  fi
+  log "Portal Next.js validado en localhost y Nginx."
+fi
+
+if [[ "$APP" -eq 1 ]]; then
+  "$DEADFALL_ROOT/scripts/build/build_android_vps.sh"
+fi
+if [[ "$SERVER" -eq 1 ]]; then
+  systemctl restart nexora-deadfall
+fi
 
 json_state \
   "last_deployed_sha=$NEW" \
