@@ -9,6 +9,7 @@ const RULES := {
 	&"fire": {"limit": 32, "window_usec": 1_000_000},
 	&"reload": {"limit": 8, "window_usec": 3_000_000},
 	&"restart": {"limit": 4, "window_usec": 10_000_000},
+	&"ping": {"limit": 6, "window_usec": 5_000_000},
 }
 
 var _windows: Dictionary = {}
