@@ -16,18 +16,22 @@ install -d -o "$DEADFALL_USER" -g "$DEADFALL_GROUP" "$DEADFALL_BUILD_DIR"
 install -m 0600 -o "$DEADFALL_USER" -g "$DEADFALL_GROUP" "$DEADFALL_KEYSTORE" "$BUILD_KEYSTORE"
 chown -R "$DEADFALL_USER:$DEADFALL_GROUP" "$DEADFALL_ROOT"
 
-if [[ ! -d "$DEADFALL_ROOT/android/build" ]]; then
-  sudo -H -u "$DEADFALL_USER" env ANDROID_HOME="$ANDROID_HOME" JAVA_HOME="$JAVA_HOME" \
-    godot --headless --path "$DEADFALL_ROOT" --install-android-build-template --quit
+INSTALL_TEMPLATE_ARGS=()
+if [[ ! -f "$DEADFALL_ROOT/android/build/build.gradle" ]]; then
+  rm -rf "$DEADFALL_ROOT/android/build"
+  INSTALL_TEMPLATE_ARGS+=(--install-android-build-template)
+  log "Android Gradle build template ausente; se instalará dentro de la exportación Release."
 fi
 
-sudo -H -u "$DEADFALL_USER" env \
+run_deadfall_home env \
   ANDROID_HOME="$ANDROID_HOME" \
   JAVA_HOME="$JAVA_HOME" \
   GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$BUILD_KEYSTORE" \
   GODOT_ANDROID_KEYSTORE_RELEASE_USER="$DEADFALL_KEYSTORE_ALIAS" \
   GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="$DEADFALL_KEYSTORE_PASSWORD" \
-  godot --verbose --headless --path "$DEADFALL_ROOT" --export-release "Android Closed Beta APK" "$TMP"
+  godot --verbose --headless --path "$DEADFALL_ROOT" \
+  "${INSTALL_TEMPLATE_ARGS[@]}" \
+  --export-release "Android Closed Beta APK" "$TMP"
 
 test -s "$TMP"
 APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n1)"
