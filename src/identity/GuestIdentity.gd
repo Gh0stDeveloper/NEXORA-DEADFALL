@@ -22,6 +22,10 @@ var _username_regex := RegEx.new()
 
 func _ready() -> void:
 	_username_regex.compile(USERNAME_PATTERN)
+	# A dedicated/headless process owns the server-side verifier store and must
+	# never manufacture a client credential simply because the autoload exists.
+	if DisplayServer.get_name() == "headless" or "--server" in OS.get_cmdline_user_args():
+		return
 	_ensure_identity()
 	identity_ready.emit(snapshot())
 
