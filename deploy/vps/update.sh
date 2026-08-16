@@ -54,7 +54,7 @@ if [[ "$CHANGED" == "ALL" ]]; then
   APP=1; SERVER=1; WEB=1; DEPLOY=1
 else
   grep -Eq '^(project\.godot|export_presets\.cfg|src/|assets/|android/)' <<<"$CHANGED" && { APP=1; SERVER=1; }
-  grep -Eq '^(src/(server|network|core|horde|zombies|campaign|identity|lobby)/|scripts/server/)' <<<"$CHANGED" && SERVER=1
+  grep -Eq '^(src/(server|network|core|horde|zombies|campaign|identity|lobby|social|login)/|scripts/server/)' <<<"$CHANGED" && SERVER=1
   grep -Eq '^web/download-site/' <<<"$CHANGED" && WEB=1
   grep -Eq '^(deploy/(systemd|vps|nginx)/|scripts/build/)' <<<"$CHANGED" && { DEPLOY=1; SERVER=1; WEB=1; }
 fi
@@ -115,6 +115,25 @@ if [[ "$APP" -eq 1 ]]; then
 fi
 if [[ "$SERVER" -eq 1 ]]; then
   systemctl restart nexora-deadfall
+  CONTROL_OK=0
+  for _attempt in $(seq 1 20); do
+    if curl -fsS --max-time 3 http://127.0.0.1:24562/v1/health | jq -e '.ok == true' >/dev/null 2>&1; then
+      CONTROL_OK=1
+      break
+    fi
+    sleep 1
+  done
+  [[ "$CONTROL_OK" -eq 1 ]] || die "La API social DEADFALL no responde en 127.0.0.1:24562. Revisa: journalctl -u nexora-deadfall -n 150 --no-pager"
+  log "API social DEADFALL validada en localhost:24562."
+
+  if [[ -n "${DEADFALL_DOMAIN:-}" && "${DEADFALL_DOMAIN:-}" != "_" ]]; then
+    CERT="/etc/letsencrypt/live/$DEADFALL_DOMAIN/fullchain.pem"
+    if [[ -f "$CERT" ]]; then
+      curl -kfsS --max-time 8 --resolve "$DEADFALL_DOMAIN:443:127.0.0.1" "https://$DEADFALL_DOMAIN/api/deadfall/v1/health" | jq -e '.ok == true' >/dev/null || \
+        die "Nginx HTTPS no está publicando /api/deadfall/v1/health."
+      log "API social DEADFALL validada detrás de HTTPS."
+    fi
+  fi
 fi
 
 json_state \
