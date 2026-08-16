@@ -33,7 +33,7 @@ func _ready() -> void:
 	_show_stage(Stage.TAP_TO_START)
 
 func _gui_input(event: InputEvent) -> void:
-	if _stage != Stage.TAP_TO_START or _busy:
+	if _stage not in [Stage.TAP_TO_START, Stage.ERROR] or _busy:
 		return
 	if event is InputEventScreenTouch and event.pressed:
 		_begin_login_flow()
