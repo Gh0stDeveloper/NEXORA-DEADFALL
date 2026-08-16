@@ -16,6 +16,7 @@ const REQUIRED_FILES := [
 	"res://src/zombies/base/ZombieModelPresenter.gd",
 	"res://scripts/assets/sync_objetos3d.sh",
 	"res://scripts/build/build_android_vps.sh",
+	"res://scripts/ci/phase11_social_matchmaking_smoke.gd",
 	"res://scripts/ci/phase11_orchestration_smoke.gd",
 	"res://src/login/LoginGate.gd",
 	"res://src/login/LoginGate.tscn",
@@ -186,7 +187,7 @@ func _initialize() -> void:
 		_fail("Phase 11 Lobby scene could not instantiate")
 		return
 	root.add_child(lobby)
-	for node_path in ["SafeArea/OperatorStage", "SafeArea/PartyRail", "SafeArea/MatchControls", "SafeArea/CharacterSelection", "SocialOverlay", "PublicPlayerId", "CharacterSync", "MatchBridge"]:
+	for node_path in ["SafeArea/OperatorStage", "SafeArea/PartyRail", "SafeArea/MatchControls", "SafeArea/CharacterSelection", "SocialOverlay", "PublicPlayerId", "CharacterSync", "MatchBridge", "CharacterPreviewBridge"]:
 		if lobby.get_node_or_null(node_path) == null:
 			_fail("Phase 11 Lobby missing UI contract: %s" % node_path)
 			return
@@ -237,22 +238,37 @@ func _initialize() -> void:
 		_fail("Phase 11.3 ticketed matches still risk legacy resume-state mixing")
 		return
 
-	var orchestration_output: Array = []
-	var orchestration_args := PackedStringArray([
-		"--headless",
-		"--path", ProjectSettings.globalize_path("res://"),
-		"--script", ProjectSettings.globalize_path("res://scripts/ci/phase11_orchestration_smoke.gd"),
-	])
-	var orchestration_exit := OS.execute(OS.get_executable_path(), orchestration_args, orchestration_output, true)
-	if orchestration_exit != 0:
-		_fail("Phase 11.3 real match orchestration smoke failed (exit=%d): %s" % [orchestration_exit, str(orchestration_output)])
+	if not _run_child_smoke(
+		"res://scripts/ci/phase11_social_matchmaking_smoke.gd",
+		"Phase 11.3 social matchmaking privacy/lock smoke passed",
+		"social matchmaking privacy/lock"
+	):
 		return
-	if orchestration_output.is_empty() or not String(orchestration_output[0]).contains("Phase 11.3 real child-process orchestration smoke passed"):
-		_fail("Phase 11.3 real match orchestration smoke returned no success marker: %s" % str(orchestration_output))
+	if not _run_child_smoke(
+		"res://scripts/ci/phase11_orchestration_smoke.gd",
+		"Phase 11.3 real child-process orchestration smoke passed",
+		"real match orchestration"
+	):
 		return
 
 	print("NEXORA: DEADFALL Phase 11.3 matchmaking/authority/ping/model smoke passed")
 	quit(0)
+
+func _run_child_smoke(script_path: String, success_marker: String, label: String) -> bool:
+	var output: Array = []
+	var args := PackedStringArray([
+		"--headless",
+		"--path", ProjectSettings.globalize_path("res://"),
+		"--script", ProjectSettings.globalize_path(script_path),
+	])
+	var exit_code := OS.execute(OS.get_executable_path(), args, output, true)
+	if exit_code != 0:
+		_fail("Phase 11.3 %s smoke failed (exit=%d): %s" % [label, exit_code, str(output)])
+		return false
+	if output.is_empty() or not String(output[0]).contains(success_marker):
+		_fail("Phase 11.3 %s smoke returned no success marker: %s" % [label, str(output)])
+		return false
+	return true
 
 func _fail(message: String) -> void:
 	push_error(message)
