@@ -8,8 +8,21 @@ ORIGINAL_ARGS=("$@")
 
 INITIAL=0
 FORCE=0
-[[ "${1:-}" == "--initial" ]] && INITIAL=1
-[[ "${1:-}" == "--force" ]] && FORCE=1
+TESTS_ONLY=0
+NETWORK_ONLY=0
+for arg in "$@"; do
+  case "$arg" in
+    --initial) INITIAL=1;;
+    --force) FORCE=1;;
+    --tests-only) TESTS_ONLY=1;;
+    --network-only) NETWORK_ONLY=1;;
+    *) die "Opción desconocida: $arg. Usa --initial, --force, --tests-only o --network-only.";;
+  esac
+done
+[[ "$TESTS_ONLY" -eq 1 && "$NETWORK_ONLY" -eq 1 ]] && die "Usa --tests-only o --network-only, no ambos a la vez."
+VALIDATION_ONLY=0
+[[ "$TESTS_ONLY" -eq 1 || "$NETWORK_ONLY" -eq 1 ]] && VALIDATION_ONLY=1
+
 [[ -d "$DEADFALL_ROOT/.git" ]] || die "Repositorio no instalado: $DEADFALL_ROOT"
 run_deadfall_home gh auth status --hostname github.com >/dev/null 2>&1 || die "GitHub auth inválida. Ejecuta: nexora-deadfall auth"
 run_deadfall_home git -C "$DEADFALL_ROOT" fetch --prune origin "$DEADFALL_BRANCH"
@@ -23,14 +36,20 @@ fi
 mark_failed_attempt(){
   local status=$?
   if [[ "$status" -ne 0 ]]; then
-    json_state "last_attempted_sha=$NEW" "last_deploy_status=failed"
-    warn "El despliegue de $NEW no terminó. El próximo 'nexora-deadfall update' volverá a ejecutar los gates/builds."
+    if [[ "$VALIDATION_ONLY" -eq 1 ]]; then
+      warn "La validación de $NEW falló. No se cambió el estado del último despliegue exitoso."
+    else
+      json_state "last_attempted_sha=$NEW" "last_deploy_status=failed"
+      warn "El despliegue de $NEW no terminó. El próximo 'nexora-deadfall update' volverá a ejecutar los gates/builds."
+    fi
   fi
   return "$status"
 }
 trap mark_failed_attempt EXIT
 
-if [[ "$INITIAL" -eq 1 || "$FORCE" -eq 1 ]]; then
+if [[ "$VALIDATION_ONLY" -eq 1 ]]; then
+  CHANGED="VALIDATION"
+elif [[ "$INITIAL" -eq 1 || "$FORCE" -eq 1 ]]; then
   CHANGED="ALL"
 elif [[ -z "$DEPLOYED" ]]; then
   warn "No existe un last_deployed_sha exitoso; se repetirá un despliegue completo."
@@ -56,6 +75,36 @@ if [[ "${DEADFALL_UPDATE_REEXEC:-0}" != "1" && "$OLD" != "$NEW" ]]; then
     trap - EXIT
     exec env DEADFALL_UPDATE_REEXEC=1 bash "$DEADFALL_ROOT/deploy/vps/update.sh" "${ORIGINAL_ARGS[@]}"
   fi
+fi
+
+prepare_validation_project(){
+  log "Preparando modelos 3D y caché Godot para validación..."
+  run_deadfall_home git -C "$DEADFALL_ROOT" submodule sync -- vendor/Objetos3D >/dev/null 2>&1 || true
+  run_deadfall_home git -C "$DEADFALL_ROOT" submodule update --init --recursive --depth 1 vendor/Objetos3D || \
+    warn "No se pudo inicializar el submódulo directamente; sync_objetos3d.sh intentará el fallback autenticado."
+  run_deadfall_home bash "$DEADFALL_ROOT/scripts/assets/sync_objetos3d.sh" "$DEADFALL_ROOT"
+  rm -f "$DEADFALL_ROOT/.godot/global_script_class_cache.cfg"
+  run_deadfall_home godot --headless --editor --path "$DEADFALL_ROOT" --quit
+}
+
+if [[ "$NETWORK_ONLY" -eq 1 ]]; then
+  prepare_validation_project
+  log "Ejecutando únicamente el smoke real de red/orquestación/tickets de Phase 11.3..."
+  run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/phase11_orchestration_smoke.gd
+  trap - EXIT
+  log "Validación de red Phase 11.3 completada: $NEW (sin portal, APK ni cambio de estado de despliegue)."
+  exit 0
+fi
+
+if [[ "$TESTS_ONLY" -eq 1 ]]; then
+  prepare_validation_project
+  log "Ejecutando gates Godot/Closed Beta/Phase 11.3 sin compilar ni desplegar artefactos..."
+  run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/smoke.gd
+  run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/beta_hardening_smoke.gd
+  run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/phase11_smoke.gd
+  trap - EXIT
+  log "Gates de validación completados: $NEW (sin portal, APK ni cambio de estado de despliegue)."
+  exit 0
 fi
 
 APP=0; SERVER=0; WEB=0; DEPLOY=0
