@@ -50,7 +50,11 @@ func _process(_delta: float) -> void:
 		return
 	if _input_source.consume_action_just_pressed(&"reload") and _state.try_start_reload(now_usec):
 		reload_started.emit()
-	var wants_fire := _input_source.is_action_pressed(&"fire") if bool(weapon_data.get("automatic")) else _input_source.consume_action_just_pressed(&"fire")
+	var wants_fire: bool = false
+	if bool(weapon_data.get("automatic")):
+		wants_fire = bool(_input_source.is_action_pressed(&"fire"))
+	else:
+		wants_fire = bool(_input_source.consume_action_just_pressed(&"fire"))
 	if wants_fire:
 		_try_fire(now_usec)
 
