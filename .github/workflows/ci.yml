@@ -47,6 +47,8 @@ jobs:
         run: godot --headless --path . --script scripts/ci/campaign_smoke.gd
       - name: Run Closed Beta hardening tests
         run: godot --headless --path . --script scripts/ci/beta_hardening_smoke.gd
+      - name: Run Phase 11 mobile/lobby tests
+        run: godot --headless --path . --script scripts/ci/phase11_smoke.gd
       - name: Run Phase 10 VPS installer contract tests
         run: bash scripts/ci/vps_installer_smoke.sh
       - name: Run two-peer regression integration
