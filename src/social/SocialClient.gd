@@ -16,6 +16,7 @@ var session_token := ""
 var session_expires_unix := 0
 var current_party: Dictionary = {}
 var friends: Dictionary = {}
+var _pending_operations: Dictionary = {}
 
 func _ready() -> void:
 	api_base = String(ProjectSettings.get_setting("deadfall/social_api_base", DEFAULT_API_BASE)).trim_suffix("/")
@@ -76,7 +77,9 @@ func send_friend_message(guest_id: String, text: String) -> bool:
 func load_friend_messages(guest_id: String) -> bool:
 	return _request_json("friend_chat_load", HTTPClient.METHOD_GET, "/chat/friend/%s" % guest_id, {}, true, {"guest_id": guest_id})
 
-func _request_json(operation: String, method: HTTPClient.Method, path: String, payload: Dictionary, authenticated: bool, context: Dictionary = {}) -> bool:
+func _request_json(operation: String, method: int, path: String, payload: Dictionary, authenticated: bool, context: Dictionary = {}) -> bool:
+	if bool(_pending_operations.get(operation, false)):
+		return false
 	if authenticated and not has_session():
 		request_failed.emit(operation, "not_authenticated")
 		return false
@@ -89,14 +92,17 @@ func _request_json(operation: String, method: HTTPClient.Method, path: String, p
 	if authenticated:
 		headers.append("Authorization: Bearer %s" % session_token)
 	var body := "" if method == HTTPClient.METHOD_GET else JSON.stringify(payload)
+	_pending_operations[operation] = true
 	var error := request.request("%s%s" % [api_base, path], headers, method, body)
 	if error != OK:
+		_pending_operations.erase(operation)
 		request.queue_free()
 		request_failed.emit(operation, "request_start_failed:%s" % error_string(error))
 		return false
 	return true
 
 func _on_request_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray, request: HTTPRequest, operation: String, context: Dictionary) -> void:
+	_pending_operations.erase(operation)
 	if is_instance_valid(request):
 		request.queue_free()
 	if result != HTTPRequest.RESULT_SUCCESS:
