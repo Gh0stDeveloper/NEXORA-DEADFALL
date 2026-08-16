@@ -8,6 +8,8 @@ on:
       - "project.godot"
       - "export_presets.cfg"
       - "src/**"
+      - "scripts/assets/**"
+      - "scripts/ci/sync_required_models.sh"
       - "scripts/ci/android_runtime_smoke.sh"
       - ".github/workflows/android-runtime.yml"
 
@@ -24,6 +26,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+
+      - name: Sync and validate required 3D models
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.DEADFALL_MODELS_TOKEN }}
+        run: bash scripts/ci/sync_required_models.sh "$GITHUB_WORKSPACE"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
