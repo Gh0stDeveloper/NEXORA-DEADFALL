@@ -8,13 +8,18 @@ const ExternalModels = preload("res://src/assets/ExternalModelCatalog.gd")
 var _fallback_body: GeometryInstance3D
 var _loaded_model: Node3D
 var _character_id: StringName = &"operator_01"
+var _configured_once := false
 
 func _ready() -> void:
 	_fallback_body = get_node_or_null(fallback_body_path) as GeometryInstance3D
 	call_deferred("configure_character", _character_id)
 
 func configure_character(character_id: StringName) -> bool:
-	_character_id = character_id if not character_id.is_empty() else &"operator_01"
+	var requested := character_id if not character_id.is_empty() else &"operator_01"
+	if _configured_once and requested == _character_id:
+		return has_external_model()
+	_character_id = requested
+	_configured_once = true
 	_clear_loaded_model()
 	var config := ExternalModels.character(_character_id)
 	if not ExternalModels.model_exists(config):
