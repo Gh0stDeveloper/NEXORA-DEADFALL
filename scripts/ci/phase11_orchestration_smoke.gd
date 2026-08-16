@@ -1,6 +1,7 @@
 extends SceneTree
 
 const OrchestratorScript = preload("res://src/server/MatchOrchestrator.gd")
+const MatchAdmissionScript = preload("res://src/server/MatchAdmission.gd")
 const LEADER_TOKEN := "phase11-leader-token"
 const MEMBER_TOKEN := "phase11-member-token"
 const LEADER_GUEST := "gst_phase11_smoke_leader"
@@ -9,18 +10,21 @@ const PARTY_CODE := "DFT242"
 const TEST_PORT_START := 30000
 const TEST_PORT_END := 30007
 const READY_TIMEOUT_SECONDS := 20.0
+const INVALID_TICKET := "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 
 class FakeAccountStore:
 	extends Node
+	const LEADER_GUEST_ID := "gst_phase11_smoke_leader"
+	const MEMBER_GUEST_ID := "gst_phase11_smoke_member"
 	var profiles := {
-		LEADER_GUEST: {
-			"guest_id": LEADER_GUEST,
+		LEADER_GUEST_ID: {
+			"guest_id": LEADER_GUEST_ID,
 			"public_id": "1111111111",
 			"username": "SmokeLead",
 			"selected_character": "operator_01",
 		},
-		MEMBER_GUEST: {
-			"guest_id": MEMBER_GUEST,
+		MEMBER_GUEST_ID: {
+			"guest_id": MEMBER_GUEST_ID,
 			"public_id": "2222222222",
 			"username": "SmokeMate",
 			"selected_character": "operator_02",
@@ -32,44 +36,49 @@ class FakeAccountStore:
 
 class FakeSocialService:
 	extends Node
+	const LEADER_SESSION := "phase11-leader-token"
+	const MEMBER_SESSION := "phase11-member-token"
+	const LEADER_GUEST_ID := "gst_phase11_smoke_leader"
+	const MEMBER_GUEST_ID := "gst_phase11_smoke_member"
+	const TEAM_CODE := "DFT242"
 	var assignment: Dictionary = {}
 	var state := "OPEN"
 
 	func guest_for_token(token: String) -> String:
-		if token == LEADER_TOKEN:
-			return LEADER_GUEST
-		if token == MEMBER_TOKEN:
-			return MEMBER_GUEST
+		if token == LEADER_SESSION:
+			return LEADER_GUEST_ID
+		if token == MEMBER_SESSION:
+			return MEMBER_GUEST_ID
 		return ""
 
 	func server_party_record_for_guest(guest_id: String) -> Dictionary:
-		if guest_id not in [LEADER_GUEST, MEMBER_GUEST]:
+		if guest_id not in [LEADER_GUEST_ID, MEMBER_GUEST_ID]:
 			return {}
 		return {
-			"code": PARTY_CODE,
-			"leader_guest_id": LEADER_GUEST,
+			"code": TEAM_CODE,
+			"leader_guest_id": LEADER_GUEST_ID,
 			"capacity": 2,
 			"state": state,
-			"members": [LEADER_GUEST, MEMBER_GUEST],
+			"members": [LEADER_GUEST_ID, MEMBER_GUEST_ID],
 			"match": assignment.duplicate(true),
 		}
 
 	func set_party_match_assignment(code: String, value: Dictionary) -> bool:
-		if code != PARTY_CODE:
+		if code != TEAM_CODE:
 			return false
 		assignment = value.duplicate(true)
 		state = "STARTING"
 		return true
 
 	func update_party_match_status(code: String, match_id: String, new_status: String) -> bool:
-		if code != PARTY_CODE or String(assignment.get("match_id", "")) != match_id:
+		if code != TEAM_CODE or String(assignment.get("match_id", "")) != match_id:
 			return false
 		assignment["status"] = new_status.to_upper()
 		state = "IN_MATCH" if new_status.to_upper() == "IN_MATCH" else "STARTING"
 		return true
 
 	func clear_party_match_assignment(code: String, match_id: String) -> bool:
-		if code != PARTY_CODE:
+		if code != TEAM_CODE:
 			return false
 		if not assignment.is_empty() and String(assignment.get("match_id", "")) != match_id:
 			return false
@@ -88,11 +97,11 @@ class FakeSocialService:
 			match_snapshot.erase("tickets")
 			match_snapshot["join_ticket"] = String(tickets.get(guest_id, ""))
 		return {
-			"code": PARTY_CODE,
-			"leader_guest_id": LEADER_GUEST,
+			"code": TEAM_CODE,
+			"leader_guest_id": LEADER_GUEST_ID,
 			"capacity": 2,
 			"state": state,
-			"members": [LEADER_GUEST, MEMBER_GUEST],
+			"members": [LEADER_GUEST_ID, MEMBER_GUEST_ID],
 			"match": match_snapshot,
 		}
 
@@ -159,6 +168,27 @@ func _run() -> void:
 		return
 	if leader_ticket == member_ticket:
 		_fail("Party members received the same admission ticket")
+		return
+
+	var match_id := String(leader_match.get("match_id", ""))
+	var config_path := ProjectSettings.globalize_path("user://server/matches/%s.json" % match_id)
+	var admission = MatchAdmissionScript.new()
+	if not bool(admission.load_from_file(config_path)):
+		_fail("Generated match admission config could not be reloaded")
+		return
+	var leader_admission: Dictionary = admission.validate_ticket(leader_ticket)
+	var member_admission: Dictionary = admission.validate_ticket(member_ticket)
+	if String(leader_admission.get("guest_id", "")) != LEADER_GUEST:
+		_fail("Leader ticket does not resolve to the leader identity")
+		return
+	if String(member_admission.get("guest_id", "")) != MEMBER_GUEST:
+		_fail("Member ticket does not resolve to the member identity")
+		return
+	if not admission.validate_ticket("").is_empty():
+		_fail("Empty ticket unexpectedly passed admission")
+		return
+	if not admission.validate_ticket(INVALID_TICKET).is_empty():
+		_fail("Unknown ticket unexpectedly passed admission")
 		return
 
 	var assigned_port := int(leader_match.get("port", 0))
