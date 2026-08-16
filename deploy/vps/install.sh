@@ -38,6 +38,11 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y \
   openjdk-17-jdk-headless build-essential openssl libfontconfig1 libgl1 libx11-6 libxcursor1 \
   libxinerama1 libxrandr2 libxi6 ufw gh
 
+# Install the recovery/admin entry point early. Commands that need /opt will only
+# work after the managed clone exists, but `nexora-deadfall auth` remains usable
+# even if a first bootstrap is interrupted during GitHub authentication.
+install -m 0755 "$ROOT/deploy/vps/nexora-deadfall" /usr/local/bin/nexora-deadfall
+
 ARCH_RAW="$(uname -m)"
 case "$ARCH_RAW" in
   x86_64) GODOT_ARCH="x86_64"; NODE_ARCH="x64";;
@@ -86,9 +91,11 @@ fi
 JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")"
 export ANDROID_HOME JAVA_HOME
 yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" --licenses >/dev/null || true
+# cmdline-tools itself is installed above. Do not ask sdkmanager to install
+# cmdline-tools;latest again, otherwise current tools create a redundant latest-2.
 "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" \
   "platform-tools" "build-tools;35.0.1" "platforms;android-35" "platforms;android-36" \
-  "cmdline-tools;latest" "cmake;3.10.2.4988404" "ndk;28.1.13356709"
+  "cmake;3.10.2.4988404" "ndk;28.1.13356709"
 chown -R "$DEADFALL_USER:$DEADFALL_GROUP" "$ANDROID_HOME"
 
 install -d "$DEADFALL_HOME/.config/godot"
@@ -107,7 +114,9 @@ fi
 if ! run_deadfall gh auth status --hostname github.com >/dev/null 2>&1; then
   [[ -t 0 ]] || die "GitHub no está autenticado. Ejecuta: sudo -Hu $DEADFALL_USER gh auth login --hostname github.com --git-protocol https"
   log "Autenticando GitHub para el repositorio privado..."
-  sudo -Hu "$DEADFALL_USER" gh auth login --hostname github.com --git-protocol https --skip-ssh-key
+  # Ubuntu 24.04 can ship a gh build without --skip-ssh-key. HTTPS already
+  # prevents SSH-key setup, so the portable invocation needs no extra flag.
+  sudo -Hu "$DEADFALL_USER" gh auth login --hostname github.com --git-protocol https
 fi
 run_deadfall gh auth setup-git --hostname github.com
 
@@ -165,8 +174,9 @@ EOF
 chmod 0640 "$DEADFALL_ENV"
 chown root:"$DEADFALL_GROUP" "$DEADFALL_ENV"
 
-cp "$DEADFALL_ROOT/deploy/vps/nexora-deadfall" /usr/local/bin/nexora-deadfall
-chmod 0755 /usr/local/bin/nexora-deadfall
+# Reinstall the command from the managed clone so future self-updates use the
+# exact deployed revision rather than the bootstrap checkout.
+install -m 0755 "$DEADFALL_ROOT/deploy/vps/nexora-deadfall" /usr/local/bin/nexora-deadfall
 cp "$DEADFALL_ROOT/deploy/systemd/nexora-deadfall.service" /etc/systemd/system/nexora-deadfall.service
 cp "$DEADFALL_ROOT/deploy/systemd/nexora-deadfall-download.service" /etc/systemd/system/nexora-deadfall-download.service
 sed -e "s/__DEADFALL_DOMAIN__/${DOMAIN:-_}/g" "$DEADFALL_ROOT/deploy/nginx/nexora-deadfall.conf.template" > /etc/nginx/sites-available/nexora-deadfall
@@ -187,5 +197,8 @@ json_state "installed=true" "repo=$REPO" "branch=$BRANCH" "domain=$DOMAIN" "keys
 if [[ "$SKIP_HTTPS" -eq 0 && -n "$DOMAIN" && -n "$EMAIL" ]]; then
   certbot --nginx --non-interactive --agree-tos --redirect -m "$EMAIL" -d "$DOMAIN" || \
     warn "HTTPS no pudo activarse todavía; revisa DNS y ejecuta: nexora-deadfall https"
+fi
+if [[ -f /var/run/reboot-required ]]; then
+  warn "Ubuntu informa que hay un reinicio pendiente (por ejemplo, kernel nuevo). La instalación no reinicia la VPS automáticamente; hazlo cuando confirmemos los servicios y el APK."
 fi
 log "Instalación terminada. Estado: nexora-deadfall status"
