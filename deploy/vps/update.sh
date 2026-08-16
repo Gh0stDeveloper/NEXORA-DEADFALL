@@ -4,6 +4,7 @@ ROOT_FALLBACK="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$ROOT_FALLBACK/deploy/vps/lib/common.sh"
 require_root
 load_env
+ORIGINAL_ARGS=("$@")
 
 INITIAL=0
 FORCE=0
@@ -49,6 +50,14 @@ else
 fi
 
 run_deadfall_home git -C "$DEADFALL_ROOT" reset --hard "$NEW"
+if [[ "${DEADFALL_UPDATE_REEXEC:-0}" != "1" && "$OLD" != "$NEW" ]]; then
+  if ! run_deadfall_home git -C "$DEADFALL_ROOT" diff --quiet "$OLD" "$NEW" -- deploy/vps/update.sh; then
+    log "El updater cambió en $NEW; reejecutando la versión nueva antes de continuar..."
+    trap - EXIT
+    exec env DEADFALL_UPDATE_REEXEC=1 bash "$DEADFALL_ROOT/deploy/vps/update.sh" "${ORIGINAL_ARGS[@]}"
+  fi
+fi
+
 APP=0; SERVER=0; WEB=0; DEPLOY=0
 if [[ "$CHANGED" == "ALL" ]]; then
   APP=1; SERVER=1; WEB=1; DEPLOY=1
