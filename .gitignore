@@ -12,6 +12,11 @@ dist/
 *.pck
 *.zip
 
+# Node / Next.js
+node_modules/
+.next/
+package-lock.json
+
 # Android signing
 *.keystore
 *.jks
