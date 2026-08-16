@@ -59,6 +59,7 @@ func _build_background() -> void:
 	horizon.anchor_top = 0.58
 	horizon.anchor_right = 1.0
 	horizon.anchor_bottom = 1.0
+	horizon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	background.add_child(horizon)
 
 	var center_glow := ColorRect.new()
@@ -67,11 +68,13 @@ func _build_background() -> void:
 	center_glow.anchor_top = 0.0
 	center_glow.anchor_right = 0.70
 	center_glow.anchor_bottom = 1.0
+	center_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	background.add_child(center_glow)
 
 func _build_ui() -> void:
 	_safe_root = SafeAreaScript.new()
 	_safe_root.name = "SafeArea"
+	_safe_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_safe_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_safe_root)
 
@@ -84,6 +87,7 @@ func _build_ui() -> void:
 	brand.offset_right = 430.0
 	brand.offset_bottom = 180.0
 	brand.alignment = BoxContainer.ALIGNMENT_CENTER
+	brand.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_safe_root.add_child(brand)
 
 	var title := Label.new()
@@ -91,6 +95,7 @@ func _build_ui() -> void:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 54)
 	title.add_theme_color_override("font_color", Color(0.93, 0.94, 0.96))
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	brand.add_child(title)
 
 	var subtitle := Label.new()
@@ -98,6 +103,7 @@ func _build_ui() -> void:
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle.add_theme_font_size_override("font_size", 17)
 	subtitle.add_theme_color_override("font_color", Color(0.68, 0.09, 0.11))
+	subtitle.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	brand.add_child(subtitle)
 
 	_tap_layer = Control.new()
@@ -119,6 +125,7 @@ func _build_ui() -> void:
 	tap.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	tap.add_theme_font_size_override("font_size", 24)
 	tap.add_theme_color_override("font_color", Color(0.88, 0.89, 0.92))
+	tap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_tap_layer.add_child(tap)
 
 	_status = Label.new()
@@ -133,6 +140,7 @@ func _build_ui() -> void:
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_status.add_theme_font_size_override("font_size", 15)
 	_status.add_theme_color_override("font_color", Color(0.62, 0.64, 0.68))
+	_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_safe_root.add_child(_status)
 
 	_build_account_choice()
