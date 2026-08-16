@@ -1,5 +1,7 @@
 extends SceneTree
 
+const SettingsScript = preload("res://src/autoload/Settings.gd")
+
 const REQUIRED_FILES := [
 	"res://.gitmodules",
 	"res://src/identity/GuestIdentity.gd",
@@ -45,13 +47,19 @@ func _initialize() -> void:
 		if root.get_node_or_null(autoload_name) == null:
 			_fail("Phase 11 autoload missing: %s" % autoload_name)
 			return
-	if Settings.CAMERA_SENSITIVITY_MIN > 0.10 or Settings.CAMERA_SENSITIVITY_MAX < 1.00:
+
+	var settings: Node = root.get_node_or_null("Settings")
+	if settings == null:
+		_fail("Phase 11 Settings autoload missing")
+		return
+	if SettingsScript.CAMERA_SENSITIVITY_MIN > 0.10 or SettingsScript.CAMERA_SENSITIVITY_MAX < 1.00:
 		_fail("Phase 11 camera sensitivity range is incomplete")
 		return
-	if Settings.camera_sensitivity < Settings.CAMERA_SENSITIVITY_MIN or Settings.camera_sensitivity > Settings.CAMERA_SENSITIVITY_MAX:
+	var camera_sensitivity := float(settings.get("camera_sensitivity"))
+	if camera_sensitivity < SettingsScript.CAMERA_SENSITIVITY_MIN or camera_sensitivity > SettingsScript.CAMERA_SENSITIVITY_MAX:
 		_fail("Phase 11 camera sensitivity value is invalid")
 		return
-	if Settings.get_look_radians_per_pixel() <= 0.0:
+	if float(settings.call("get_look_radians_per_pixel")) <= 0.0:
 		_fail("Phase 11 camera sensitivity conversion is invalid")
 		return
 
@@ -121,11 +129,15 @@ func _initialize() -> void:
 			return
 	control_api.free()
 
+	var social_client: Node = root.get_node_or_null("SocialClient")
+	if social_client == null:
+		_fail("Phase 11 SocialClient autoload missing")
+		return
 	for client_method in ["report_presence", "start_party_match", "cancel_party_match", "refresh_match_status"]:
-		if not SocialClient.has_method(client_method):
+		if not social_client.has_method(client_method):
 			_fail("SocialClient missing Phase 11.3 method: %s" % client_method)
 			return
-	if not SocialClient.has_signal("match_ready"):
+	if not social_client.has_signal("match_ready"):
 		_fail("SocialClient match_ready signal missing")
 		return
 
