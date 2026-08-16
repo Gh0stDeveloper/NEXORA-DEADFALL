@@ -44,7 +44,7 @@ func _process(_delta: float) -> void:
 			continue
 		if peer.get_available_bytes() <= 0:
 			continue
-		var request := peer.get_utf8_string(peer.get_available_bytes())
+		var request: String = peer.get_utf8_string(peer.get_available_bytes())
 		_respond(peer, request)
 		_clients.erase(peer)
 
