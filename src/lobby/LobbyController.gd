@@ -16,6 +16,7 @@ var selected_mode: PartyMode = PartyMode.SOLO
 var _safe_root: Control
 var _username_label: Label
 var _username_editor: LineEdit
+var _username_setup_panel: PanelContainer
 var _status_label: Label
 var _mode_buttons: Dictionary = {}
 var _party_labels: Array[Label] = []
@@ -59,7 +60,6 @@ func _build_safe_layout() -> void:
 	_safe_root.name = "SafeArea"
 	_safe_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_safe_root)
-
 	_build_top_bar()
 	_build_left_navigation()
 	_build_character_stage()
@@ -80,7 +80,6 @@ func _build_top_bar() -> void:
 	identity.offset_bottom = 126.0
 	identity.add_theme_stylebox_override("panel", _panel_style(Color(0.020, 0.025, 0.032, 0.94), Color(0.28, 0.31, 0.36, 0.65), 14))
 	_safe_root.add_child(identity)
-
 	var margin := MarginContainer.new()
 	_set_margins(margin, 18, 18, 12, 12)
 	identity.add_child(margin)
@@ -100,7 +99,6 @@ func _build_top_bar() -> void:
 	id_label.add_theme_font_size_override("font_size", 12)
 	id_label.add_theme_color_override("font_color", Color(0.58, 0.61, 0.66))
 	vbox.add_child(id_label)
-
 	var beta := Label.new()
 	beta.text = "CLOSED BETA"
 	beta.anchor_left = 0.5
@@ -113,7 +111,6 @@ func _build_top_bar() -> void:
 	beta.add_theme_font_size_override("font_size", 16)
 	beta.add_theme_color_override("font_color", Color(0.70, 0.72, 0.76))
 	_safe_root.add_child(beta)
-
 	_status_label = Label.new()
 	_status_label.anchor_left = 0.5
 	_status_label.anchor_right = 0.5
@@ -137,7 +134,6 @@ func _build_left_navigation() -> void:
 	panel.offset_right = -14.0
 	panel.add_theme_stylebox_override("panel", _panel_style(Color(0.015, 0.019, 0.025, 0.88), Color(0.22, 0.24, 0.28, 0.50), 16))
 	_safe_root.add_child(panel)
-
 	var margin := MarginContainer.new()
 	_set_margins(margin, 14, 14, 18, 18)
 	panel.add_child(margin)
@@ -159,7 +155,6 @@ func _build_character_stage() -> void:
 	stage.anchor_bottom = 0.84
 	stage.add_theme_stylebox_override("panel", _panel_style(Color(0.018, 0.021, 0.027, 0.62), Color(0.30, 0.31, 0.34, 0.28), 24))
 	_safe_root.add_child(stage)
-
 	var viewport_container := SubViewportContainer.new()
 	viewport_container.name = "CharacterViewportContainer"
 	viewport_container.stretch = true
@@ -170,14 +165,13 @@ func _build_character_stage() -> void:
 	viewport.size = Vector2i(720, 840)
 	viewport.transparent_bg = true
 	viewport_container.add_child(viewport)
-
 	var root_3d := Node3D.new()
 	viewport.add_child(root_3d)
 	var camera := Camera3D.new()
 	camera.position = Vector3(0.0, 1.35, 4.8)
 	camera.fov = 42.0
-	camera.look_at_from_position(camera.position, Vector3(0.0, 1.0, 0.0))
 	root_3d.add_child(camera)
+	camera.look_at(Vector3(0.0, 1.0, 0.0))
 	var key_light := DirectionalLight3D.new()
 	key_light.rotation_degrees = Vector3(-40, -28, 0)
 	key_light.light_energy = 1.2
@@ -190,7 +184,6 @@ func _build_character_stage() -> void:
 	rim_light.light_energy = 3.0
 	rim_light.omni_range = 5.0
 	root_3d.add_child(rim_light)
-
 	_character_mesh = MeshInstance3D.new()
 	_character_mesh.name = "OperatorPlaceholder"
 	var body_mesh := CapsuleMesh.new()
@@ -199,7 +192,6 @@ func _build_character_stage() -> void:
 	_character_mesh.mesh = body_mesh
 	_character_mesh.position = Vector3(0, 1.02, 0)
 	root_3d.add_child(_character_mesh)
-
 	var stage_floor := MeshInstance3D.new()
 	var floor_mesh := CylinderMesh.new()
 	floor_mesh.top_radius = 1.35
@@ -213,7 +205,6 @@ func _build_character_stage() -> void:
 	floor_material.roughness = 0.55
 	floor_mesh.material = floor_material
 	root_3d.add_child(stage_floor)
-
 	var info := VBoxContainer.new()
 	info.anchor_left = 0.04
 	info.anchor_top = 0.70
@@ -240,7 +231,6 @@ func _build_party_rail() -> void:
 	rail.offset_right = -28.0
 	rail.add_theme_stylebox_override("panel", _panel_style(Color(0.015, 0.019, 0.025, 0.90), Color(0.25, 0.27, 0.31, 0.52), 18))
 	_safe_root.add_child(rail)
-
 	var margin := MarginContainer.new()
 	_set_margins(margin, 16, 16, 18, 18)
 	rail.add_child(margin)
@@ -251,7 +241,6 @@ func _build_party_rail() -> void:
 	title.text = "ESCUADRA"
 	title.add_theme_font_size_override("font_size", 20)
 	vbox.add_child(title)
-
 	for index in range(4):
 		var slot := PanelContainer.new()
 		slot.custom_minimum_size = Vector2(0, 76)
@@ -282,7 +271,6 @@ func _build_bottom_bar() -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
 	margin.add_child(row)
-
 	var mode_column := VBoxContainer.new()
 	mode_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(mode_column)
@@ -297,14 +285,12 @@ func _build_bottom_bar() -> void:
 	_add_mode_button(mode_row, "SOLO", PartyMode.SOLO)
 	_add_mode_button(mode_row, "DÚO", PartyMode.DUO)
 	_add_mode_button(mode_row, "ESCUADRA", PartyMode.SQUAD)
-
 	var character_button := Button.new()
 	character_button.text = "PERSONAJE"
 	character_button.custom_minimum_size = Vector2(180, 70)
 	_apply_button_style(character_button, false)
 	row.add_child(character_button)
 	character_button.pressed.connect(_open_character_panel)
-
 	_start_button = Button.new()
 	_start_button.text = "INICIAR"
 	_start_button.custom_minimum_size = Vector2(260, 74)
@@ -323,7 +309,6 @@ func _build_character_panel() -> void:
 	_character_panel.visible = false
 	_character_panel.add_theme_stylebox_override("panel", _panel_style(Color(0.012, 0.016, 0.022, 0.985), Color(0.60, 0.07, 0.09, 0.72), 22))
 	_safe_root.add_child(_character_panel)
-
 	var margin := MarginContainer.new()
 	_set_margins(margin, 28, 28, 24, 24)
 	_character_panel.add_child(margin)
@@ -343,7 +328,6 @@ func _build_character_panel() -> void:
 	_apply_button_style(close, false)
 	header.add_child(close)
 	close.pressed.connect(_close_character_panel)
-
 	var cards := HBoxContainer.new()
 	cards.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	cards.add_theme_constant_override("separation", 18)
@@ -444,28 +428,29 @@ func _refresh_identity() -> void:
 	_username_label.text = _display_username()
 	if GuestIdentity.username.is_empty():
 		_build_username_editor()
-	elif _username_editor != null and is_instance_valid(_username_editor):
-		_username_editor.get_parent().queue_free()
+	elif _username_setup_panel != null and is_instance_valid(_username_setup_panel):
+		_username_setup_panel.queue_free()
+		_username_setup_panel = null
 		_username_editor = null
 
 func _build_username_editor() -> void:
-	if _username_editor != null and is_instance_valid(_username_editor):
+	if _username_setup_panel != null and is_instance_valid(_username_setup_panel):
 		return
-	var panel := PanelContainer.new()
-	panel.name = "UsernameSetup"
-	panel.anchor_left = 0.5
-	panel.anchor_top = 0.5
-	panel.anchor_right = 0.5
-	panel.anchor_bottom = 0.5
-	panel.offset_left = -300.0
-	panel.offset_top = -120.0
-	panel.offset_right = 300.0
-	panel.offset_bottom = 120.0
-	panel.add_theme_stylebox_override("panel", _panel_style(Color(0.015, 0.020, 0.027, 0.98), Color(0.66, 0.07, 0.09, 0.78), 20))
-	_safe_root.add_child(panel)
+	_username_setup_panel = PanelContainer.new()
+	_username_setup_panel.name = "UsernameSetup"
+	_username_setup_panel.anchor_left = 0.5
+	_username_setup_panel.anchor_top = 0.5
+	_username_setup_panel.anchor_right = 0.5
+	_username_setup_panel.anchor_bottom = 0.5
+	_username_setup_panel.offset_left = -300.0
+	_username_setup_panel.offset_top = -120.0
+	_username_setup_panel.offset_right = 300.0
+	_username_setup_panel.offset_bottom = 120.0
+	_username_setup_panel.add_theme_stylebox_override("panel", _panel_style(Color(0.015, 0.020, 0.027, 0.98), Color(0.66, 0.07, 0.09, 0.78), 20))
+	_safe_root.add_child(_username_setup_panel)
 	var margin := MarginContainer.new()
 	_set_margins(margin, 24, 24, 20, 20)
-	panel.add_child(margin)
+	_username_setup_panel.add_child(margin)
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 12)
 	margin.add_child(vbox)
