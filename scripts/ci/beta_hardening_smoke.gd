@@ -5,8 +5,8 @@ const AbuseGuardScript = preload("res://src/network/NetworkAbuseGuard.gd")
 const PlayerCommandScript = preload("res://src/network/PlayerCommand.gd")
 const SaveStoreScript = preload("res://src/campaign/CampaignSaveStore.gd")
 const RoomCodeScript = preload("res://src/network/RoomCodeService.gd")
-const SquadArenaScene = preload("res://src/maps/duo/DuoArena.tscn")
-const CampaignArenaScene = preload("res://src/maps/campaign/OutbreakDistrict.tscn")
+const SQUAD_ARENA_PATH := "res://src/maps/duo/DuoArena.tscn"
+const CAMPAIGN_ARENA_PATH := "res://src/maps/campaign/OutbreakDistrict.tscn"
 
 func _initialize() -> void:
 	if not _test_build_compatibility(): return
@@ -97,11 +97,17 @@ func _test_directory_build_contract() -> bool:
 	return true
 
 func _test_scene_session_contract() -> bool:
-	for scene in [SquadArenaScene, CampaignArenaScene]:
-		var instance := scene.instantiate()
+	for scene_path in [SQUAD_ARENA_PATH, CAMPAIGN_ARENA_PATH]:
+		var scene: PackedScene = load(scene_path) as PackedScene
+		if scene == null:
+			return _fail("Network arena could not be loaded: %s" % scene_path)
+		var instance: Node = scene.instantiate()
+		if instance == null:
+			return _fail("Network arena could not be instantiated: %s" % scene_path)
 		root.add_child(instance)
-		var session := instance.get_node_or_null("NetworkSession")
+		var session: Node = instance.get_node_or_null("NetworkSession")
 		if session == null or session.get_script() == null or String(session.get_script().resource_path) != "res://src/network/ClosedBetaNetworkSession.gd":
+			instance.free()
 			return _fail("Network arena is not using the Closed Beta hardened session")
 		instance.free()
 	return true
