@@ -15,6 +15,7 @@ const REQUIRED_FILES := [
 	"res://src/player/PlayerModelPresenter.gd",
 	"res://src/zombies/base/ZombieModelPresenter.gd",
 	"res://scripts/assets/sync_objetos3d.sh",
+	"res://scripts/build/build_android_vps.sh",
 	"res://src/login/LoginGate.gd",
 	"res://src/login/LoginGate.tscn",
 	"res://src/lobby/CharacterCatalog.gd",
@@ -27,6 +28,7 @@ const REQUIRED_FILES := [
 	"res://src/player/FlashlightController.gd",
 	"res://src/mobile/TouchActionButton.gd",
 	"res://deploy/nginx/nexora-deadfall.conf.template",
+	"res://deploy/systemd/nexora-deadfall.service",
 ]
 
 func _initialize() -> void:
@@ -208,6 +210,30 @@ func _initialize() -> void:
 	var updater_text := updater_file.get_as_text() if updater_file != null else ""
 	if not updater_text.contains("24600:24749/udp") or not updater_text.contains("sync_objetos3d.sh"):
 		_fail("Phase 11.3 VPS dynamic match/model deployment contract missing")
+		return
+
+	var service_file := FileAccess.open("res://deploy/systemd/nexora-deadfall.service", FileAccess.READ)
+	var service_text := service_file.get_as_text() if service_file != null else ""
+	if not service_text.contains("UMask=0077"):
+		_fail("Phase 11.3 match ticket/state files are not protected by the service umask")
+		return
+
+	var model_sync_file := FileAccess.open("res://scripts/assets/sync_objetos3d.sh", FileAccess.READ)
+	var model_sync_text := model_sync_file.get_as_text() if model_sync_file != null else ""
+	if not model_sync_text.contains("validate_glb") or not model_sync_text.contains("Invalid GLB magic") or not model_sync_text.contains("destination_path"):
+		_fail("Phase 11.3 external GLB staging is not deterministic/validated")
+		return
+
+	var android_build_file := FileAccess.open("res://scripts/build/build_android_vps.sh", FileAccess.READ)
+	var android_build_text := android_build_file.get_as_text() if android_build_file != null else ""
+	if not android_build_text.contains("--install-android-build-template") or not android_build_text.contains("--export-release") or android_build_text.contains("INSTALL_TEMPLATE_ARGS"):
+		_fail("Phase 11.3 Android template/export ordering contract missing")
+		return
+
+	var network_file := FileAccess.open("res://src/network/ClosedBetaNetworkSession.gd", FileAccess.READ)
+	var network_text := network_file.get_as_text() if network_file != null else ""
+	if not network_text.contains("MATCH_RESUME_PLACEHOLDER") or not network_text.contains("resume_for_join"):
+		_fail("Phase 11.3 ticketed matches still risk legacy resume-state mixing")
 		return
 
 	print("NEXORA: DEADFALL Phase 11.3 matchmaking/authority/ping/model smoke passed")
