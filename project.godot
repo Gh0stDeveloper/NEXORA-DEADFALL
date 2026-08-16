@@ -7,6 +7,7 @@ config/name="NEXORA: DEADFALL"
 config/description="Android zombie survival shooter by Ghost Developer / Nexora"
 run/main_scene="res://src/main/Main.tscn"
 config/features=PackedStringArray("4.6", "Mobile")
+config/icon="res://assets/branding/deadfall_icon.svg"
 
 [autoload]
 Game="*res://src/autoload/Game.gd"
