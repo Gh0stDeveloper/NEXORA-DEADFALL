@@ -21,9 +21,6 @@ die(){ printf '\033[1;31m[ERROR]\033[0m %s\n' "$*" >&2; exit 1; }
 require_root(){ [[ ${EUID:-$(id -u)} -eq 0 ]] || die "Ejecuta este comando como root o con sudo."; }
 load_env(){ [[ -f "$DEADFALL_ENV" ]] && set -a && source "$DEADFALL_ENV" && set +a || true; }
 run_deadfall(){ sudo -H -u "$DEADFALL_USER" -- "$@"; }
-# Use this for bootstrap commands that may be launched while root's current
-# directory is under /root. The service account cannot stat/traverse that CWD,
-# so force a safe working directory before executing gh/git.
 run_deadfall_home(){
   sudo -H -u "$DEADFALL_USER" -- bash -c 'cd "$HOME" && exec "$@"' bash "$@"
 }
@@ -38,11 +35,49 @@ configure_nginx_site(){
   local domain="${2:-_}"
   [[ -f "$template" ]] || die "Plantilla Nginx no encontrada: $template"
   [[ -f /etc/nginx/nginx.conf ]] || die "Nginx instalado pero falta /etc/nginx/nginx.conf"
+  [[ "$domain" == "_" || "$domain" =~ ^[A-Za-z0-9.-]+$ ]] || die "Dominio Nginx inválido: $domain"
 
   install -d -m 0755 /etc/nginx/sites-available /etc/nginx/sites-enabled /etc/nginx/conf.d
   local rendered
   rendered="$(mktemp)"
   sed -e "s/__DEADFALL_DOMAIN__/${domain:-_}/g" "$template" > "$rendered"
+
+  local cert_dir="/etc/letsencrypt/live/$domain"
+  if [[ "$domain" != "_" && -f "$cert_dir/fullchain.pem" && -f "$cert_dir/privkey.pem" ]]; then
+    cat >> "$rendered" <<EOF
+
+# Managed by NEXORA: DEADFALL. This block is regenerated from the persisted
+# Let's Encrypt certificate so updater runs cannot erase the HTTPS vhost.
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name $domain;
+
+    ssl_certificate $cert_dir/fullchain.pem;
+    ssl_certificate_key $cert_dir/privkey.pem;
+
+    location = /downloads/NEXORA-DEADFALL-latest.apk {
+        alias /var/www/nexora-deadfall/downloads/NEXORA-DEADFALL-latest.apk;
+        default_type application/vnd.android.package-archive;
+        add_header Cache-Control "no-store" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Content-Disposition "attachment; filename=NEXORA-DEADFALL-latest.apk" always;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:3100;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 30s;
+    }
+}
+EOF
+    log "Nginx: certificado existente detectado; vhost HTTPS administrado para $domain."
+  fi
 
   if grep -Eq 'include[[:space:]]+/etc/nginx/sites-enabled/\*' /etc/nginx/nginx.conf; then
     install -m 0644 "$rendered" /etc/nginx/sites-available/nexora-deadfall
