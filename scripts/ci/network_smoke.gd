@@ -5,6 +5,7 @@ const HealthScript = preload("res://src/core/health/HealthComponent.gd")
 const DamageEventScript = preload("res://src/core/damage/DamageEvent.gd")
 const PlayerCommandScript = preload("res://src/network/PlayerCommand.gd")
 const RoomCodeScript = preload("res://src/network/RoomCodeService.gd")
+const BuildInfoScript = preload("res://src/release/BuildInfo.gd")
 const SessionScript = preload("res://src/network/DuoNetworkSession.gd")
 const DedicatedServerScript = preload("res://src/server/DedicatedServer.gd")
 const PlayerScene = preload("res://src/player/Player.tscn")
@@ -50,6 +51,7 @@ func _test_command_validation() -> bool:
 	if absf(float(command.get("pitch"))) > 1.397: return _fail("Pitch was not clamped")
 	if not bool(command.get("interact", false)): return _fail("Revive hold intent was dropped during command sanitation")
 	if not PlayerCommandScript.sanitize(raw, 8).is_empty(): return _fail("Stale command sequence accepted")
+	if not PlayerCommandScript.sanitize({"sequence": 9, "move": "malformed"}, 8).is_empty(): return _fail("Malformed command Variant accepted")
 	return true
 
 func _test_room_codes() -> bool:
@@ -57,11 +59,13 @@ func _test_room_codes() -> bool:
 	rng.seed = 12345
 	var code := RoomCodeScript.generate_code(rng)
 	if not RoomCodeScript.is_valid(code): return _fail("Generated room code invalid")
-	var payload := JSON.stringify({"ok": true, "room_code": code, "host": "127.0.0.1", "port": 24560, "protocol": RoomCodeScript.PROTOCOL_VERSION, "max_players": 4})
-	var endpoint := RoomCodeScript.parse_resolution_payload(payload)
+	var payload := BuildInfoScript.snapshot()
+	payload.merge({"ok": true, "room_code": code, "host": "127.0.0.1", "port": 24560, "max_players": 4}, true)
+	var endpoint := RoomCodeScript.parse_resolution_payload(JSON.stringify(payload))
 	if endpoint.is_empty() or int(endpoint.get("port")) != 24560: return _fail("Room directory payload parse failed")
 	if int(endpoint.get("protocol")) != 2: return _fail("Squad protocol version mismatch")
 	if int(endpoint.get("max_players")) != 4: return _fail("Squad directory did not advertise four-player capacity")
+	if int(endpoint.get("version_code")) != BuildInfoScript.VERSION_CODE: return _fail("Closed beta directory build version missing")
 	return true
 
 func _test_squad_capacity_contract() -> bool:
@@ -103,6 +107,8 @@ func _test_squad_arena_contract() -> bool:
 	root.add_child(arena)
 	for path in ["NetworkSession", "NetworkPlayers", "PlayerSpawnPoints/SpawnA", "PlayerSpawnPoints/SpawnB", "PlayerSpawnPoints/SpawnC", "PlayerSpawnPoints/SpawnD", "HordeDirector", "HordeZombies"]:
 		if arena.get_node_or_null(path) == null: return _fail("Squad arena missing %s" % path)
+	var session := arena.get_node("NetworkSession")
+	if String(session.get_script().resource_path) != "res://src/network/ClosedBetaNetworkSession.gd": return _fail("Squad arena is not using hardened Closed Beta session")
 	arena.free()
 	return true
 

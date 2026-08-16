@@ -45,6 +45,8 @@ jobs:
         run: godot --headless --path . --script scripts/ci/squad_smoke.gd
       - name: Run Campaign mission/checkpoint tests
         run: godot --headless --path . --script scripts/ci/campaign_smoke.gd
+      - name: Run Closed Beta hardening tests
+        run: godot --headless --path . --script scripts/ci/beta_hardening_smoke.gd
       - name: Run two-peer regression integration
         run: bash scripts/ci/duo_integration.sh
       - name: Run four-peer Squad integration
@@ -52,7 +54,7 @@ jobs:
       - name: Run four-peer Campaign integration
         run: bash scripts/ci/campaign_integration.sh
       - name: Validate shell scripts
-        run: bash -n scripts/server/run_server.sh scripts/ci/android_runtime_smoke.sh scripts/ci/duo_integration.sh scripts/ci/squad_integration.sh scripts/ci/campaign_integration.sh
+        run: bash -n scripts/server/run_server.sh scripts/ci/android_runtime_smoke.sh scripts/ci/duo_integration.sh scripts/ci/squad_integration.sh scripts/ci/campaign_integration.sh scripts/beta/collect_android_report.sh
 
   docker-server-build:
     runs-on: ubuntu-24.04
@@ -68,6 +70,7 @@ jobs:
           docker run -d --name deadfall-ci nexora-deadfall-server:ci
           sleep 3
           docker logs deadfall-ci 2>&1 | tee /tmp/deadfall-server.log
+          grep -q "DEADFALL_BETA_READY" /tmp/deadfall-server.log
           grep -q "dedicated server listening on UDP 24560" /tmp/deadfall-server.log
           grep -q "room directory listening on TCP 24561" /tmp/deadfall-server.log
           grep -q "DEADFALL_SQUAD_ROOM" /tmp/deadfall-server.log

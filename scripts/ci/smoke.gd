@@ -22,10 +22,14 @@ const REQUIRED_FILES := [
 	"res://src/network/PlayerCommand.gd",
 	"res://src/network/NetworkReplicaInterpolator.gd",
 	"res://src/network/DuoNetworkSession.gd",
+	"res://src/network/ClosedBetaNetworkSession.gd",
+	"res://src/network/NetworkAbuseGuard.gd",
 	"res://src/network/SquadHUD.gd",
 	"res://src/network/RoomCodeService.gd",
 	"res://src/network/RoomDirectoryServer.gd",
 	"res://src/network/RoomDirectoryClient.gd",
+	"res://src/release/BuildInfo.gd",
+	"res://src/diagnostics/BetaRuntime.gd",
 	"res://src/server/DedicatedServer.gd",
 	"res://src/player/Player.tscn",
 	"res://src/player/PlayerController.gd",
@@ -69,9 +73,16 @@ const REQUIRED_FILES := [
 	"res://scripts/ci/network_smoke.gd",
 	"res://scripts/ci/squad_smoke.gd",
 	"res://scripts/ci/campaign_smoke.gd",
+	"res://scripts/ci/beta_hardening_smoke.gd",
 	"res://scripts/ci/duo_integration.sh",
 	"res://scripts/ci/squad_integration.sh",
 	"res://scripts/ci/campaign_integration.sh",
+	"res://scripts/beta/collect_android_report.sh",
+	"res://docs/BETA_HARDENING.md",
+	"res://docs/legal/PRIVACY_POLICY.md",
+	"res://docs/legal/TERMS_OF_BETA.md",
+	"res://docs/legal/CODE_OF_CONDUCT.md",
+	"res://.github/workflows/closed-beta-release.yml",
 ]
 
 func _initialize() -> void:
@@ -81,6 +92,9 @@ func _initialize() -> void:
 			return
 	if root.get_node_or_null("Gore") == null:
 		_fail("Gore autoload missing")
+		return
+	if root.get_node_or_null("BetaRuntime") == null:
+		_fail("Closed Beta runtime autoload missing")
 		return
 	var main_scene := load("res://src/main/Main.tscn") as PackedScene
 	if main_scene == null or main_scene.instantiate() == null:
@@ -138,6 +152,9 @@ func _initialize() -> void:
 		if squad.get_node_or_null(node_path) == null:
 			_fail("Phase 7 Squad arena missing %s" % node_path)
 			return
+	if String(squad.get_node("NetworkSession").get_script().resource_path) != "res://src/network/ClosedBetaNetworkSession.gd":
+		_fail("Phase 9 hardened network session is not active in Squad arena")
+		return
 	squad.free()
 	var campaign_scene := load("res://src/maps/campaign/OutbreakDistrict.tscn") as PackedScene
 	if campaign_scene == null:
@@ -151,6 +168,9 @@ func _initialize() -> void:
 			return
 	if not campaign.get_node("CampaignDirector").has_method("get_status_snapshot"):
 		_fail("Phase 8 CampaignDirector snapshot contract missing")
+		return
+	if String(campaign.get_node("NetworkSession").get_script().resource_path) != "res://src/network/ClosedBetaNetworkSession.gd":
+		_fail("Phase 9 hardened network session is not active in Campaign arena")
 		return
 	campaign.free()
 	for action in ["move_forward", "move_back", "move_left", "move_right", "jump", "sprint", "crouch", "prone", "camera_cycle", "fire", "reload", "interact"]:
