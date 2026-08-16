@@ -70,9 +70,11 @@ if [[ "$DEPLOY" -eq 1 ]]; then
 fi
 
 if [[ "$APP" -eq 1 || "$SERVER" -eq 1 ]]; then
-  # Global named-class metadata is generated state. Removing only this cache
-  # prevents a failed previous import from pinning stale class_name entries.
   rm -f "$DEADFALL_ROOT/.godot/global_script_class_cache.cfg"
+  log "Validando parser GDScript crítico..."
+  run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --check-only --script src/network/DuoNetworkSession.gd
+  run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --check-only --script src/network/ClosedBetaNetworkSession.gd
+  run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --check-only --script scripts/ci/smoke.gd
   run_deadfall_home godot --headless --editor --path "$DEADFALL_ROOT" --quit
   run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/smoke.gd
   run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/beta_hardening_smoke.gd
