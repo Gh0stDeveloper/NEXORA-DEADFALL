@@ -96,6 +96,14 @@ func _initialize() -> void:
 	if root.get_node_or_null("BetaRuntime") == null:
 		_fail("Closed Beta runtime autoload missing")
 		return
+	var base_network_script := load("res://src/network/DuoNetworkSession.gd") as Script
+	if base_network_script == null or not base_network_script.can_instantiate():
+		_fail("Phase 7 base network session script could not compile")
+		return
+	var hardened_network_script := load("res://src/network/ClosedBetaNetworkSession.gd") as Script
+	if hardened_network_script == null or not hardened_network_script.can_instantiate():
+		_fail("Phase 9 hardened network session script could not compile")
+		return
 	var main_scene := load("res://src/main/Main.tscn") as PackedScene
 	if main_scene == null or main_scene.instantiate() == null:
 		_fail("Main scene could not be instantiated")
@@ -146,13 +154,21 @@ func _initialize() -> void:
 		return
 	zombie.free()
 	var squad_scene := load("res://src/maps/duo/DuoArena.tscn") as PackedScene
+	if squad_scene == null:
+		_fail("Phase 7 Squad arena could not be loaded")
+		return
 	var squad := squad_scene.instantiate()
+	if squad == null:
+		_fail("Phase 7 Squad arena could not be instantiated")
+		return
 	root.add_child(squad)
 	for node_path in ["NetworkSession", "NetworkPlayers", "PlayerSpawnPoints/SpawnA", "PlayerSpawnPoints/SpawnB", "PlayerSpawnPoints/SpawnC", "PlayerSpawnPoints/SpawnD", "HordeDirector", "HordeZombies"]:
 		if squad.get_node_or_null(node_path) == null:
 			_fail("Phase 7 Squad arena missing %s" % node_path)
 			return
-	if String(squad.get_node("NetworkSession").get_script().resource_path) != "res://src/network/ClosedBetaNetworkSession.gd":
+	var squad_network := squad.get_node("NetworkSession")
+	var squad_network_script := squad_network.get_script()
+	if squad_network_script == null or String(squad_network_script.resource_path) != "res://src/network/ClosedBetaNetworkSession.gd":
 		_fail("Phase 9 hardened network session is not active in Squad arena")
 		return
 	squad.free()
@@ -161,6 +177,9 @@ func _initialize() -> void:
 		_fail("Phase 8 Campaign arena could not be loaded")
 		return
 	var campaign := campaign_scene.instantiate()
+	if campaign == null:
+		_fail("Phase 8 Campaign arena could not be instantiated")
+		return
 	root.add_child(campaign)
 	for node_path in ["CampaignDirector", "CampaignNetworkBridge", "CampaignHUD", "CampaignTargets/StreetGate", "CampaignTargets/EvacPoint", "CampaignTargets/RadioConsole", "NetworkSession", "PlayerSpawnPoints/SpawnA", "PlayerSpawnPoints/SpawnD"]:
 		if campaign.get_node_or_null(node_path) == null:
@@ -169,7 +188,9 @@ func _initialize() -> void:
 	if not campaign.get_node("CampaignDirector").has_method("get_status_snapshot"):
 		_fail("Phase 8 CampaignDirector snapshot contract missing")
 		return
-	if String(campaign.get_node("NetworkSession").get_script().resource_path) != "res://src/network/ClosedBetaNetworkSession.gd":
+	var campaign_network := campaign.get_node("NetworkSession")
+	var campaign_network_script := campaign_network.get_script()
+	if campaign_network_script == null or String(campaign_network_script.resource_path) != "res://src/network/ClosedBetaNetworkSession.gd":
 		_fail("Phase 9 hardened network session is not active in Campaign arena")
 		return
 	campaign.free()
