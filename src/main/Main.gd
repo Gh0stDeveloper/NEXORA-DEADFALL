@@ -4,6 +4,7 @@ const DedicatedServerScript = preload("res://src/server/DedicatedServer.gd")
 const TestRangeScene = preload("res://src/maps/test_range/TestRange.tscn")
 const SquadArenaScene = preload("res://src/maps/duo/DuoArena.tscn")
 const CampaignArenaScene = preload("res://src/maps/campaign/OutbreakDistrict.tscn")
+const LoginGateScene = preload("res://src/login/LoginGate.tscn")
 const LobbyScene = preload("res://src/lobby/Lobby.tscn")
 const DirectoryClientScript = preload("res://src/network/RoomDirectoryClient.gd")
 const AndroidDiagnosticsScript = preload("res://src/mobile/AndroidDiagnostics.gd")
@@ -36,8 +37,14 @@ func _ready() -> void:
 		print("NEXORA: DEADFALL test range client bootstrap ready")
 		return
 
-	# Real visible clients enter the pre-match lobby first. Headless smoke tests
-	# and explicit --skip-lobby runs preserve the deterministic direct boot path.
+	# Normal visible clients authenticate a persistent guest account before the
+	# lobby. Headless smoke tests and explicit skip flags keep deterministic boot.
+	if DisplayServer.get_name() != "headless" and "--skip-login" not in args and "--skip-lobby" not in args:
+		_boot_login_gate(mission_id)
+		_boot_android_diagnostics()
+		print("NEXORA: DEADFALL guest login bootstrap ready")
+		return
+
 	if DisplayServer.get_name() != "headless" and "--skip-lobby" not in args:
 		_boot_lobby(mission_id)
 		_boot_android_diagnostics()
@@ -48,6 +55,17 @@ func _ready() -> void:
 	_boot_local_campaign(mission_id)
 	_boot_android_diagnostics()
 	print("NEXORA: DEADFALL client bootstrap ready")
+
+func _boot_login_gate(mission_id: StringName) -> void:
+	var gate := LoginGateScene.instantiate()
+	gate.name = "LoginGate"
+	add_child(gate)
+	if gate.has_signal("login_complete"):
+		gate.connect("login_complete", Callable(self, "_on_login_complete").bind(gate, mission_id))
+
+func _on_login_complete(_account: Dictionary, gate: Node, mission_id: StringName) -> void:
+	gate.queue_free()
+	call_deferred("_boot_lobby", mission_id)
 
 func _boot_lobby(mission_id: StringName) -> void:
 	var lobby := LobbyScene.instantiate()
