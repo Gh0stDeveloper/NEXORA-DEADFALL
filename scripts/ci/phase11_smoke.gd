@@ -38,6 +38,9 @@ const REQUIRED_FILES := [
 ]
 
 func _initialize() -> void:
+	call_deferred("_run")
+
+func _run() -> void:
 	for path in REQUIRED_FILES:
 		if not FileAccess.file_exists(path):
 			_fail("Phase 11 missing required file: %s" % path)
