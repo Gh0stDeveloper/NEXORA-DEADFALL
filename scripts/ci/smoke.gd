@@ -105,9 +105,14 @@ func _initialize() -> void:
 		_fail("Phase 9 hardened network session script could not compile")
 		return
 	var main_scene := load("res://src/main/Main.tscn") as PackedScene
-	if main_scene == null or main_scene.instantiate() == null:
+	if main_scene == null:
+		_fail("Main scene could not be loaded")
+		return
+	var main_instance: Node = main_scene.instantiate()
+	if main_instance == null:
 		_fail("Main scene could not be instantiated")
 		return
+	main_instance.free()
 	var range_scene := load("res://src/maps/test_range/TestRange.tscn") as PackedScene
 	if range_scene == null:
 		_fail("Test range scene could not be loaded")
