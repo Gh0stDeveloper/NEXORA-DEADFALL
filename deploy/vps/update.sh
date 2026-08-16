@@ -70,9 +70,12 @@ if [[ "$DEPLOY" -eq 1 ]]; then
 fi
 
 if [[ "$APP" -eq 1 || "$SERVER" -eq 1 ]]; then
-  run_deadfall godot --headless --editor --path "$DEADFALL_ROOT" --quit
-  run_deadfall godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/smoke.gd
-  run_deadfall godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/beta_hardening_smoke.gd
+  # Global named-class metadata is generated state. Removing only this cache
+  # prevents a failed previous import from pinning stale class_name entries.
+  rm -f "$DEADFALL_ROOT/.godot/global_script_class_cache.cfg"
+  run_deadfall_home godot --headless --editor --path "$DEADFALL_ROOT" --quit
+  run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/smoke.gd
+  run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/beta_hardening_smoke.gd
 fi
 if [[ "$APP" -eq 1 ]]; then "$DEADFALL_ROOT/scripts/build/build_android_vps.sh"; fi
 if [[ "$WEB" -eq 1 || "$APP" -eq 1 ]]; then "$DEADFALL_ROOT/scripts/build/build_download_site.sh"; fi
