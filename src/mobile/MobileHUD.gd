@@ -64,6 +64,7 @@ func _build_hud() -> void:
 	# while combat/camera actions form a spaced arc around the right thumb.
 	_add_action_button(&"sprint", &"sprint", Rect2(326, -154, 92, 92), Vector2(0, 1), &"sprint")
 	_add_action_button(&"interact", &"interact", Rect2(-492, -244, 88, 88), Vector2(1, 1), &"interact")
+	_add_action_button(&"flashlight", &"flashlight", Rect2(-492, -344, 82, 82), Vector2(1, 1), &"flashlight")
 	_add_action_button(&"prone", &"prone", Rect2(-395, -278, 84, 84), Vector2(1, 1), &"prone")
 	_add_action_button(&"crouch", &"crouch", Rect2(-397, -174, 90, 90), Vector2(1, 1), &"crouch")
 	_add_action_button(&"camera", &"camera_cycle", Rect2(-287, -374, 82, 82), Vector2(1, 1), &"camera")
@@ -118,7 +119,9 @@ func _apply_saved_layout(button: Control, control_id: StringName, fallback_rect:
 		button.anchor_bottom = button.anchor_top
 		button.position = -button.size * 0.5
 	button.scale = Vector2.ONE * float(stored.get("scale", 1.0))
-	button.modulate.a = float(stored.get("opacity", 0.86))
+	var color := button.modulate
+	color.a = float(stored.get("opacity", 0.86))
+	button.modulate = color
 	button.visible = bool(stored.get("visible", true))
 
 func _build_quick_settings() -> void:
