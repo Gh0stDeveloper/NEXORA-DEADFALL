@@ -16,11 +16,15 @@ const NAV_SOURCE_GROUP: StringName = &"deadfall_nav_source"
 @onready var horde: Node = $HordeDirector
 @onready var campaign: Node = $CampaignDirector
 
+var _navigation_region: NavigationRegion3D
+
 func _ready() -> void:
 	_build_environment()
 	_build_geometry()
 	var selected := Mission2 if mission_id == &"mission_02_last_broadcast" else Mission1
 	campaign.set("mission", selected)
+	if not Game.is_network_client() and (DisplayServer.get_name() != "headless" or Game.is_dedicated_server()):
+		call_deferred("_build_navigation")
 	if Game.is_local_session():
 		_spawn_local_player()
 	campaign.call_deferred("start_mission", selected, true)
@@ -95,6 +99,26 @@ func _build_geometry() -> void:
 	_create_box("TunnelWallRight", Vector3(8, 1.5, 29), Vector3(12, 3, 2), Color(0.16, 0.17, 0.18))
 	for position in [Vector3(-9, 0.75, 9), Vector3(8, 0.75, 7), Vector3(-16, 0.75, 18), Vector3(20, 0.75, 22)]:
 		_create_box("StreetCover_%d" % int(abs(position.x * 10.0 + position.z)), position, Vector3(2.4, 1.5, 1.2), Color(0.20, 0.21, 0.22))
+
+func _build_navigation() -> void:
+	if _navigation_region != null:
+		return
+	_navigation_region = NavigationRegion3D.new()
+	_navigation_region.name = "NavigationRegion"
+	var nav_mesh := NavigationMesh.new()
+	nav_mesh.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
+	nav_mesh.geometry_source_geometry_mode = NavigationMesh.SOURCE_GEOMETRY_GROUPS_EXPLICIT
+	nav_mesh.geometry_source_group_name = NAV_SOURCE_GROUP
+	nav_mesh.geometry_collision_mask = 1
+	nav_mesh.agent_radius = 0.45
+	nav_mesh.agent_height = 1.75
+	nav_mesh.agent_max_climb = 0.35
+	nav_mesh.cell_size = 0.25
+	nav_mesh.cell_height = 0.20
+	nav_mesh.filter_walkable_low_height_spans = true
+	_navigation_region.navigation_mesh = nav_mesh
+	add_child(_navigation_region)
+	_navigation_region.bake_navigation_mesh(true)
 
 func _create_box(node_name: String, position_value: Vector3, size_value: Vector3, color: Color) -> void:
 	var body := StaticBody3D.new()

@@ -165,12 +165,36 @@ func _bind_horde() -> void:
 	if _horde == null:
 		return
 	if _horde.has_signal("zombie_killed"):
-		var callable := Callable(self, "_on_horde_zombie_killed")
-		if not _horde.is_connected("zombie_killed", callable):
-			_horde.connect("zombie_killed", callable)
+		var killed_callable := Callable(self, "_on_horde_zombie_killed")
+		if not _horde.is_connected("zombie_killed", killed_callable):
+			_horde.connect("zombie_killed", killed_callable)
+	if _horde.has_signal("game_over"):
+		var game_over_callable := Callable(self, "_on_horde_game_over")
+		if not _horde.is_connected("game_over", game_over_callable):
+			_horde.connect("game_over", game_over_callable)
+	if _horde.has_signal("run_restarted"):
+		var restart_callable := Callable(self, "_on_horde_run_restarted")
+		if not _horde.is_connected("run_restarted", restart_callable):
+			_horde.connect("run_restarted", restart_callable)
 
 func _on_horde_zombie_killed(_archetype_id: StringName, _score_awarded: int) -> void:
 	report_zombie_kill(1)
+
+func _on_horde_game_over(_wave_number: int, _score: int, _kills: int) -> void:
+	if not has_simulation_authority() or state != State.RUNNING:
+		return
+	_interaction_progress.clear()
+	_set_state(State.FAILED, "squad_eliminated")
+
+func _on_horde_run_restarted() -> void:
+	if not has_simulation_authority() or state != State.FAILED:
+		return
+	objective_progress = 0.0
+	_interaction_progress.clear()
+	_set_state(State.RUNNING, "checkpoint_restart")
+	_emit_objective_started()
+	if checkpoint_id != &"":
+		call_deferred("_teleport_recoverable_players_to_checkpoint", checkpoint_id)
 
 func _tick_position_objective(objective: Resource) -> void:
 	var target := _resolve_target(StringName(objective.get("target_id")))

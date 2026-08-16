@@ -12,6 +12,7 @@ func _initialize() -> void:
 	Game.start_local_session()
 	if not _test_mission_one(): return
 	if not _test_mission_two(): return
+	if not _test_failure_checkpoint_restart(): return
 	if not _test_checkpoint_store(): return
 	if not _test_campaign_scene_contract(): return
 	Game.stop_session()
@@ -65,14 +66,29 @@ func _test_mission_two() -> bool:
 	fixture["root"].free()
 	return true
 
+func _test_failure_checkpoint_restart() -> bool:
+	var fixture := _make_fixture(Mission1, 9003)
+	var director: Node = fixture["director"]
+	var player: Node3D = fixture["player"]
+	var targets: Node3D = fixture["targets"]
+	if not bool(director.call("start_mission", Mission1, false)): return _fail("Checkpoint restart mission failed to start")
+	player.global_position = targets.get_node("StreetGate").global_position
+	director.call("_process", 0.1)
+	if int(director.get("objective_index")) != 1 or String(director.get("checkpoint_id")) != "StreetGate": return _fail("Checkpoint was not recorded after objective completion")
+	director.call("_on_horde_game_over", 2, 0, 0)
+	if String(director.call("get_status_snapshot").get("state_name")) != "FAILED": return _fail("Campaign did not fail when squad was eliminated")
+	director.call("_on_horde_run_restarted")
+	if String(director.call("get_status_snapshot").get("state_name")) != "RUNNING" or int(director.get("objective_index")) != 1: return _fail("Campaign restart did not preserve checkpoint objective")
+	fixture["root"].free()
+	return true
+
 func _test_checkpoint_store() -> bool:
 	var slot := "campaign_ci_smoke"
 	SaveStoreScript.clear_progress(slot)
 	if not SaveStoreScript.save_progress(slot, {"campaign_id":"deadfall_outbreak","mission_id":"mission_01_first_signal","objective_index":2,"checkpoint_id":"HoldPoint","completed":false}):
 		return _fail("Campaign checkpoint save failed")
 	var loaded: Dictionary = SaveStoreScript.load_progress(slot)
-	if int(loaded.get("objective_index", -1)) != 2 or String(loaded.get("checkpoint_id", "")) != "HoldPoint":
-		return _fail("Campaign checkpoint restore mismatch")
+	if int(loaded.get("objective_index", -1)) != 2 or String(loaded.get("checkpoint_id", "")) != "HoldPoint": return _fail("Campaign checkpoint restore mismatch")
 	if not SaveStoreScript.clear_progress(slot): return _fail("Campaign checkpoint cleanup failed")
 	return true
 
