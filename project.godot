@@ -12,6 +12,7 @@ config/icon="res://assets/branding/deadfall_icon.svg"
 [autoload]
 Game="*res://src/autoload/Game.gd"
 Settings="*res://src/autoload/Settings.gd"
+GuestIdentity="*res://src/identity/GuestIdentity.gd"
 Gore="*res://src/gore/GoreManager.gd"
 BetaRuntime="*res://src/diagnostics/BetaRuntime.gd"
 
