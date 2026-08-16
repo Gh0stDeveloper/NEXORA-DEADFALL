@@ -3,6 +3,11 @@ set -euo pipefail
 ENV=/etc/nexora-deadfall/nexora-deadfall.env
 [[ -f "$ENV" ]] && set -a && source "$ENV" && set +a
 ROOT="${DEADFALL_ROOT:-/opt/nexora-deadfall}"
+run_godot_smoke(){
+  local script="$1"
+  [[ -f "$ROOT/$script" ]] || { echo "Smoke no encontrado: $ROOT/$script" >&2; exit 1; }
+  exec sudo -Hu deadfall godot --headless --path "$ROOT" --script "$ROOT/$script"
+}
 case "${1:-status}" in
   update) exec sudo "$ROOT/deploy/vps/update.sh" "${@:2}";;
   build-app) exec sudo "$ROOT/scripts/build/build_android_vps.sh";;
@@ -11,6 +16,28 @@ case "${1:-status}" in
     sudo "$ROOT/scripts/build/build_android_vps.sh"
     sudo "$ROOT/scripts/build/build_download_site.sh"
     sudo systemctl restart nexora-deadfall nexora-deadfall-download
+    ;;
+  test-network)
+    run_godot_smoke "scripts/ci/phase11_orchestration_smoke.gd"
+    ;;
+  test-social)
+    run_godot_smoke "scripts/ci/phase11_social_matchmaking_smoke.gd"
+    ;;
+  test-models)
+    run_godot_smoke "scripts/ci/phase11_external_models_smoke.gd"
+    ;;
+  test-phase11)
+    run_godot_smoke "scripts/ci/phase11_smoke.gd"
+    ;;
+  test-api)
+    LOCAL_JSON="$(curl -fsS --max-time 5 http://127.0.0.1:24562/v1/health)" || { echo "API local no responde en 127.0.0.1:24562" >&2; exit 1; }
+    jq -e '.ok == true and .service == "deadfall-control"' <<<"$LOCAL_JSON" >/dev/null || { echo "Respuesta local inválida: $LOCAL_JSON" >&2; exit 1; }
+    echo "API local OK: $LOCAL_JSON"
+    if [[ -n "${DEADFALL_DOMAIN:-}" && "${DEADFALL_DOMAIN:-}" != "_" && -f "/etc/letsencrypt/live/$DEADFALL_DOMAIN/fullchain.pem" ]]; then
+      PUBLIC_JSON="$(curl -kfsS --max-time 8 --resolve "$DEADFALL_DOMAIN:443:127.0.0.1" "https://$DEADFALL_DOMAIN/api/deadfall/v1/health")" || { echo "API HTTPS no responde para $DEADFALL_DOMAIN" >&2; exit 1; }
+      jq -e '.ok == true and .service == "deadfall-control"' <<<"$PUBLIC_JSON" >/dev/null || { echo "Respuesta HTTPS inválida: $PUBLIC_JSON" >&2; exit 1; }
+      echo "API HTTPS OK: $PUBLIC_JSON"
+    fi
     ;;
   status)
     systemctl --no-pager --full status nexora-deadfall nexora-deadfall-download nginx || true
@@ -34,5 +61,5 @@ case "${1:-status}" in
   auth)
     exec sudo -Hu deadfall bash -c 'cd "$HOME" && exec gh auth login --hostname github.com --git-protocol https'
     ;;
-  *) echo "Uso: nexora-deadfall {status|update|build-app|build-web|build-all|logs|https|auth}"; exit 2;;
+  *) echo "Uso: nexora-deadfall {status|update|build-app|build-web|build-all|test-network|test-social|test-models|test-phase11|test-api|logs|https|auth}"; exit 2;;
 esac
