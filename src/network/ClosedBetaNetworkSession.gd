@@ -10,6 +10,7 @@ const PING_INTERVAL_SECONDS := 1.0
 const PING_OFFLINE_SECONDS := 4.0
 const EXCELLENT_PING_THRESHOLD_MS := 25
 const STALE_COMMAND_USEC := 350_000
+const MATCH_RESUME_PLACEHOLDER := "match_ticket_only"
 
 var _guard = AbuseGuardScript.new()
 var _build_verified_peers: Dictionary = {}
@@ -34,7 +35,11 @@ func start_client(host: String, port: int = 24560, requested_name: String = "Pla
 	_ping_elapsed = 0.0
 	_last_pong_usec = Time.get_ticks_usec()
 	_set_ping(999)
-	return super.start_client(host, port, requested_name, requested_resume_token)
+	# Orchestrated matches intentionally do not consume the legacy room resume
+	# token. Proper reconnect will be scoped to match_id + admission ticket in a
+	# later Phase 11 milestone; until then a ticket can only create fresh state.
+	var effective_resume_token := requested_resume_token if _client_match_ticket.is_empty() else MATCH_RESUME_PLACEHOLDER
+	return super.start_client(host, port, requested_name, effective_resume_token)
 
 func _process(delta: float) -> void:
 	if role == Role.SERVER:
@@ -132,7 +137,13 @@ func _server_join_request(protocol: int, requested_token: String, requested_name
 		_security_reject(sender, "invalid_display_name", 2)
 		return
 
-	super._server_join_request(protocol, requested_token, clean_name)
+	# The inherited room resume token is not identity-bound. Never restore a
+	# previous entity from it inside a ticketed match, otherwise a valid party
+	# member who obtained another resume token could inherit that player's
+	# authoritative position/health/ammo state. Ticket-scoped reconnect comes
+	# later and will bind the saved state to this admission identity explicitly.
+	var resume_for_join := requested_token if _match_admission == null else ""
+	super._server_join_request(protocol, resume_for_join, clean_name)
 	if not _peers.has(sender):
 		return
 	var record: Dictionary = Dictionary(_peers[sender])
@@ -289,6 +300,7 @@ func get_status_snapshot() -> Dictionary:
 	snapshot["verified_peers"] = _build_verified_peers.size() if role == Role.SERVER else 0
 	snapshot["security_rejections"] = _security_rejections
 	snapshot["match_admission"] = _match_admission != null
+	snapshot["orchestrated_resume_enabled"] = false if _match_admission != null else true
 	snapshot["ping_ms"] = _display_ping_ms if role == Role.CLIENT else -1
 	snapshot["raw_ping_ms"] = _raw_ping_ms if role == Role.CLIENT else -1
 	snapshot["ping_quality"] = _ping_quality if role == Role.CLIENT else "SERVER"
