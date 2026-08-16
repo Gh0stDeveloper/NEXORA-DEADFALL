@@ -19,7 +19,8 @@ func _emit_report() -> void:
 	var landscape := window_size.x >= window_size.y
 	var safe_area_valid := safe_area.size.x > 0 and safe_area.size.y > 0
 	var gore_manager := get_tree().root.get_node_or_null("Gore")
-	var network := get_tree().root.get_node_or_null("Main/DuoArena/NetworkSession")
+	var network := _find_network()
+	var campaign := _find_campaign()
 	var profile := Settings.current_profile()
 	var report := {
 		"android": true,
@@ -42,6 +43,7 @@ func _emit_report() -> void:
 		"gore_budget": gore_manager.call("get_budget_limits") if gore_manager != null else {},
 		"network": network.call("get_status_snapshot") if network != null else {},
 		"squad": _squad_budget_snapshot(profile, network),
+		"campaign": campaign.call("get_status_snapshot") if campaign != null and campaign.has_method("get_status_snapshot") else {},
 	}
 	print("DEADFALL_ANDROID_READY %s" % JSON.stringify(report))
 	if not landscape:
@@ -53,15 +55,33 @@ func _emit_runtime_reports() -> void:
 	var gore_manager := get_tree().root.get_node_or_null("Gore")
 	if gore_manager != null:
 		print("DEADFALL_GORE_STATS %s" % JSON.stringify(gore_manager.call("get_runtime_stats")))
-	var horde := get_tree().root.get_node_or_null("Main/TestRange/HordeDirector")
-	if horde == null:
-		horde = get_tree().root.get_node_or_null("Main/DuoArena/HordeDirector")
+	var horde := _find_horde()
 	if horde != null:
 		print("DEADFALL_HORDE_STATS %s" % JSON.stringify(horde.call("get_status_snapshot")))
-	var network := get_tree().root.get_node_or_null("Main/DuoArena/NetworkSession")
+	var network := _find_network()
 	if network != null:
 		print("DEADFALL_NETWORK_STATS %s" % JSON.stringify(network.call("get_status_snapshot")))
+	var campaign := _find_campaign()
+	if campaign != null and campaign.has_method("get_status_snapshot"):
+		print("DEADFALL_CAMPAIGN_STATS %s" % JSON.stringify(campaign.call("get_status_snapshot")))
 	print("DEADFALL_SQUAD_STATS %s" % JSON.stringify(_squad_budget_snapshot(Settings.current_profile(), network)))
+
+func _find_horde() -> Node:
+	for path in ["Main/CampaignArena/HordeDirector", "Main/TestRange/HordeDirector", "Main/DuoArena/HordeDirector"]:
+		var node := get_tree().root.get_node_or_null(path)
+		if node != null:
+			return node
+	return null
+
+func _find_network() -> Node:
+	for path in ["Main/CampaignArena/NetworkSession", "Main/DuoArena/NetworkSession"]:
+		var node := get_tree().root.get_node_or_null(path)
+		if node != null:
+			return node
+	return null
+
+func _find_campaign() -> Node:
+	return get_tree().root.get_node_or_null("Main/CampaignArena/CampaignDirector")
 
 func _squad_budget_snapshot(profile: Dictionary, network: Node) -> Dictionary:
 	var snapshot := {

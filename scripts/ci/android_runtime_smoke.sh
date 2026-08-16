@@ -26,8 +26,6 @@ fi
 
 echo "DEADFALL Android process: $PID"
 
-# Pixel 7 emulator profile in landscape (2400x1080). These events exercise
-# the actual Android touch path into the Godot HUD rather than calling scripts directly.
 adb shell input tap 1886 966   # RUN
 adb shell input tap 2268 966   # JUMP
 adb shell input tap 2088 966   # CROUCH
@@ -41,18 +39,22 @@ sleep 3
 adb logcat -d > "$LOG"
 
 echo "--- DEADFALL runtime markers ---"
-grep -E "NEXORA: DEADFALL client bootstrap ready|DEADFALL_ANDROID_READY|DEADFALL_GORE_STATS|DEADFALL_HORDE_STATS|DEADFALL_SQUAD_STATS|DEADFALL_TOUCH_" "$LOG" || true
+grep -E "NEXORA: DEADFALL client bootstrap ready|DEADFALL_CAMPAIGN_ARENA_READY|DEADFALL_ANDROID_READY|DEADFALL_GORE_STATS|DEADFALL_HORDE_STATS|DEADFALL_SQUAD_STATS|DEADFALL_CAMPAIGN_STATS|DEADFALL_TOUCH_" "$LOG" || true
 
 grep -Fq "NEXORA: DEADFALL client bootstrap ready" "$LOG"
+grep -Fq "DEADFALL_CAMPAIGN_ARENA_READY" "$LOG"
 grep -Fq "DEADFALL_ANDROID_READY" "$LOG"
 grep -Fq '"landscape":true' "$LOG"
 grep -Fq '"safe_area_valid":true' "$LOG"
 grep -Fq '"gore_budget"' "$LOG"
 grep -Fq '"horde"' "$LOG"
 grep -Fq '"squad"' "$LOG"
+grep -Fq '"campaign"' "$LOG"
 grep -Fq "DEADFALL_GORE_STATS" "$LOG"
 grep -Fq "DEADFALL_HORDE_STATS" "$LOG"
 grep -Fq "DEADFALL_SQUAD_STATS" "$LOG"
+grep -Fq "DEADFALL_CAMPAIGN_STATS" "$LOG"
+grep -Fq '"mission_id":"mission_01_first_signal"' "$LOG"
 grep -Fq '"max_players":4' "$LOG"
 grep -Fq '"network_zombie_snapshots"' "$LOG"
 grep -Fq '"network_max_payload_bytes"' "$LOG"

@@ -43,12 +43,16 @@ jobs:
         run: godot --headless --path . --script scripts/ci/network_smoke.gd
       - name: Run Squad life/revive tests
         run: godot --headless --path . --script scripts/ci/squad_smoke.gd
+      - name: Run Campaign mission/checkpoint tests
+        run: godot --headless --path . --script scripts/ci/campaign_smoke.gd
       - name: Run two-peer regression integration
         run: bash scripts/ci/duo_integration.sh
       - name: Run four-peer Squad integration
         run: bash scripts/ci/squad_integration.sh
+      - name: Run four-peer Campaign integration
+        run: bash scripts/ci/campaign_integration.sh
       - name: Validate shell scripts
-        run: bash -n scripts/server/run_server.sh scripts/ci/android_runtime_smoke.sh scripts/ci/duo_integration.sh scripts/ci/squad_integration.sh
+        run: bash -n scripts/server/run_server.sh scripts/ci/android_runtime_smoke.sh scripts/ci/duo_integration.sh scripts/ci/squad_integration.sh scripts/ci/campaign_integration.sh
 
   docker-server-build:
     runs-on: ubuntu-24.04

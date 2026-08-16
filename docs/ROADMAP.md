@@ -93,10 +93,28 @@
 - [ ] Physical four-phone Android soak, revive, latency/reconciliation and FPS profiling.
 
 ## Phase 8 — Campaign vertical slice
-- [ ] First environment.
-- [ ] Objective framework.
-- [ ] 1–2 complete missions.
-- [ ] Checkpoint/persistence design.
+- [x] `OutbreakDistrict` first production-style environment shell.
+- [x] Data-driven campaign/mission/objective resources.
+- [x] Shared sequential REACH/KILL/SURVIVE/INTERACT/EXTRACT objective framework.
+- [x] Mission 01 — First Signal.
+- [x] Mission 02 — Last Broadcast.
+- [x] Local checkpoint persistence with schema/version guard and checkpoint spawn restore.
+- [x] Dedicated-server campaign authority; network clients are presentation replicas only.
+- [x] Separate lightweight campaign replication channel for 1–4 player sessions.
+- [x] Campaign HUD and Android campaign diagnostics.
+- [x] Campaign smoke test and four-peer Campaign integration harness committed to CI.
+- [x] Voice-chat architecture investigation documented; implementation intentionally deferred.
+- [ ] Execute Phase 8 Godot/Campaign/Docker/Android gates after Actions billing/spending is unblocked.
+- [ ] Physical Android campaign playthrough and four-phone Campaign soak/profile test.
+
+## Future multiplayer enhancement — Squad voice chat
+- [x] Global squad voice architecture researched and documented.
+- [ ] Microphone capture/runtime permission integration.
+- [ ] Native Opus codec bridge.
+- [ ] Dedicated unreliable voice transport/relay.
+- [ ] Jitter buffer and generated-audio playback.
+- [ ] Echo cancellation/noise suppression/device routing.
+- [ ] Mute/block/push-to-talk/open-mic UX and abuse controls.
 
 ## Phase 9 — Closed beta
 - [ ] Real-device compatibility matrix.

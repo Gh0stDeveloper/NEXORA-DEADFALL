@@ -3,6 +3,7 @@ extends Node
 
 const DEFAULT_MAX_CLIENTS := 4
 const SquadArenaScene = preload("res://src/maps/duo/DuoArena.tscn")
+const CampaignArenaScene = preload("res://src/maps/campaign/OutbreakDistrict.tscn")
 const RoomCodeScript = preload("res://src/network/RoomCodeService.gd")
 const DirectoryServerScript = preload("res://src/network/RoomDirectoryServer.gd")
 
@@ -11,9 +12,11 @@ var listen_port := 24560
 var room_code := ""
 var _arena: Node3D
 var _directory: Node
+var _campaign_mode := false
 
-func start(port: int = 24560, max_clients: int = DEFAULT_MAX_CLIENTS, directory_port: int = 24561, public_host: String = "127.0.0.1", requested_room_code: String = "") -> Error:
+func start(port: int = 24560, max_clients: int = DEFAULT_MAX_CLIENTS, directory_port: int = 24561, public_host: String = "127.0.0.1", requested_room_code: String = "", campaign_mode: bool = false, mission_id: StringName = &"mission_01_first_signal") -> Error:
 	listen_port = port
+	_campaign_mode = campaign_mode
 	room_code = RoomCodeScript.normalize(requested_room_code)
 	if not RoomCodeScript.is_valid(room_code):
 		room_code = RoomCodeScript.generate_code()
@@ -23,22 +26,26 @@ func start(port: int = 24560, max_clients: int = DEFAULT_MAX_CLIENTS, directory_
 		return error
 	multiplayer.multiplayer_peer = peer
 	Game.start_dedicated_server_session()
-	_boot_network_arena()
+	_boot_network_arena(campaign_mode, mission_id)
 	_directory = DirectoryServerScript.new()
 	_directory.name = "RoomDirectoryServer"
 	add_child(_directory)
 	var directory_error := int(_directory.call("start", directory_port, room_code, public_host, listen_port))
 	if directory_error != OK:
-		push_error("Unable to start Squad room directory on TCP %d: %s" % [directory_port, error_string(directory_error)])
+		push_error("Unable to start room directory on TCP %d: %s" % [directory_port, error_string(directory_error)])
 		stop()
 		return directory_error
 	print("NEXORA: DEADFALL dedicated server listening on UDP %d" % listen_port)
 	print("DEADFALL_SQUAD_ROOM code=%s directory_port=%d public_host=%s max_players=%d" % [room_code, directory_port, public_host, DEFAULT_MAX_CLIENTS])
+	if campaign_mode:
+		print("DEADFALL_CAMPAIGN_SERVER mission=%s" % String(mission_id))
 	return OK
 
-func _boot_network_arena() -> void:
-	_arena = SquadArenaScene.instantiate() as Node3D
-	_arena.name = "DuoArena"
+func _boot_network_arena(campaign_mode: bool, mission_id: StringName) -> void:
+	_arena = (CampaignArenaScene.instantiate() if campaign_mode else SquadArenaScene.instantiate()) as Node3D
+	_arena.name = "CampaignArena" if campaign_mode else "DuoArena"
+	if campaign_mode:
+		_arena.set("mission_id", mission_id)
 	get_parent().add_child(_arena)
 	var session := _arena.get_node_or_null("NetworkSession")
 	if session != null and session.has_method("configure_server"):

@@ -1,0 +1,89 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://src/maps/campaign/OutbreakDistrict.gd" id="1_map"]
+[ext_resource type="Script" path="res://src/horde/HordeDirector.gd" id="2_horde"]
+[ext_resource type="Script" path="res://src/network/DuoNetworkSession.gd" id="3_network"]
+[ext_resource type="Script" path="res://src/campaign/CampaignDirector.gd" id="4_campaign"]
+[ext_resource type="Script" path="res://src/campaign/CampaignNetworkBridge.gd" id="5_bridge"]
+[ext_resource type="Script" path="res://src/campaign/CampaignHUD.gd" id="6_hud"]
+
+[node name="CampaignArena" type="Node3D"]
+script = ExtResource("1_map")
+
+[node name="PlayerSpawnPoints" type="Node3D" parent="."]
+[node name="SpawnA" type="Marker3D" parent="PlayerSpawnPoints"]
+position = Vector3(-3, 0.05, 26)
+[node name="SpawnB" type="Marker3D" parent="PlayerSpawnPoints"]
+position = Vector3(-1, 0.05, 26)
+[node name="SpawnC" type="Marker3D" parent="PlayerSpawnPoints"]
+position = Vector3(1, 0.05, 26)
+[node name="SpawnD" type="Marker3D" parent="PlayerSpawnPoints"]
+position = Vector3(3, 0.05, 26)
+
+[node name="NetworkPlayers" type="Node3D" parent="."]
+
+[node name="CampaignTargets" type="Node3D" parent="."]
+[node name="StreetGate" type="Marker3D" parent="CampaignTargets"]
+position = Vector3(0, 0.05, 7)
+[node name="HoldPoint" type="Marker3D" parent="CampaignTargets"]
+position = Vector3(0, 0.05, -2)
+[node name="EvacPoint" type="Marker3D" parent="CampaignTargets"]
+position = Vector3(-22, 0.05, -22)
+[node name="RadioYard" type="Marker3D" parent="CampaignTargets"]
+position = Vector3(14, 0.05, 18)
+[node name="RadioConsole" type="Marker3D" parent="CampaignTargets"]
+position = Vector3(14, 0.05, 14)
+[node name="ServiceTunnel" type="Marker3D" parent="CampaignTargets"]
+position = Vector3(0, 0.05, 30)
+
+[node name="HordeSpawnPoints" type="Node3D" parent="."]
+[node name="NorthWest" type="Marker3D" parent="HordeSpawnPoints"]
+position = Vector3(-27, 0.05, -27)
+[node name="North" type="Marker3D" parent="HordeSpawnPoints"]
+position = Vector3(0, 0.05, -28)
+[node name="NorthEast" type="Marker3D" parent="HordeSpawnPoints"]
+position = Vector3(27, 0.05, -27)
+[node name="East" type="Marker3D" parent="HordeSpawnPoints"]
+position = Vector3(28, 0.05, 0)
+[node name="SouthEast" type="Marker3D" parent="HordeSpawnPoints"]
+position = Vector3(27, 0.05, 27)
+[node name="South" type="Marker3D" parent="HordeSpawnPoints"]
+position = Vector3(0, 0.05, 33)
+[node name="SouthWest" type="Marker3D" parent="HordeSpawnPoints"]
+position = Vector3(-27, 0.05, 27)
+[node name="West" type="Marker3D" parent="HordeSpawnPoints"]
+position = Vector3(-28, 0.05, 0)
+
+[node name="HordeZombies" type="Node3D" parent="."]
+
+[node name="HordeDirector" type="Node" parent="."]
+script = ExtResource("2_horde")
+auto_start = false
+player_path = NodePath("")
+spawn_points_path = NodePath("../HordeSpawnPoints")
+zombie_parent_path = NodePath("../HordeZombies")
+initial_countdown_seconds = 2.0
+intermission_seconds = 5.0
+
+[node name="NetworkSession" type="Node" parent="."]
+script = ExtResource("3_network")
+players_root_path = NodePath("../NetworkPlayers")
+player_spawn_points_path = NodePath("../PlayerSpawnPoints")
+zombies_root_path = NodePath("../HordeZombies")
+horde_director_path = NodePath("../HordeDirector")
+
+[node name="CampaignDirector" type="Node" parent="."]
+script = ExtResource("4_campaign")
+auto_start = false
+target_root_path = NodePath("../CampaignTargets")
+horde_director_path = NodePath("../HordeDirector")
+persistence_slot = "campaign_main"
+
+[node name="CampaignNetworkBridge" type="Node" parent="."]
+script = ExtResource("5_bridge")
+director_path = NodePath("../CampaignDirector")
+snapshot_hz = 8.0
+
+[node name="CampaignHUD" type="CanvasLayer" parent="."]
+script = ExtResource("6_hud")
+director_path = NodePath("../CampaignDirector")
