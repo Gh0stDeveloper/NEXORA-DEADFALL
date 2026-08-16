@@ -21,10 +21,12 @@ for file in \
   docs/VPS_INSTALLER.md \
   web/download-site/package.json \
   web/download-site/next.config.ts \
-  web/download-site/src/app/page.tsx; do
+  web/download-site/src/app/page.tsx \
+  assets/branding/deadfall_icon.svg; do
   test -s "$file"
 done
 
+grep -Fq 'config/icon="res://assets/branding/deadfall_icon.svg"' project.godot
 grep -Fq 'deadfall-release.keystore' deploy/vps/install.sh
 grep -Fq 'Keystore existente: NO se regenera' deploy/vps/install.sh
 grep -Fq 'gh auth setup-git' deploy/vps/install.sh
@@ -43,6 +45,9 @@ grep -Fq 'last_deployed_sha' deploy/vps/update.sh
 grep -Fq 'last_deploy_status=failed' deploy/vps/update.sh
 grep -Fq 'last_deploy_status=success' deploy/vps/update.sh
 grep -Fq "volverá a ejecutar los gates/builds" deploy/vps/update.sh
+grep -Fq 'Portal Next.js validado en localhost y Nginx.' deploy/vps/update.sh
+grep -Fq 'http://127.0.0.1:3100/' deploy/vps/update.sh
+grep -Fq -- '--resolve "$DEADFALL_DOMAIN:443:127.0.0.1"' deploy/vps/update.sh
 if grep -Fq -- '--skip-ssh-key' deploy/vps/install.sh || grep -Fq -- '--skip-ssh-key' deploy/vps/nexora-deadfall; then
   echo 'Unsupported gh --skip-ssh-key flag must not be used by VPS scripts' >&2
   exit 1
@@ -57,6 +62,10 @@ if grep -Fq '> /etc/nginx/sites-available/nexora-deadfall' deploy/vps/install.sh
 fi
 if grep -Fq 'godot --headless --path "$DEADFALL_ROOT" --install-android-build-template --quit' scripts/build/build_android_vps.sh; then
   echo 'Android Gradle template installation must be coupled to the export invocation' >&2
+  exit 1
+fi
+if grep -Fq 'JSON.parse_string' src/campaign/CampaignSaveStore.gd; then
+  echo 'CampaignSaveStore must parse corrupt-save candidates without emitting JSON parser noise' >&2
   exit 1
 fi
 grep -Fq 'cmdline-tools/latest-2' deploy/vps/install.sh
@@ -78,10 +87,13 @@ grep -Fq '24561/tcp' docs/VPS_INSTALLER.md
 
 python3 - <<'PY'
 import json
+from pathlib import Path
 p=json.load(open('web/download-site/package.json'))
 assert p['dependencies']['next']=='16.2.11'
 assert p['dependencies']['react']=='19.2.8'
 assert p['dependencies']['react-dom']=='19.2.8'
+update=Path('deploy/vps/update.sh').read_text()
+assert update.index('build_download_site.sh') < update.index('build_android_vps.sh'), 'portal must deploy before Android build'
 PY
 
 echo 'NEXORA: DEADFALL Phase 10 VPS installer smoke passed'
