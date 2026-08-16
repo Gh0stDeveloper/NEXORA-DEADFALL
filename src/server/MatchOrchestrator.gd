@@ -14,6 +14,8 @@ var _crypto := Crypto.new()
 var _matches: Dictionary = {}
 var _party_match: Dictionary = {}
 var _match_dir := ""
+var _port_start := PORT_START
+var _port_end := PORT_END
 
 func configure(store: Node, social: Node, configured_public_host: String) -> void:
 	account_store = store
@@ -24,6 +26,17 @@ func configure(store: Node, social: Node, configured_public_host: String) -> voi
 	_match_dir = ProjectSettings.globalize_path("user://server/matches")
 	DirAccess.make_dir_recursive_absolute(_match_dir)
 	set_process(true)
+
+func configure_validation_port_range(start_port: int, end_port: int) -> bool:
+	if start_port <= 0 or end_port < start_port or end_port > 65535:
+		return false
+	if end_port - start_port > 32:
+		return false
+	if not _matches.is_empty():
+		return false
+	_port_start = start_port
+	_port_end = end_port
+	return true
 
 func start_party_match(token: String, requested_mission_id: String = "mission_01_first_signal") -> Dictionary:
 	if social_service == null or account_store == null:
@@ -180,8 +193,10 @@ func get_status_snapshot() -> Dictionary:
 		"active_matches": active,
 		"active_count": active.size(),
 		"max_concurrent": MAX_CONCURRENT_MATCHES,
-		"port_start": PORT_START,
-		"port_end": PORT_END,
+		"port_start": _port_start,
+		"port_end": _port_end,
+		"production_port_start": PORT_START,
+		"production_port_end": PORT_END,
 	}
 
 func _process(_delta: float) -> void:
@@ -229,7 +244,7 @@ func _allocate_port() -> int:
 		var record: Dictionary = Dictionary(record_value)
 		if _is_match_process_alive(record):
 			used[int(record.get("port", 0))] = true
-	for candidate_port in range(PORT_START, PORT_END + 1):
+	for candidate_port in range(_port_start, _port_end + 1):
 		if not used.has(candidate_port):
 			return candidate_port
 	return 0
