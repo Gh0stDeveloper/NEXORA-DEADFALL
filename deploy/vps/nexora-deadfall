@@ -27,6 +27,10 @@ case "${1:-status}" in
     sudo systemctl reload nginx
     exec sudo certbot --nginx --agree-tos --redirect -m "$DEADFALL_EMAIL" -d "$DEADFALL_DOMAIN"
     ;;
-  auth) exec sudo -Hu deadfall gh auth login --hostname github.com --git-protocol https --skip-ssh-key;;
+  auth)
+    # Compatible with the gh version shipped by Ubuntu 24.04. HTTPS mode does
+    # not require SSH key setup, so --skip-ssh-key is intentionally omitted.
+    exec sudo -Hu deadfall gh auth login --hostname github.com --git-protocol https
+    ;;
   *) echo "Uso: nexora-deadfall {status|update|build-app|build-web|build-all|logs|https|auth}"; exit 2;;
 esac
