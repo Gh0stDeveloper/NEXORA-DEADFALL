@@ -33,12 +33,22 @@ grep -Fq 'install -m 0755 "$ROOT/deploy/vps/nexora-deadfall" /usr/local/bin/nexo
 grep -Fq 'run_deadfall_home' deploy/vps/lib/common.sh
 grep -Fq 'run_deadfall_home gh auth setup-git' deploy/vps/install.sh
 grep -Fq 'run_deadfall_home git clone' deploy/vps/install.sh
+grep -Fq 'checkout -B "$BRANCH" "origin/$BRANCH"' deploy/vps/install.sh
+grep -Fq 'configure_nginx_site' deploy/vps/lib/common.sh
+grep -Fq 'configure_nginx_site "$DEADFALL_ROOT/deploy/nginx/nexora-deadfall.conf.template"' deploy/vps/install.sh
+grep -Fq 'configure_nginx_site "$DEADFALL_ROOT/deploy/nginx/nexora-deadfall.conf.template"' deploy/vps/update.sh
+grep -Fq '/etc/nginx/sites-enabled/' deploy/vps/lib/common.sh
+grep -Fq '/etc/nginx/conf.d/' deploy/vps/lib/common.sh
 if grep -Fq -- '--skip-ssh-key' deploy/vps/install.sh || grep -Fq -- '--skip-ssh-key' deploy/vps/nexora-deadfall; then
   echo 'Unsupported gh --skip-ssh-key flag must not be used by VPS scripts' >&2
   exit 1
 fi
 if grep -Fq '"cmdline-tools;latest"' deploy/vps/install.sh; then
   echo 'Installer must not reinstall cmdline-tools;latest over the manually installed tools' >&2
+  exit 1
+fi
+if grep -Fq '> /etc/nginx/sites-available/nexora-deadfall' deploy/vps/install.sh || grep -Fq '> /etc/nginx/sites-available/nexora-deadfall' deploy/vps/update.sh; then
+  echo 'Installer/updater must use configure_nginx_site instead of assuming sites-available exists' >&2
   exit 1
 fi
 grep -Fq 'cmdline-tools/latest-2' deploy/vps/install.sh
