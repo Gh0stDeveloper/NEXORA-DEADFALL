@@ -124,6 +124,11 @@ func _run() -> void:
 		return
 	_orchestrator.call("configure", _store, _social, "127.0.0.1")
 
+	var member_start: Dictionary = Dictionary(_orchestrator.call("start_party_match", MEMBER_TOKEN, "mission_01_first_signal"))
+	if bool(member_start.get("ok", false)) or String(member_start.get("reason", "")) != "leader_required":
+		_fail("Non-leader member was able to start the party match")
+		return
+
 	var started: Dictionary = Dictionary(_orchestrator.call("start_party_match", LEADER_TOKEN, "mission_01_first_signal"))
 	if not bool(started.get("ok", false)):
 		_fail("Match orchestrator failed to start child process: %s" % String(started.get("reason", "unknown")))
