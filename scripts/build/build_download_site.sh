@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source /opt/nexora-deadfall/deploy/vps/lib/common.sh; require_root; load_env
+SITE="$DEADFALL_ROOT/web/download-site"; DEST="$DEADFALL_HOME/download-site"; cd "$SITE"
+run_deadfall npm install --no-audit --no-fund
+run_deadfall npm run build
+rm -rf "$DEST.new"; install -d -o "$DEADFALL_USER" -g "$DEADFALL_GROUP" "$DEST.new"
+cp -a .next/standalone/. "$DEST.new/"; install -d "$DEST.new/.next"; cp -a .next/static "$DEST.new/.next/static"; [[ -d public ]] && cp -a public "$DEST.new/public"
+chown -R "$DEADFALL_USER:$DEADFALL_GROUP" "$DEST.new"; rm -rf "$DEST.old"; [[ -d "$DEST" ]] && mv "$DEST" "$DEST.old"; mv "$DEST.new" "$DEST"; rm -rf "$DEST.old"
+log "Portal Next.js actualizado en $DEST"

@@ -8,17 +8,17 @@ Type=simple
 User=deadfall
 Group=deadfall
 WorkingDirectory=/opt/nexora-deadfall
-Environment=DEADFALL_PORT=24560
-Environment=DEADFALL_DIRECTORY_PORT=24561
-Environment=DEADFALL_PUBLIC_HOST=127.0.0.1
-Environment=DEADFALL_ROOM_CODE=
+EnvironmentFile=/etc/nexora-deadfall/nexora-deadfall.env
 ExecStart=/opt/nexora-deadfall/scripts/server/run_server.sh
-Restart=on-failure
+Restart=always
 RestartSec=3
+TimeoutStopSec=15
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ReadWritePaths=/opt/nexora-deadfall
+ProtectHome=true
+ReadWritePaths=/opt/nexora-deadfall /var/lib/nexora-deadfall /var/log/nexora-deadfall
+LimitNOFILE=65535
 
 [Install]
 WantedBy=multi-user.target

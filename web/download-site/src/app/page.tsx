@@ -1,0 +1,6 @@
+import fs from 'node:fs/promises';
+export const dynamic = 'force-dynamic';
+type Release={version:string;sha256:string;bytes:number;git_sha:string;published_unix:number;download:string};
+async function release():Promise<Release|null>{try{return JSON.parse(await fs.readFile(process.env.DEADFALL_RELEASE_MANIFEST??'/var/www/nexora-deadfall/release.json','utf8'))}catch{return null}}
+function size(bytes:number){return bytes?`${(bytes/1024/1024).toFixed(1)} MB`:'—'}
+export default async function Home(){const r=await release();return <main><section className="hero"><div className="eyebrow">ANDROID · CLOSED BETA</div><h1>NEXORA:<br/><span>DEADFALL</span></h1><p className="lead">Sobrevive al brote. Entra solo o forma una escuadra de hasta cuatro jugadores.</p><div className="card"><div className="status"><i/>Build disponible</div><div className="meta"><div><small>VERSIÓN</small><strong>{r?.version??'Preparando build'}</strong></div><div><small>TAMAÑO</small><strong>{r?size(r.bytes):'—'}</strong></div></div><a className={`download ${r?'':'disabled'}`} href={r?.download??'#'} aria-disabled={!r}>Descargar APK</a><p className="hint">Android ARM64 · Beta de prueba · Instala solo desde este dominio oficial.</p></div>{r&&<div className="integrity"><span>SHA-256</span><code>{r.sha256}</code></div>}<footer>Ghost Developer · NEXORA</footer></section></main>}

@@ -1,0 +1,26 @@
+[Unit]
+Description=NEXORA DEADFALL Beta Download Portal
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=deadfall
+Group=deadfall
+WorkingDirectory=/var/lib/nexora-deadfall/download-site
+Environment=NODE_ENV=production
+Environment=HOSTNAME=127.0.0.1
+Environment=PORT=3100
+Environment=DEADFALL_RELEASE_MANIFEST=/var/www/nexora-deadfall/release.json
+ExecStart=/usr/local/bin/node server.js
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/var/www/nexora-deadfall
+ReadWritePaths=/var/lib/nexora-deadfall/download-site
+
+[Install]
+WantedBy=multi-user.target

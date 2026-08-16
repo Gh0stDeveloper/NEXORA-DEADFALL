@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ENV=/etc/nexora-deadfall/nexora-deadfall.env; [[ -f "$ENV" ]] && set -a && source "$ENV" && set +a
+ROOT="${DEADFALL_ROOT:-/opt/nexora-deadfall}"
+case "${1:-status}" in
+ update) exec sudo "$ROOT/deploy/vps/update.sh" "${@:2}";;
+ build-app) exec sudo "$ROOT/scripts/build/build_android_vps.sh";;
+ build-web) exec sudo "$ROOT/scripts/build/build_download_site.sh";;
+ build-all) sudo "$ROOT/scripts/build/build_android_vps.sh"; sudo "$ROOT/scripts/build/build_download_site.sh"; sudo systemctl restart nexora-deadfall nexora-deadfall-download;;
+ status) systemctl --no-pager --full status nexora-deadfall nexora-deadfall-download nginx || true; echo; [[ -f /var/lib/nexora-deadfall/install-state.json ]] && cat /var/lib/nexora-deadfall/install-state.json; echo; [[ -f /var/www/nexora-deadfall/release.json ]] && cat /var/www/nexora-deadfall/release.json;;
+ logs) journalctl -u nexora-deadfall -u nexora-deadfall-download -n "${2:-150}" --no-pager;;
+ https) [[ -n "${DEADFALL_DOMAIN:-}" && -n "${DEADFALL_EMAIL:-}" ]] || { echo "Configura dominio/email en $ENV" >&2; exit 1; }; exec sudo certbot --nginx --agree-tos --redirect -m "$DEADFALL_EMAIL" -d "$DEADFALL_DOMAIN";;
+ auth) exec sudo -Hu deadfall gh auth login --hostname github.com --git-protocol https --skip-ssh-key;;
+ *) echo "Uso: nexora-deadfall {status|update|build-app|build-web|build-all|logs|https|auth}"; exit 2;; esac
