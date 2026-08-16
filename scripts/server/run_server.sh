@@ -7,10 +7,15 @@ DEADFALL_PORT="${DEADFALL_PORT:-24560}"
 DEADFALL_DIRECTORY_PORT="${DEADFALL_DIRECTORY_PORT:-24561}"
 DEADFALL_PUBLIC_HOST="${DEADFALL_PUBLIC_HOST:-127.0.0.1}"
 DEADFALL_ROOM_CODE="${DEADFALL_ROOM_CODE:-}"
+DEADFALL_MODE="${DEADFALL_MODE:-campaign}"
 
-exec "$GODOT_BIN" --headless --path "$ROOT_DIR" -- \
-  --server \
-  "--port=${DEADFALL_PORT}" \
-  "--directory-port=${DEADFALL_DIRECTORY_PORT}" \
-  "--public-host=${DEADFALL_PUBLIC_HOST}" \
+ARGS=(
+  --server
+  "--port=${DEADFALL_PORT}"
+  "--directory-port=${DEADFALL_DIRECTORY_PORT}"
+  "--public-host=${DEADFALL_PUBLIC_HOST}"
   "--room=${DEADFALL_ROOM_CODE}"
+)
+[[ "$DEADFALL_MODE" == "campaign" ]] && ARGS+=(--campaign)
+
+exec "$GODOT_BIN" --headless --path "$ROOT_DIR" -- "${ARGS[@]}"
