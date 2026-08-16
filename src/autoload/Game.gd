@@ -32,6 +32,9 @@ func stop_session() -> void:
 func is_local_session() -> bool:
 	return session_mode == SessionMode.LOCAL and authority != null
 
+func is_dedicated_server() -> bool:
+	return session_mode == SessionMode.DEDICATED_SERVER and authority != null
+
 func is_simulation_authority() -> bool:
 	return authority != null and session_mode in [SessionMode.LOCAL, SessionMode.DEDICATED_SERVER]
 
