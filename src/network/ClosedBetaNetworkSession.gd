@@ -9,6 +9,7 @@ const BetaPlayerCommandScript = preload("res://src/network/PlayerCommand.gd")
 const PING_INTERVAL_SECONDS := 1.0
 const PING_OFFLINE_SECONDS := 4.0
 const EXCELLENT_PING_THRESHOLD_MS := 25
+const STALE_COMMAND_USEC := 350_000
 
 var _guard = AbuseGuardScript.new()
 var _build_verified_peers: Dictionary = {}
@@ -36,6 +37,9 @@ func start_client(host: String, port: int = 24560, requested_name: String = "Pla
 	return super.start_client(host, port, requested_name, requested_resume_token)
 
 func _process(delta: float) -> void:
+	if role == Role.SERVER:
+		_neutralize_stale_server_inputs()
+		return
 	if role != Role.CLIENT or local_entity_id == 0:
 		return
 	_ping_elapsed += delta
@@ -254,6 +258,20 @@ func _configure_player_model(player: Node3D, character_id: StringName) -> void:
 	if presenter != null and presenter.has_method("configure_character"):
 		presenter.call("configure_character", character_id)
 
+func _neutralize_stale_server_inputs() -> void:
+	var now := Time.get_ticks_usec()
+	for peer_id in _peers.keys():
+		var record: Dictionary = Dictionary(_peers[peer_id])
+		var last_command_usec := int(record.get("last_command_usec", 0))
+		if last_command_usec <= 0 or now - last_command_usec <= STALE_COMMAND_USEC:
+			continue
+		var player := record.get("player") as Node3D
+		if player != null and is_instance_valid(player):
+			player.set("_server_command", {})
+		record["interact"] = false
+		record["last_command_usec"] = 0
+		_peers[peer_id] = record
+
 func _on_server_peer_disconnected(peer_id: int) -> void:
 	if _peers.has(peer_id):
 		var record: Dictionary = Dictionary(_peers[peer_id])
@@ -284,6 +302,7 @@ func get_status_snapshot() -> Dictionary:
 		"server_resolves_hits": true,
 		"server_resolves_damage": true,
 		"server_owns_health": true,
+		"stale_input_neutralization_ms": int(STALE_COMMAND_USEC / 1000),
 	}
 	return snapshot
 
