@@ -22,14 +22,14 @@ case "${1:-status}" in
   logs) journalctl -u nexora-deadfall -u nexora-deadfall-download -n "${2:-150}" --no-pager;;
   https)
     [[ -n "${DEADFALL_DOMAIN:-}" && -n "${DEADFALL_EMAIL:-}" ]] || { echo "Configura DEADFALL_DOMAIN y DEADFALL_EMAIL en $ENV" >&2; exit 1; }
-    sudo sed -e "s/__DEADFALL_DOMAIN__/${DEADFALL_DOMAIN}/g" "$ROOT/deploy/nginx/nexora-deadfall.conf.template" | sudo tee /etc/nginx/sites-available/nexora-deadfall >/dev/null
-    sudo nginx -t
+    [[ -f "$ROOT/deploy/vps/lib/common.sh" ]] || { echo "Instalación administrada incompleta: falta $ROOT/deploy/vps/lib/common.sh" >&2; exit 1; }
+    # shellcheck source=/dev/null
+    source "$ROOT/deploy/vps/lib/common.sh"
+    configure_nginx_site "$ROOT/deploy/nginx/nexora-deadfall.conf.template" "$DEADFALL_DOMAIN"
     sudo systemctl reload nginx
     exec sudo certbot --nginx --agree-tos --redirect -m "$DEADFALL_EMAIL" -d "$DEADFALL_DOMAIN"
     ;;
   auth)
-    # Run from the service HOME so this also works when root invokes the command
-    # while standing inside /root or another directory deadfall cannot traverse.
     exec sudo -Hu deadfall bash -c 'cd "$HOME" && exec gh auth login --hostname github.com --git-protocol https'
     ;;
   *) echo "Uso: nexora-deadfall {status|update|build-app|build-web|build-all|logs|https|auth}"; exit 2;;
