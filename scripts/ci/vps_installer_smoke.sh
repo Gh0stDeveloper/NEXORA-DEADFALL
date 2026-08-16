@@ -30,6 +30,9 @@ grep -Fq 'Keystore existente: NO se regenera' deploy/vps/install.sh
 grep -Fq 'gh auth setup-git' deploy/vps/install.sh
 grep -Fq 'gh auth login --hostname github.com --git-protocol https' deploy/vps/install.sh
 grep -Fq 'install -m 0755 "$ROOT/deploy/vps/nexora-deadfall" /usr/local/bin/nexora-deadfall' deploy/vps/install.sh
+grep -Fq 'run_deadfall_home' deploy/vps/lib/common.sh
+grep -Fq 'run_deadfall_home gh auth setup-git' deploy/vps/install.sh
+grep -Fq 'run_deadfall_home git clone' deploy/vps/install.sh
 if grep -Fq -- '--skip-ssh-key' deploy/vps/install.sh || grep -Fq -- '--skip-ssh-key' deploy/vps/nexora-deadfall; then
   echo 'Unsupported gh --skip-ssh-key flag must not be used by VPS scripts' >&2
   exit 1
@@ -38,6 +41,7 @@ if grep -Fq '"cmdline-tools;latest"' deploy/vps/install.sh; then
   echo 'Installer must not reinstall cmdline-tools;latest over the manually installed tools' >&2
   exit 1
 fi
+grep -Fq 'cmdline-tools/latest-2' deploy/vps/install.sh
 grep -Fq 'platforms;android-36' deploy/vps/install.sh
 grep -Fq 'Node.js 24 LTS' deploy/vps/install.sh
 grep -Fq 'reboot-required' deploy/vps/install.sh
