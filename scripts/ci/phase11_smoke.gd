@@ -11,6 +11,8 @@ const REQUIRED_FILES := [
 	"res://src/lobby/CharacterCatalog.gd",
 	"res://src/lobby/LobbyController.gd",
 	"res://src/lobby/LobbySocialOverlay.gd",
+	"res://src/lobby/PublicPlayerIdBadge.gd",
+	"res://src/lobby/LobbyCharacterSync.gd",
 	"res://src/lobby/Lobby.tscn",
 	"res://src/player/FlashlightController.gd",
 	"res://src/mobile/TouchActionButton.gd",
@@ -48,15 +50,17 @@ func _initialize() -> void:
 	var control_api_script := load("res://src/server/ControlApiServer.gd") as Script
 	var lobby_script := load("res://src/lobby/LobbyController.gd") as Script
 	var social_overlay_script := load("res://src/lobby/LobbySocialOverlay.gd") as Script
+	var public_id_badge_script := load("res://src/lobby/PublicPlayerIdBadge.gd") as Script
+	var character_sync_script := load("res://src/lobby/LobbyCharacterSync.gd") as Script
 	var login_script := load("res://src/login/LoginGate.gd") as Script
-	for script_value in [identity_script, account_store_script, social_service_script, control_api_script, lobby_script, social_overlay_script, login_script]:
+	for script_value in [identity_script, account_store_script, social_service_script, control_api_script, lobby_script, social_overlay_script, public_id_badge_script, character_sync_script, login_script]:
 		var script: Script = script_value as Script
 		if script == null or not script.can_instantiate():
 			_fail("Phase 11 guest/social script could not compile")
 			return
 
 	var account_store: Node = account_store_script.new()
-	for method in ["register_claim", "issue_challenge", "verify_challenge", "username_available", "public_account"]:
+	for method in ["register_claim", "issue_challenge", "verify_challenge", "username_available", "public_account", "public_account_by_lookup", "resolve_guest_id", "update_character"]:
 		if not account_store.has_method(method):
 			_fail("Guest account store missing method: %s" % method)
 			return
@@ -126,7 +130,7 @@ func _initialize() -> void:
 		_fail("Phase 11 Lobby scene could not instantiate")
 		return
 	root.add_child(lobby)
-	for node_path in ["SafeArea/OperatorStage", "SafeArea/PartyRail", "SafeArea/MatchControls", "SafeArea/CharacterSelection", "SocialOverlay"]:
+	for node_path in ["SafeArea/OperatorStage", "SafeArea/PartyRail", "SafeArea/MatchControls", "SafeArea/CharacterSelection", "SocialOverlay", "PublicPlayerId", "CharacterSync"]:
 		if lobby.get_node_or_null(node_path) == null:
 			_fail("Phase 11 Lobby missing UI contract: %s" % node_path)
 			return
