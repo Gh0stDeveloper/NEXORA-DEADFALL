@@ -57,10 +57,11 @@ func _test_room_codes() -> bool:
 	rng.seed = 12345
 	var code := RoomCodeScript.generate_code(rng)
 	if not RoomCodeScript.is_valid(code): return _fail("Generated room code invalid")
-	var payload := JSON.stringify({"ok": true, "room_code": code, "host": "127.0.0.1", "port": 24560, "protocol": RoomCodeScript.PROTOCOL_VERSION})
+	var payload := JSON.stringify({"ok": true, "room_code": code, "host": "127.0.0.1", "port": 24560, "protocol": RoomCodeScript.PROTOCOL_VERSION, "max_players": 4})
 	var endpoint := RoomCodeScript.parse_resolution_payload(payload)
 	if endpoint.is_empty() or int(endpoint.get("port")) != 24560: return _fail("Room directory payload parse failed")
 	if int(endpoint.get("protocol")) != 2: return _fail("Squad protocol version mismatch")
+	if int(endpoint.get("max_players")) != 4: return _fail("Squad directory did not advertise four-player capacity")
 	return true
 
 func _test_squad_capacity_contract() -> bool:
