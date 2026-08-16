@@ -21,6 +21,12 @@ die(){ printf '\033[1;31m[ERROR]\033[0m %s\n' "$*" >&2; exit 1; }
 require_root(){ [[ ${EUID:-$(id -u)} -eq 0 ]] || die "Ejecuta este comando como root o con sudo."; }
 load_env(){ [[ -f "$DEADFALL_ENV" ]] && set -a && source "$DEADFALL_ENV" && set +a || true; }
 run_deadfall(){ sudo -H -u "$DEADFALL_USER" -- "$@"; }
+# Use this for bootstrap commands that may be launched while root's current
+# directory is under /root. The service account cannot stat/traverse that CWD,
+# so force a safe working directory before executing gh/git.
+run_deadfall_home(){
+  sudo -H -u "$DEADFALL_USER" -- bash -c 'cd "$HOME" && exec "$@"' bash "$@"
+}
 ensure_dirs(){
   install -d -m 0755 "$DEADFALL_HOME" "$DEADFALL_BUILD_DIR" "$DEADFALL_PUBLIC_DIR" "$DEADFALL_DOWNLOAD_DIR" "$DEADFALL_LOG_DIR"
   install -d -m 0750 "$DEADFALL_ETC" "$DEADFALL_ETC/signing"
