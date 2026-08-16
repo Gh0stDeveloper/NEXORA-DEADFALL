@@ -16,6 +16,7 @@ const REQUIRED_FILES := [
 	"res://src/zombies/base/ZombieModelPresenter.gd",
 	"res://scripts/assets/sync_objetos3d.sh",
 	"res://scripts/build/build_android_vps.sh",
+	"res://scripts/ci/phase11_orchestration_smoke.gd",
 	"res://src/login/LoginGate.gd",
 	"res://src/login/LoginGate.tscn",
 	"res://src/lobby/CharacterCatalog.gd",
@@ -95,7 +96,7 @@ func _initialize() -> void:
 
 	var orchestrator_script := load("res://src/server/MatchOrchestrator.gd") as Script
 	var orchestrator: Node = orchestrator_script.new()
-	for method in ["configure", "start_party_match", "cancel_party_match", "get_status_snapshot"]:
+	for method in ["configure", "configure_validation_port_range", "start_party_match", "cancel_party_match", "get_status_snapshot"]:
 		if not orchestrator.has_method(method):
 			_fail("Match orchestrator missing method: %s" % method)
 			return
@@ -234,6 +235,20 @@ func _initialize() -> void:
 	var network_text := network_file.get_as_text() if network_file != null else ""
 	if not network_text.contains("MATCH_RESUME_PLACEHOLDER") or not network_text.contains("resume_for_join"):
 		_fail("Phase 11.3 ticketed matches still risk legacy resume-state mixing")
+		return
+
+	var orchestration_output: Array = []
+	var orchestration_args := PackedStringArray([
+		"--headless",
+		"--path", ProjectSettings.globalize_path("res://"),
+		"--script", ProjectSettings.globalize_path("res://scripts/ci/phase11_orchestration_smoke.gd"),
+	])
+	var orchestration_exit := OS.execute(OS.get_executable_path(), orchestration_args, orchestration_output, true)
+	if orchestration_exit != 0:
+		_fail("Phase 11.3 real match orchestration smoke failed (exit=%d): %s" % [orchestration_exit, str(orchestration_output)])
+		return
+	if orchestration_output.is_empty() or not String(orchestration_output[0]).contains("Phase 11.3 real child-process orchestration smoke passed"):
+		_fail("Phase 11.3 real match orchestration smoke returned no success marker: %s" % str(orchestration_output))
 		return
 
 	print("NEXORA: DEADFALL Phase 11.3 matchmaking/authority/ping/model smoke passed")
