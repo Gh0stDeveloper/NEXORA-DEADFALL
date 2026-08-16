@@ -4,7 +4,7 @@ Android-first zombie survival shooter built with **Godot 4.6.3**, with offline C
 
 ## Current status
 
-The repository now contains the gameplay vertical slice through **Phase 9 Closed Beta hardening** plus **Phase 10 VPS production automation**:
+The repository now contains the gameplay vertical slice through **Phase 9 Closed Beta hardening**, **Phase 10 VPS production automation**, and the handoff plan for **Phase 11 mobile gameplay polish / lobby foundations**:
 
 - Player movement, mobile controls and FPS/TPS cameras.
 - Authoritative weapons, damage and body hit zones.
@@ -13,6 +13,10 @@ The repository now contains the gameplay vertical slice through **Phase 9 Closed
 - Campaign vertical slice with two missions and hardened checkpoints.
 - Closed Beta build/version handshake, abuse guards and diagnostics.
 - Ubuntu VPS installer/updater that hosts the dedicated server, compiles signed Android Release APKs and serves the beta download portal.
+- Production APK build, signing, HTTPS distribution and physical Android install/gameplay have been validated successfully.
+- Phase 11 begins from real-device feedback: HUD overlap, camera sensitivity, night readability/flashlight, mobile control polish, audio/settings, character integration and the guest-account/lobby system.
+
+For future development chats, read **[Persistent Project Context](docs/PROJECT_CONTEXT.md)** first, then **[Phase 11 Plan](docs/PHASE_11_PLAN.md)**.
 
 ## Engine / production baseline
 
@@ -209,6 +213,8 @@ Full VPS documentation: [docs/VPS_INSTALLER.md](docs/VPS_INSTALLER.md).
 
 ## Documentation
 
+- [Persistent project context / chat handoff](docs/PROJECT_CONTEXT.md)
+- [Phase 11 gameplay polish and lobby plan](docs/PHASE_11_PLAN.md)
 - [Game Design Document](docs/GDD.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Networking](docs/NETWORKING.md)
