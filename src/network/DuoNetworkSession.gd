@@ -1,4 +1,3 @@
-class_name DeadfallDuoNetworkSession
 extends Node
 
 signal joined(entity_id: int, resume_token: String, room_code: String)
