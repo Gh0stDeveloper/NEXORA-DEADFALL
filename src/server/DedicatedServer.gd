@@ -64,6 +64,10 @@ func start(
 		_boot_network_arena(campaign_mode, mission_id)
 		_configure_match_instance_guard()
 		var match_snapshot: Dictionary = Dictionary(_match_admission.call("snapshot"))
+		if not _write_match_ready_marker(match_snapshot):
+			push_error("Unable to publish DEADFALL match ready marker")
+			stop()
+			return ERR_CANT_CREATE
 		print("DEADFALL_MATCH_INSTANCE_READY match=%s party=%s port=%d members=%d" % [
 			String(match_snapshot.get("match_id", "")),
 			room_code,
@@ -150,6 +154,22 @@ func _configure_match_instance_guard() -> void:
 	if _match_admission != null and _match_admission.has_method("snapshot"):
 		match_id = String(Dictionary(_match_admission.call("snapshot")).get("match_id", ""))
 	_match_guard.call("configure", session, match_id)
+
+func _write_match_ready_marker(snapshot: Dictionary) -> bool:
+	var path := String(snapshot.get("ready_path", "")).strip_edges()
+	if path.is_empty():
+		return false
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		return false
+	file.store_string(JSON.stringify({
+		"match_id": String(snapshot.get("match_id", "")),
+		"party_code": String(snapshot.get("party_code", "")),
+		"port": int(snapshot.get("port", 0)),
+		"ready_unix": int(Time.get_unix_time_from_system()),
+	}))
+	file.close()
+	return true
 
 func stop() -> void:
 	if _control_api != null and is_instance_valid(_control_api) and _control_api.has_method("stop"):
