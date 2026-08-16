@@ -6,6 +6,20 @@ NEXORA: DEADFALL currently supports a provisional external-model pipeline source
 
 The main game repository does not commit those `.glb` binaries. Production/VPS builds stage them before Godot import/export through `scripts/assets/sync_objetos3d.sh`.
 
+The synchronization is deterministic: each managed canonical file is removed before staging, and every staged file is validated as a complete GLB 2.0 container before Godot is allowed to import it. If a source model is temporarily absent, the old ignored binary is not silently reused; runtime falls back to the built-in model instead.
+
+## GitHub Actions access
+
+`Gh0stDeveloper/Objetos3D` is private. A `GITHUB_TOKEN` issued for `Gh0stDeveloper/NEXORA-DEADFALL` must not be assumed to have cross-repository read access.
+
+The manual `Closed Beta Android Release` workflow therefore requires the repository secret:
+
+`DEADFALL_MODELS_TOKEN`
+
+Use a fine-grained token with the minimum required scope: read-only Contents access to `Gh0stDeveloper/Objetos3D`. The release workflow fails before Godot export if the token is absent or if any of the four required Phase 11.3 runtime GLBs cannot be staged. This prevents publishing a signed Closed Beta artifact that silently contains only fallback geometry.
+
+The VPS path does not use this Actions secret. It uses the authenticated `deadfall` service account configured by the VPS installer and `gh auth`.
+
 ## Current mapped assets
 
 | Runtime ID | Canonical file | Source filename currently observed | Source attribution in filename |
