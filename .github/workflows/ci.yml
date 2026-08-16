@@ -47,6 +47,8 @@ jobs:
         run: godot --headless --path . --script scripts/ci/campaign_smoke.gd
       - name: Run Closed Beta hardening tests
         run: godot --headless --path . --script scripts/ci/beta_hardening_smoke.gd
+      - name: Run Phase 10 VPS installer contract tests
+        run: bash scripts/ci/vps_installer_smoke.sh
       - name: Run two-peer regression integration
         run: bash scripts/ci/duo_integration.sh
       - name: Run four-peer Squad integration
@@ -54,7 +56,21 @@ jobs:
       - name: Run four-peer Campaign integration
         run: bash scripts/ci/campaign_integration.sh
       - name: Validate shell scripts
-        run: bash -n scripts/server/run_server.sh scripts/ci/android_runtime_smoke.sh scripts/ci/duo_integration.sh scripts/ci/squad_integration.sh scripts/ci/campaign_integration.sh scripts/beta/collect_android_report.sh
+        run: bash -n scripts/server/run_server.sh scripts/ci/android_runtime_smoke.sh scripts/ci/duo_integration.sh scripts/ci/squad_integration.sh scripts/ci/campaign_integration.sh scripts/ci/vps_installer_smoke.sh scripts/beta/collect_android_report.sh deploy/vps/install.sh deploy/vps/update.sh deploy/vps/nexora-deadfall deploy/vps/lib/common.sh scripts/build/build_android_vps.sh scripts/build/build_download_site.sh
+
+  download-portal-validation:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+      - name: Build Next.js beta download portal
+        working-directory: web/download-site
+        run: |
+          npm install --package-lock=false --no-audit --no-fund
+          npm run build
+          test -s .next/standalone/server.js
 
   docker-server-build:
     runs-on: ubuntu-24.04
