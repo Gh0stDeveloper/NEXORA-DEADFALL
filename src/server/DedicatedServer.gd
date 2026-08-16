@@ -9,6 +9,9 @@ const DirectoryServerScript = preload("res://src/network/RoomDirectoryServer.gd"
 const GuestAccountStoreScript = preload("res://src/server/GuestAccountStore.gd")
 const SocialServiceScript = preload("res://src/server/SocialService.gd")
 const ControlApiServerScript = preload("res://src/server/ControlApiServer.gd")
+const MatchOrchestratorScript = preload("res://src/server/MatchOrchestrator.gd")
+const MatchAdmissionScript = preload("res://src/server/MatchAdmission.gd")
+const MatchInstanceGuardScript = preload("res://src/server/MatchInstanceGuard.gd")
 
 var peer := ENetMultiplayerPeer.new()
 var listen_port := 24560
@@ -18,12 +21,36 @@ var _directory: Node
 var _guest_accounts: Node
 var _social_service: Node
 var _control_api: Node
+var _match_orchestrator: Node
+var _match_admission: RefCounted
+var _match_guard: Node
 var _campaign_mode := false
+var _is_match_instance := false
 
-func start(port: int = 24560, max_clients: int = DEFAULT_MAX_CLIENTS, directory_port: int = 24561, public_host: String = "127.0.0.1", requested_room_code: String = "", campaign_mode: bool = false, mission_id: StringName = &"mission_01_first_signal") -> Error:
+func start(
+	port: int = 24560,
+	max_clients: int = DEFAULT_MAX_CLIENTS,
+	directory_port: int = 24561,
+	public_host: String = "127.0.0.1",
+	requested_room_code: String = "",
+	campaign_mode: bool = false,
+	mission_id: StringName = &"mission_01_first_signal",
+	match_instance: bool = false,
+	match_config_path: String = ""
+) -> Error:
 	listen_port = port
 	_campaign_mode = campaign_mode
+	_is_match_instance = match_instance
 	room_code = RoomCodeScript.normalize(requested_room_code)
+	if _is_match_instance:
+		_match_admission = MatchAdmissionScript.new()
+		if not bool(_match_admission.call("load_from_file", match_config_path)):
+			push_error("Unable to load DEADFALL match admission config: %s" % match_config_path)
+			return ERR_INVALID_DATA
+		var admission_snapshot: Dictionary = Dictionary(_match_admission.call("snapshot"))
+		room_code = RoomCodeScript.normalize(String(admission_snapshot.get("party_code", room_code)))
+		listen_port = int(admission_snapshot.get("port", listen_port))
+		mission_id = StringName(String(admission_snapshot.get("mission_id", String(mission_id))))
 	if not RoomCodeScript.is_valid(room_code):
 		room_code = RoomCodeScript.generate_code()
 	var error := peer.create_server(listen_port, mini(DEFAULT_MAX_CLIENTS, max_clients))
@@ -32,8 +59,21 @@ func start(port: int = 24560, max_clients: int = DEFAULT_MAX_CLIENTS, directory_
 		return error
 	multiplayer.multiplayer_peer = peer
 	Game.start_dedicated_server_session()
+
+	if _is_match_instance:
+		_boot_network_arena(campaign_mode, mission_id)
+		_configure_match_instance_guard()
+		var match_snapshot: Dictionary = Dictionary(_match_admission.call("snapshot"))
+		print("DEADFALL_MATCH_INSTANCE_READY match=%s party=%s port=%d members=%d" % [
+			String(match_snapshot.get("match_id", "")),
+			room_code,
+			listen_port,
+			int(match_snapshot.get("expected_members", 0)),
+		])
+		return OK
+
 	_boot_guest_accounts()
-	_boot_social_services()
+	_boot_social_services(public_host)
 	_boot_network_arena(campaign_mode, mission_id)
 	_directory = DirectoryServerScript.new()
 	_directory.name = "RoomDirectoryServer"
@@ -55,6 +95,9 @@ func get_guest_account_store() -> Node:
 func get_social_service() -> Node:
 	return _social_service
 
+func get_match_orchestrator() -> Node:
+	return _match_orchestrator
+
 func _boot_guest_accounts() -> void:
 	if _guest_accounts != null and is_instance_valid(_guest_accounts):
 		return
@@ -62,17 +105,22 @@ func _boot_guest_accounts() -> void:
 	_guest_accounts.name = "GuestAccountStore"
 	add_child(_guest_accounts)
 
-func _boot_social_services() -> void:
+func _boot_social_services(public_host: String) -> void:
 	if _social_service == null or not is_instance_valid(_social_service):
 		_social_service = SocialServiceScript.new()
 		_social_service.name = "SocialService"
 		add_child(_social_service)
 		_social_service.call("configure", _guest_accounts)
+	if _match_orchestrator == null or not is_instance_valid(_match_orchestrator):
+		_match_orchestrator = MatchOrchestratorScript.new()
+		_match_orchestrator.name = "MatchOrchestrator"
+		add_child(_match_orchestrator)
+		_match_orchestrator.call("configure", _guest_accounts, _social_service, public_host)
 	if _control_api == null or not is_instance_valid(_control_api):
 		_control_api = ControlApiServerScript.new()
 		_control_api.name = "ControlApiServer"
 		add_child(_control_api)
-		_control_api.call("configure", _guest_accounts, _social_service)
+		_control_api.call("configure", _guest_accounts, _social_service, _match_orchestrator)
 		var control_error := int(_control_api.call("start", 24562))
 		if control_error != OK:
 			push_error("Unable to start DEADFALL control API: %s" % error_string(control_error))
@@ -86,6 +134,22 @@ func _boot_network_arena(campaign_mode: bool, mission_id: StringName) -> void:
 	var session := _arena.get_node_or_null("NetworkSession")
 	if session != null and session.has_method("configure_server"):
 		session.call("configure_server", room_code)
+	if _is_match_instance and session != null and session.has_method("configure_match_admission"):
+		session.call("configure_match_admission", _match_admission)
+
+func _configure_match_instance_guard() -> void:
+	if _arena == null:
+		return
+	var session := _arena.get_node_or_null("NetworkSession")
+	if session == null:
+		return
+	_match_guard = MatchInstanceGuardScript.new()
+	_match_guard.name = "MatchInstanceGuard"
+	add_child(_match_guard)
+	var match_id := ""
+	if _match_admission != null and _match_admission.has_method("snapshot"):
+		match_id = String(Dictionary(_match_admission.call("snapshot")).get("match_id", ""))
+	_match_guard.call("configure", session, match_id)
 
 func stop() -> void:
 	if _control_api != null and is_instance_valid(_control_api) and _control_api.has_method("stop"):
