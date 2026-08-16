@@ -54,6 +54,9 @@ func _on_connected_to_server() -> void:
 
 func _on_server_disconnected() -> void:
 	_set_ping(999)
+	var telemetry := get_node_or_null("/root/NetworkTelemetry")
+	if telemetry != null and telemetry.has_method("clear_match_ping"):
+		telemetry.call("clear_match_ping")
 	super._on_server_disconnected()
 
 @rpc("any_peer", "call_remote", "reliable", 0)
@@ -137,8 +140,7 @@ func _server_join_request(protocol: int, requested_token: String, requested_name
 		record["match_ticket"] = clean_ticket
 		_active_match_tickets[clean_ticket] = sender
 		var player := record.get("player") as Node3D
-		if player != null and is_instance_valid(player) and player.has_method("configure_character_visual"):
-			player.call("configure_character_visual", StringName(record["selected_character"]))
+		_configure_player_model(player, StringName(record["selected_character"]))
 	_peers[sender] = record
 
 @rpc("any_peer", "call_remote", "unreliable_ordered", 0)
@@ -235,6 +237,23 @@ func _client_pong(sequence: int, client_sent_usec: int) -> void:
 	var measured := clampi(int(round(float(now - stored_sent) / 1000.0)), 0, 999)
 	_set_ping(measured)
 
+func _build_player_state(peer_id: int, record: Dictionary, player: Node3D) -> Dictionary:
+	var state: Dictionary = super._build_player_state(peer_id, record, player)
+	state["public_id"] = String(record.get("public_id", ""))
+	state["selected_character"] = String(record.get("selected_character", "operator_01"))
+	return state
+
+func _apply_client_player_snapshot(player: Node3D, snapshot: Dictionary, local_player: bool) -> void:
+	super._apply_client_player_snapshot(player, snapshot, local_player)
+	_configure_player_model(player, StringName(String(snapshot.get("selected_character", "operator_01"))))
+
+func _configure_player_model(player: Node3D, character_id: StringName) -> void:
+	if player == null or not is_instance_valid(player):
+		return
+	var presenter := player.get_node_or_null("VisualRoot/ModelPresenter")
+	if presenter != null and presenter.has_method("configure_character"):
+		presenter.call("configure_character", character_id)
+
 func _on_server_peer_disconnected(peer_id: int) -> void:
 	if _peers.has(peer_id):
 		var record: Dictionary = Dictionary(_peers[peer_id])
@@ -259,8 +278,12 @@ func get_status_snapshot() -> Dictionary:
 		"client_position_writes": false,
 		"client_health_writes": false,
 		"client_damage_writes": false,
+		"client_ammo_writes": false,
+		"client_hit_result_writes": false,
 		"server_simulates_movement": true,
+		"server_resolves_hits": true,
 		"server_resolves_damage": true,
+		"server_owns_health": true,
 	}
 	return snapshot
 
