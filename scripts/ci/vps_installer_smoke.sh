@@ -39,6 +39,10 @@ grep -Fq 'configure_nginx_site "$DEADFALL_ROOT/deploy/nginx/nexora-deadfall.conf
 grep -Fq 'configure_nginx_site "$DEADFALL_ROOT/deploy/nginx/nexora-deadfall.conf.template"' deploy/vps/update.sh
 grep -Fq '/etc/nginx/sites-enabled/' deploy/vps/lib/common.sh
 grep -Fq '/etc/nginx/conf.d/' deploy/vps/lib/common.sh
+grep -Fq 'last_deployed_sha' deploy/vps/update.sh
+grep -Fq 'last_deploy_status=failed' deploy/vps/update.sh
+grep -Fq 'last_deploy_status=success' deploy/vps/update.sh
+grep -Fq "volverá a ejecutar los gates/builds" deploy/vps/update.sh
 if grep -Fq -- '--skip-ssh-key' deploy/vps/install.sh || grep -Fq -- '--skip-ssh-key' deploy/vps/nexora-deadfall; then
   echo 'Unsupported gh --skip-ssh-key flag must not be used by VPS scripts' >&2
   exit 1
