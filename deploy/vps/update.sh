@@ -81,7 +81,7 @@ if [[ "$WEB" -eq 1 || "$APP" -eq 1 ]]; then
   "$DEADFALL_ROOT/scripts/build/build_download_site.sh"
   systemctl restart nexora-deadfall-download
   PORTAL_OK=0
-  for _attempt in $(seq 1 12); do
+  for _attempt in $(seq 1 20); do
     if curl -fsS --max-time 3 http://127.0.0.1:3100/ >/dev/null; then
       PORTAL_OK=1
       break
@@ -89,13 +89,24 @@ if [[ "$WEB" -eq 1 || "$APP" -eq 1 ]]; then
     sleep 1
   done
   [[ "$PORTAL_OK" -eq 1 ]] || die "El portal Next.js no responde en 127.0.0.1:3100. Revisa: journalctl -u nexora-deadfall-download -n 100 --no-pager"
+
   if [[ -n "${DEADFALL_DOMAIN:-}" && "${DEADFALL_DOMAIN:-}" != "_" ]]; then
-    curl -fsS --max-time 5 -H "Host: $DEADFALL_DOMAIN" http://127.0.0.1/ >/dev/null || die "Nginx no está sirviendo el portal para $DEADFALL_DOMAIN por HTTP."
-    if [[ -f "/etc/letsencrypt/live/$DEADFALL_DOMAIN/fullchain.pem" ]]; then
-      curl -kfsS --max-time 5 --resolve "$DEADFALL_DOMAIN:443:127.0.0.1" "https://$DEADFALL_DOMAIN/" >/dev/null || die "Nginx HTTPS devuelve error para $DEADFALL_DOMAIN."
+    CERT="/etc/letsencrypt/live/$DEADFALL_DOMAIN/fullchain.pem"
+    if [[ -f "$CERT" ]]; then
+      curl -kfsS --max-time 8 --resolve "$DEADFALL_DOMAIN:443:127.0.0.1" "https://$DEADFALL_DOMAIN/" >/dev/null || \
+        die "Nginx HTTPS no está sirviendo DEADFALL para $DEADFALL_DOMAIN. Revisa el vhost 443 activo."
+      if ! curl -fsS --max-time 5 -H "Host: $DEADFALL_DOMAIN" http://127.0.0.1/ >/dev/null; then
+        warn "El puerto HTTP/80 local no pertenece a DEADFALL (puede estar ocupado por otro servicio). HTTPS está correcto y será la ruta pública prioritaria."
+      fi
+      log "Portal Next.js validado en localhost y HTTPS para $DEADFALL_DOMAIN."
+    else
+      curl -fsS --max-time 5 -H "Host: $DEADFALL_DOMAIN" http://127.0.0.1/ >/dev/null || \
+        die "Nginx no está sirviendo el portal por HTTP y todavía no existe certificado TLS para $DEADFALL_DOMAIN."
+      log "Portal Next.js validado en localhost y HTTP para $DEADFALL_DOMAIN."
     fi
+  else
+    log "Portal Next.js validado en localhost."
   fi
-  log "Portal Next.js validado en localhost y Nginx."
 fi
 
 if [[ "$APP" -eq 1 ]]; then
