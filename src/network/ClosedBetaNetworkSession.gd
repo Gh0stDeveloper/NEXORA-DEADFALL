@@ -10,11 +10,13 @@ const PING_INTERVAL_SECONDS := 1.0
 const PING_OFFLINE_SECONDS := 4.0
 const EXCELLENT_PING_THRESHOLD_MS := 25
 const STALE_COMMAND_USEC := 350_000
+const REJECTION_DISCONNECT_DELAY_SECONDS := 0.20
 const MATCH_RESUME_PLACEHOLDER := "match_ticket_only"
 
 var _guard = AbuseGuardScript.new()
 var _build_verified_peers: Dictionary = {}
 var _client_build_verified := false
+var _beta_hello_sent := false
 var _security_rejections := 0
 var _match_admission: RefCounted
 var _active_match_tickets: Dictionary = {}
@@ -32,6 +34,8 @@ func configure_match_admission(admission: RefCounted) -> void:
 
 func start_client(host: String, port: int = 24560, requested_name: String = "Player", requested_resume_token: String = "", requested_match_ticket: String = "") -> Error:
 	_client_match_ticket = requested_match_ticket.strip_edges()
+	_client_build_verified = false
+	_beta_hello_sent = false
 	_ping_elapsed = 0.0
 	_last_pong_usec = Time.get_ticks_usec()
 	_set_ping(999)
@@ -55,7 +59,13 @@ func _process(delta: float) -> void:
 	if role == Role.SERVER:
 		_neutralize_stale_server_inputs()
 		return
-	if role != Role.CLIENT or local_entity_id == 0:
+	if role != Role.CLIENT:
+		return
+	# A small idempotent watchdog covers missed connected_to_server signals and
+	# ensures the build/admission handshake starts whenever ENet is connected.
+	if not _beta_hello_sent and multiplayer.multiplayer_peer != null and multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+		_on_connected_to_server()
+	if local_entity_id == 0:
 		return
 	_ping_elapsed += delta
 	var now := Time.get_ticks_usec()
@@ -69,9 +79,14 @@ func _process(delta: float) -> void:
 		_set_ping(999)
 
 func _on_connected_to_server() -> void:
+	if _beta_hello_sent or role != Role.CLIENT:
+		return
+	_beta_hello_sent = true
 	rpc_id(SERVER_PEER_ID, "_server_beta_hello", BuildInfoScript.NETWORK_PROTOCOL, BuildInfoScript.VERSION_CODE, BuildInfoScript.CONTENT_VERSION, BuildInfoScript.APP_VERSION)
 
 func _on_server_disconnected() -> void:
+	_beta_hello_sent = false
+	_client_build_verified = false
 	_set_ping(999)
 	var telemetry := get_node_or_null("/root/NetworkTelemetry")
 	if telemetry != null and telemetry.has_method("clear_match_ping"):
@@ -368,9 +383,11 @@ func _reject_join(peer_id: int, reason: String, immediate_disconnect: bool) -> v
 	_security_rejections += 1
 	var strikes := _guard.record_strike(peer_id, reason, 2)
 	_record_security_event(peer_id, reason, strikes)
+	print("DEADFALL_SQUAD_SERVER_REJECT peer=%d reason=%s" % [peer_id, reason])
 	rpc_id(peer_id, "_client_join_rejected", reason)
 	if immediate_disconnect:
-		call_deferred("_disconnect_peer", peer_id)
+		var timer := get_tree().create_timer(REJECTION_DISCONNECT_DELAY_SECONDS)
+		timer.timeout.connect(_disconnect_peer.bind(peer_id), CONNECT_ONE_SHOT)
 
 func _enforce_guard(peer_id: int) -> void:
 	if _guard.should_disconnect(peer_id):
