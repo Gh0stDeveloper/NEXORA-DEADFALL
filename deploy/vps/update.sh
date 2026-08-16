@@ -54,7 +54,7 @@ if [[ "$CHANGED" == "ALL" ]]; then
   APP=1; SERVER=1; WEB=1; DEPLOY=1
 else
   grep -Eq '^(project\.godot|export_presets\.cfg|src/|assets/|android/)' <<<"$CHANGED" && { APP=1; SERVER=1; }
-  grep -Eq '^(src/(server|network|core|horde|zombies|campaign)/|scripts/server/)' <<<"$CHANGED" && SERVER=1
+  grep -Eq '^(src/(server|network|core|horde|zombies|campaign|identity|lobby)/|scripts/server/)' <<<"$CHANGED" && SERVER=1
   grep -Eq '^web/download-site/' <<<"$CHANGED" && WEB=1
   grep -Eq '^(deploy/(systemd|vps|nginx)/|scripts/build/)' <<<"$CHANGED" && { DEPLOY=1; SERVER=1; WEB=1; }
 fi
@@ -75,6 +75,7 @@ if [[ "$APP" -eq 1 || "$SERVER" -eq 1 ]]; then
   run_deadfall_home godot --headless --editor --path "$DEADFALL_ROOT" --quit
   run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/smoke.gd
   run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/beta_hardening_smoke.gd
+  run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/phase11_smoke.gd
 fi
 
 if [[ "$WEB" -eq 1 || "$APP" -eq 1 ]]; then
