@@ -21,15 +21,17 @@ func _initialize() -> void:
 	quit(0)
 
 func _test_build_compatibility() -> bool:
-	if BuildInfoScript.APP_VERSION != "0.9.0-beta.1" or BuildInfoScript.VERSION_CODE != 900001:
-		return _fail("Closed beta build identity mismatch")
-	if not bool(BuildInfoScript.validate_client(2, 900001, 1).get("compatible", false)):
+	if BuildInfoScript.APP_VERSION.is_empty() or BuildInfoScript.VERSION_CODE <= 0:
+		return _fail("Closed beta build identity is missing")
+	if BuildInfoScript.VERSION_CODE < BuildInfoScript.MIN_CLIENT_VERSION_CODE or BuildInfoScript.VERSION_CODE > BuildInfoScript.MAX_CLIENT_VERSION_CODE:
+		return _fail("Current build version is outside the accepted client range")
+	if not bool(BuildInfoScript.validate_client(BuildInfoScript.NETWORK_PROTOCOL, BuildInfoScript.VERSION_CODE, BuildInfoScript.CONTENT_VERSION).get("compatible", false)):
 		return _fail("Current closed beta client was rejected")
-	if bool(BuildInfoScript.validate_client(1, 900001, 1).get("compatible", true)):
+	if bool(BuildInfoScript.validate_client(BuildInfoScript.NETWORK_PROTOCOL + 1, BuildInfoScript.VERSION_CODE, BuildInfoScript.CONTENT_VERSION).get("compatible", true)):
 		return _fail("Wrong network protocol was accepted")
-	if bool(BuildInfoScript.validate_client(2, 900001, 99).get("compatible", true)):
+	if bool(BuildInfoScript.validate_client(BuildInfoScript.NETWORK_PROTOCOL, BuildInfoScript.VERSION_CODE, BuildInfoScript.CONTENT_VERSION + 1).get("compatible", true)):
 		return _fail("Wrong content version was accepted")
-	if bool(BuildInfoScript.validate_client(2, 899999, 1).get("compatible", true)):
+	if BuildInfoScript.MIN_CLIENT_VERSION_CODE > 0 and bool(BuildInfoScript.validate_client(BuildInfoScript.NETWORK_PROTOCOL, BuildInfoScript.MIN_CLIENT_VERSION_CODE - 1, BuildInfoScript.CONTENT_VERSION).get("compatible", true)):
 		return _fail("Obsolete client version was accepted")
 	return true
 
@@ -91,7 +93,7 @@ func _test_directory_build_contract() -> bool:
 	var endpoint := RoomCodeScript.parse_resolution_payload(JSON.stringify(payload))
 	if endpoint.is_empty() or int(endpoint.get("version_code", 0)) != BuildInfoScript.VERSION_CODE:
 		return _fail("Compatible directory build metadata was rejected")
-	payload["version_code"] = 899999
+	payload["version_code"] = BuildInfoScript.MIN_SERVER_VERSION_CODE - 1
 	if not RoomCodeScript.parse_resolution_payload(JSON.stringify(payload)).is_empty():
 		return _fail("Obsolete directory/server build metadata was accepted")
 	return true
@@ -132,7 +134,14 @@ func _test_release_contract() -> bool:
 	if preset_file == null:
 		return _fail("export_presets.cfg missing")
 	var presets := preset_file.get_as_text()
-	for token in ["Android Closed Beta", "Android Closed Beta APK", "gradle_build/target_sdk=\"36\"", "version/code=900001", "version/name=\"0.9.0-beta.1\""]:
+	var required_tokens := [
+		"Android Closed Beta",
+		"Android Closed Beta APK",
+		"gradle_build/target_sdk=\"%d\"" % BuildInfoScript.TARGET_ANDROID_API,
+		"version/code=%d" % BuildInfoScript.VERSION_CODE,
+		"version/name=\"%s\"" % BuildInfoScript.APP_VERSION,
+	]
+	for token in required_tokens:
 		if presets.find(token) < 0:
 			return _fail("Closed beta export preset missing token: %s" % token)
 	return true
@@ -143,7 +152,7 @@ func _test_beta_runtime() -> bool:
 		return _fail("BetaRuntime autoload missing")
 	var snapshot: Dictionary = runtime.call("get_status_snapshot")
 	var build: Dictionary = snapshot.get("build", {})
-	if String(build.get("app_version", "")) != BuildInfoScript.APP_VERSION or int(build.get("target_android_api", 0)) != 36:
+	if String(build.get("app_version", "")) != BuildInfoScript.APP_VERSION or int(build.get("version_code", 0)) != BuildInfoScript.VERSION_CODE or int(build.get("target_android_api", 0)) != BuildInfoScript.TARGET_ANDROID_API:
 		return _fail("BetaRuntime build/device snapshot mismatch")
 	return true
 
