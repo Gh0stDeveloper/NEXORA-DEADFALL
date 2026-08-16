@@ -72,17 +72,25 @@ func _build_environment() -> void:
 	environment_node.name = "WorldEnvironment"
 	var environment := Environment.new()
 	environment.background_mode = Environment.BG_COLOR
-	environment.background_color = Color(0.035, 0.045, 0.055)
+	environment.background_color = Color(0.045, 0.055, 0.075)
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = Color(0.38, 0.42, 0.48)
-	environment.ambient_light_energy = 0.58
+	environment.ambient_light_color = Color(0.42, 0.47, 0.58)
+	environment.ambient_light_energy = 0.64
+	environment.ambient_light_sky_contribution = 0.0
+	environment.tonemap_exposure = 1.25
+	environment.adjustment_enabled = true
+	environment.adjustment_brightness = 1.10
+	environment.adjustment_contrast = 1.02
 	environment_node.environment = environment
 	add_child(environment_node)
+
 	var moon := DirectionalLight3D.new()
-	moon.name = "DistrictLight"
+	moon.name = "MoonLight"
 	moon.rotation_degrees = Vector3(-48, -32, 0)
-	moon.light_energy = 1.15
+	moon.light_color = Color(0.60, 0.70, 0.92)
+	moon.light_energy = 0.72
 	moon.shadow_enabled = true
+	moon.shadow_blur = 1.35
 	add_child(moon)
 
 func _build_geometry() -> void:
