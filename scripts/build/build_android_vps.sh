@@ -24,11 +24,14 @@ if [[ ! -d "$ANDROID_HOME/build-tools/36.0.0" ]]; then
   chown -R "$DEADFALL_USER:$DEADFALL_GROUP" "$ANDROID_HOME/build-tools/36.0.0"
 fi
 
-INSTALL_TEMPLATE_ARGS=()
 if [[ ! -f "$DEADFALL_ROOT/android/build/build.gradle" ]]; then
   rm -rf "$DEADFALL_ROOT/android/build"
-  INSTALL_TEMPLATE_ARGS+=(--install-android-build-template)
-  log "Android Gradle build template ausente; se instalará dentro de la exportación Release."
+  log "Android Gradle build template ausente; instalándolo antes de exportar Release..."
+  run_deadfall_home env \
+    ANDROID_HOME="$ANDROID_HOME" \
+    JAVA_HOME="$JAVA_HOME" \
+    godot --headless --path "$DEADFALL_ROOT" --install-android-build-template --quit
+  test -f "$DEADFALL_ROOT/android/build/build.gradle"
 fi
 
 run_deadfall_home env \
@@ -38,7 +41,6 @@ run_deadfall_home env \
   GODOT_ANDROID_KEYSTORE_RELEASE_USER="$DEADFALL_KEYSTORE_ALIAS" \
   GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="$DEADFALL_KEYSTORE_PASSWORD" \
   godot --verbose --headless --path "$DEADFALL_ROOT" \
-  "${INSTALL_TEMPLATE_ARGS[@]}" \
   --export-release "Android Closed Beta APK" "$TMP"
 
 test -s "$TMP"
