@@ -18,6 +18,13 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
+
+      - name: Sync and validate required 3D models
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.DEADFALL_MODELS_TOKEN }}
+        run: bash scripts/ci/sync_required_models.sh "$GITHUB_WORKSPACE"
+
       - name: Install Godot
         shell: bash
         run: |
@@ -58,7 +65,7 @@ jobs:
       - name: Run four-peer Campaign integration
         run: bash scripts/ci/campaign_integration.sh
       - name: Validate shell scripts
-        run: bash -n scripts/server/run_server.sh scripts/ci/android_runtime_smoke.sh scripts/ci/duo_integration.sh scripts/ci/squad_integration.sh scripts/ci/campaign_integration.sh scripts/ci/vps_installer_smoke.sh scripts/beta/collect_android_report.sh deploy/vps/install.sh deploy/vps/update.sh deploy/vps/nexora-deadfall deploy/vps/lib/common.sh scripts/build/build_android_vps.sh scripts/build/build_download_site.sh
+        run: bash -n scripts/server/run_server.sh scripts/assets/sync_objetos3d.sh scripts/ci/sync_required_models.sh scripts/ci/android_runtime_smoke.sh scripts/ci/duo_integration.sh scripts/ci/squad_integration.sh scripts/ci/campaign_integration.sh scripts/ci/vps_installer_smoke.sh scripts/beta/collect_android_report.sh deploy/vps/install.sh deploy/vps/update.sh deploy/vps/nexora-deadfall deploy/vps/lib/common.sh scripts/build/build_android_vps.sh scripts/build/build_download_site.sh
 
   download-portal-validation:
     runs-on: ubuntu-24.04
