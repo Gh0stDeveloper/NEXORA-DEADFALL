@@ -55,8 +55,9 @@ func apply_replica_destroyed_parts(parts: Array) -> void:
 func _apply_replica_limb(body_part: int) -> void:
 	_destroyed[body_part] = true
 	var part_name := _node_name_for_part(body_part)
-	var mesh := _rig.get_node_or_null(part_name) as MeshInstance3D if _rig != null else null
-	var wound := _wounds.get_node_or_null(part_name) as MeshInstance3D if _wounds != null else null
+	var part_path := NodePath(String(part_name))
+	var mesh := _rig.get_node_or_null(part_path) as MeshInstance3D if _rig != null else null
+	var wound := _wounds.get_node_or_null(part_path) as MeshInstance3D if _wounds != null else null
 	if mesh != null: mesh.visible = false
 	if wound != null: wound.visible = true
 	_disable_hitbox(part_name)
@@ -83,7 +84,10 @@ func _on_health_changed(_current: float, _maximum: float, event) -> void:
 
 func _destroy_limb(body_part: int, event) -> void:
 	_destroyed[body_part] = true
-	var part_name := _node_name_for_part(body_part); var mesh: MeshInstance3D = _rig.get_node_or_null(part_name) as MeshInstance3D if _rig != null else null; var wound: MeshInstance3D = _wounds.get_node_or_null(part_name) as MeshInstance3D if _wounds != null else null
+	var part_name := _node_name_for_part(body_part)
+	var part_path := NodePath(String(part_name))
+	var mesh: MeshInstance3D = _rig.get_node_or_null(part_path) as MeshInstance3D if _rig != null else null
+	var wound: MeshInstance3D = _wounds.get_node_or_null(part_path) as MeshInstance3D if _wounds != null else null
 	var parent_3d := get_parent() as Node3D; var spawn_transform := parent_3d.global_transform if parent_3d != null else Transform3D.IDENTITY
 	if mesh != null: spawn_transform = mesh.global_transform; mesh.visible = false
 	if wound != null: wound.visible = true
@@ -104,7 +108,8 @@ func _spawn_impact_effects(event, intensity: float) -> void:
 	if manager != null: manager.call("spawn_blood", Vector3(event.hit_position), Vector3(event.hit_direction), intensity)
 func _disable_hitbox(part_name: StringName) -> void:
 	if _hitboxes == null: return
-	var hitbox := _hitboxes.get_node_or_null(part_name) as Area3D
+	var part_path := NodePath(String(part_name))
+	var hitbox := _hitboxes.get_node_or_null(part_path) as Area3D
 	if hitbox == null: return
 	hitbox.collision_layer = 0; hitbox.collision_mask = 0; hitbox.set_deferred("monitoring", false); hitbox.set_deferred("monitorable", false)
 	var shape := hitbox.get_node_or_null("CollisionShape3D") as CollisionShape3D
