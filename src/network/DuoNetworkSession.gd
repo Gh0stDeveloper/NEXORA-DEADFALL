@@ -254,7 +254,7 @@ func _server_submit_command(raw_command: Dictionary) -> void:
 	record["last_command_seq"] = int(command.get("sequence", -1))
 	record["interact"] = bool(command.get("interact", false))
 	_peers[sender] = record
-	var player = record.get("player")
+	var player := record.get("player") as Node3D
 	if player != null and is_instance_valid(player) and player.has_method("push_server_command"):
 		player.call("push_server_command", command)
 
@@ -270,10 +270,10 @@ func _server_fire_request(request_sequence: int, client_tick: int) -> void:
 		return
 	record["last_fire_seq"] = request_sequence
 	_peers[sender] = record
-	var player = record.get("player")
+	var player := record.get("player") as Node3D
 	if player == null or not is_instance_valid(player) or (player.has_method("can_use_weapon") and not bool(player.call("can_use_weapon"))):
 		return
-	var weapon := player.get_node_or_null("PrimaryWeapon")
+	var weapon: Node = player.get_node_or_null("PrimaryWeapon")
 	if weapon != null and weapon.has_method("server_try_fire"):
 		weapon.call("server_try_fire", request_sequence, client_tick)
 
@@ -289,10 +289,10 @@ func _server_reload_request(request_sequence: int) -> void:
 		return
 	record["last_reload_seq"] = request_sequence
 	_peers[sender] = record
-	var player = record.get("player")
+	var player := record.get("player") as Node3D
 	if player == null or not is_instance_valid(player) or (player.has_method("can_use_weapon") and not bool(player.call("can_use_weapon"))):
 		return
-	var weapon := player.get_node_or_null("PrimaryWeapon")
+	var weapon: Node = player.get_node_or_null("PrimaryWeapon")
 	if weapon != null and weapon.has_method("server_try_reload"):
 		weapon.call("server_try_reload", request_sequence)
 
@@ -623,7 +623,7 @@ func _set_zombie_relevant(zombie: Node3D, relevant: bool) -> void:
 func _attach_interpolator(target: Node3D) -> void:
 	if target.get_node_or_null("NetworkInterpolator") != null:
 		return
-	var interpolator := InterpolatorScript.new()
+	var interpolator: Node = InterpolatorScript.new()
 	interpolator.name = "NetworkInterpolator"
 	target.add_child(interpolator)
 	interpolator.call("bind_target", target)
@@ -660,7 +660,7 @@ func _build_client_huds(player: Node3D) -> void:
 		horde_hud.set("restart_handler_path", NodePath("../NetworkSession"))
 		arena.add_child(horde_hud)
 	if arena.get_node_or_null("SquadHUD") == null:
-		var squad_hud := SquadHUDScript.new()
+		var squad_hud: CanvasLayer = SquadHUDScript.new()
 		squad_hud.name = "SquadHUD"
 		arena.add_child(squad_hud)
 		squad_hud.call("bind_session", self)
