@@ -33,6 +33,34 @@ ensure_dirs(){
   chown -R "$DEADFALL_USER:$DEADFALL_GROUP" "$DEADFALL_HOME" "$DEADFALL_LOG_DIR"
   chown -R www-data:www-data "$DEADFALL_PUBLIC_DIR"
 }
+configure_nginx_site(){
+  local template="$1"
+  local domain="${2:-_}"
+  [[ -f "$template" ]] || die "Plantilla Nginx no encontrada: $template"
+  [[ -f /etc/nginx/nginx.conf ]] || die "Nginx instalado pero falta /etc/nginx/nginx.conf"
+
+  install -d -m 0755 /etc/nginx/sites-available /etc/nginx/sites-enabled /etc/nginx/conf.d
+  local rendered
+  rendered="$(mktemp)"
+  sed -e "s/__DEADFALL_DOMAIN__/${domain:-_}/g" "$template" > "$rendered"
+
+  if grep -Eq 'include[[:space:]]+/etc/nginx/sites-enabled/\*' /etc/nginx/nginx.conf; then
+    install -m 0644 "$rendered" /etc/nginx/sites-available/nexora-deadfall
+    ln -sf /etc/nginx/sites-available/nexora-deadfall /etc/nginx/sites-enabled/nexora-deadfall
+    rm -f /etc/nginx/conf.d/nexora-deadfall.conf
+    rm -f /etc/nginx/sites-enabled/default
+    log "Nginx: usando sites-enabled."
+  elif grep -Eq 'include[[:space:]]+/etc/nginx/conf\.d/\*\.conf' /etc/nginx/nginx.conf; then
+    install -m 0644 "$rendered" /etc/nginx/conf.d/nexora-deadfall.conf
+    rm -f /etc/nginx/sites-enabled/nexora-deadfall
+    log "Nginx: usando conf.d."
+  else
+    rm -f "$rendered"
+    die "nginx.conf no carga /etc/nginx/sites-enabled/* ni /etc/nginx/conf.d/*.conf; no se modificará automáticamente una configuración Nginx no estándar."
+  fi
+  rm -f "$rendered"
+  nginx -t
+}
 json_state(){
   python3 - "$DEADFALL_STATE" "$@" <<'PY'
 import json, pathlib, sys, time
