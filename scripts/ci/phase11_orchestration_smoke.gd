@@ -10,6 +10,7 @@ const PARTY_CODE := "DFT242"
 const TEST_PORT_START := 30000
 const TEST_PORT_END := 30007
 const READY_TIMEOUT_SECONDS := 20.0
+const CLIENT_PROBE_TIMEOUT_SECONDS := 5
 const INVALID_TICKET := "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 
 class FakeAccountStore:
@@ -196,6 +197,16 @@ func _run() -> void:
 		_fail("Validation match did not use isolated test port range")
 		return
 
+	if OS.get_name() != "Linux":
+		_fail("Phase 11.3 network probes require the Linux/VPS validation environment")
+		return
+	if not _run_network_probe(assigned_port, "", "DEADFALL_SQUAD_JOIN_REJECTED reason=match_ticket_required", "NoTicket"):
+		return
+	if not _run_network_probe(assigned_port, leader_ticket, "DEADFALL_SQUAD_JOIN_ACCEPTED", "TicketLeader"):
+		return
+	if not _run_network_probe(assigned_port, member_ticket, "DEADFALL_SQUAD_JOIN_ACCEPTED", "TicketMember"):
+		return
+
 	var status_after_ready: Dictionary = Dictionary(_orchestrator.call("get_status_snapshot"))
 	if int(status_after_ready.get("production_port_start", 0)) != 24600 or int(status_after_ready.get("production_port_end", 0)) != 24749:
 		_fail("Production match port contract changed during validation")
@@ -214,6 +225,29 @@ func _run() -> void:
 	_cleanup()
 	print("NEXORA: DEADFALL Phase 11.3 real child-process orchestration smoke passed")
 	quit(0)
+
+func _run_network_probe(port: int, ticket: String, expected_marker: String, probe_name: String) -> bool:
+	var project_root := ProjectSettings.globalize_path("res://")
+	var process_args := PackedStringArray([
+		"%ds" % CLIENT_PROBE_TIMEOUT_SECONDS,
+		OS.get_executable_path(),
+		"--headless",
+		"--path", project_root,
+		"--",
+		"--connect=127.0.0.1:%d" % port,
+		"--campaign",
+		"--name=%s" % probe_name,
+	])
+	if not ticket.is_empty():
+		process_args.append("--match-ticket=%s" % ticket)
+	var output: Array = []
+	var exit_code := OS.execute("timeout", process_args, output, true)
+	var text := String(output[0]) if not output.is_empty() else ""
+	if not text.contains(expected_marker):
+		_fail("Network probe %s did not produce expected marker '%s' (exit=%d): %s" % [probe_name, expected_marker, exit_code, text])
+		return false
+	print("DEADFALL_PHASE11_NETWORK_PROBE name=%s marker=%s exit=%d" % [probe_name, expected_marker, exit_code])
+	return true
 
 func _cleanup() -> void:
 	if _orchestrator != null and is_instance_valid(_orchestrator):
