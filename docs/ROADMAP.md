@@ -70,7 +70,7 @@
 
 ## Phase 7 — Four-player squad
 - [x] Four-player ENet capacity and four stable player spawn slots.
-- [x] Protocol v2 room/session contract.
+- [x] Protocol v2 room/session contract and directory `max_players=4` metadata.
 - [x] ALIVE → DOWNED → DEAD authoritative player life state.
 - [x] 30-second bleedout and authoritative final death.
 - [x] Server-selected, range-validated, three-second revive hold.
@@ -79,12 +79,13 @@
 - [x] Android REVIVE/INTERACT control and Squad telemetry.
 - [x] 45-second reconnect reservations that preserve entity ID and player slot.
 - [x] Reserved reconnect slots count against four-player room capacity.
+- [x] Rejected peers release their client ENet connection.
 - [x] Four-player Horde wave and population scaling.
 - [x] Recoverable-player-aware Horde GAME_OVER and spawn safety.
 - [x] Per-quality snapshot frequency, zombie-detail and payload budgets.
 - [x] Per-client zombie relevance prioritization by distance.
 - [x] `network_smoke.gd` upgraded for Squad protocol/capacity.
-- [x] `squad_smoke.gd` for downed/revive/bleedout/Horde/weapon restrictions.
+- [x] `squad_smoke.gd` for downed/revive/bleedout/Horde/weapon/reconnect/budget restrictions.
 - [x] Two-peer regression integration remains in CI.
 - [x] Real four-client ENet Squad integration harness committed to CI.
 - [x] Phase 7 technical documentation.
