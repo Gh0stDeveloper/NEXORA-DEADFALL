@@ -4,6 +4,7 @@ extends Node
 signal login_succeeded(account: Dictionary)
 signal login_failed(reason: String)
 signal party_updated(party: Dictionary)
+signal match_ready(match: Dictionary)
 signal friends_updated(snapshot: Dictionary)
 signal profile_loaded(profile: Dictionary)
 signal account_updated(account: Dictionary)
@@ -19,6 +20,7 @@ var current_account: Dictionary = {}
 var current_party: Dictionary = {}
 var friends: Dictionary = {}
 var _pending_operations: Dictionary = {}
+var _emitted_match_id := ""
 
 func _ready() -> void:
 	api_base = String(ProjectSettings.get_setting("deadfall/social_api_base", DEFAULT_API_BASE)).trim_suffix("/")
@@ -46,6 +48,9 @@ func load_profile(account_id: String = "") -> bool:
 func update_selected_character(character_id: StringName) -> bool:
 	return _request_json("character_update", HTTPClient.METHOD_POST, "/profile/character", {"character_id": String(character_id)}, true)
 
+func report_presence(ping_ms: int) -> bool:
+	return _request_json("presence", HTTPClient.METHOD_POST, "/presence", {"ping_ms": clampi(ping_ms, 0, 999)}, true)
+
 func create_party(capacity: int) -> bool:
 	return _request_json("party_create", HTTPClient.METHOD_POST, "/party/create", {"capacity": capacity}, true)
 
@@ -63,6 +68,15 @@ func set_party_state(state: String) -> bool:
 
 func refresh_party() -> bool:
 	return _request_json("party_current", HTTPClient.METHOD_GET, "/party/current", {}, true)
+
+func start_party_match(mission_id: String = "mission_01_first_signal") -> bool:
+	return _request_json("match_start", HTTPClient.METHOD_POST, "/match/start", {"mission_id": mission_id}, true)
+
+func cancel_party_match() -> bool:
+	return _request_json("match_cancel", HTTPClient.METHOD_POST, "/match/cancel", {}, true)
+
+func refresh_match_status() -> bool:
+	return _request_json("match_status", HTTPClient.METHOD_GET, "/match/status", {}, true)
 
 func request_friend(account_id: String) -> bool:
 	return _request_json("friend_request", HTTPClient.METHOD_POST, "/friends/request", {"account_id": account_id}, true)
@@ -151,19 +165,35 @@ func _handle_success(operation: String, response: Dictionary, context: Dictionar
 			account_updated.emit(current_account)
 			if not current_party.is_empty():
 				refresh_party()
-		"party_create", "party_join", "party_kick", "party_state", "party_current", "party_chat":
-			current_party = Dictionary(response.get("party", {})).duplicate(true)
-			party_updated.emit(current_party)
+		"party_create", "party_join", "party_kick", "party_state", "party_current", "party_chat", "match_start", "match_cancel", "match_status":
+			_adopt_party(Dictionary(response.get("party", {})))
 			if operation == "party_chat":
 				chat_updated.emit("party", Array(current_party.get("chat", [])).duplicate(true))
 		"party_leave":
 			current_party = {}
+			_emitted_match_id = ""
 			party_updated.emit(current_party)
 		"friends", "friend_request", "friend_accept":
 			friends = Dictionary(response.get("friends", {})).duplicate(true)
 			friends_updated.emit(friends)
 		"friend_chat_send", "friend_chat_load":
 			chat_updated.emit("friend:%s" % String(context.get("guest_id", "")), Array(response.get("messages", [])).duplicate(true))
+		"presence":
+			pass
+
+func _adopt_party(party: Dictionary) -> void:
+	current_party = party.duplicate(true)
+	party_updated.emit(current_party)
+	var match: Dictionary = Dictionary(current_party.get("match", {}))
+	if match.is_empty():
+		_emitted_match_id = ""
+		return
+	var match_id := String(match.get("match_id", ""))
+	var status := String(match.get("status", "")).to_upper()
+	var ticket := String(match.get("join_ticket", ""))
+	if status == "READY" and not match_id.is_empty() and ticket.length() == 64 and _emitted_match_id != match_id:
+		_emitted_match_id = match_id
+		match_ready.emit(match.duplicate(true))
 
 func _adopt_session(response: Dictionary) -> void:
 	session_token = String(response.get("session_token", ""))
