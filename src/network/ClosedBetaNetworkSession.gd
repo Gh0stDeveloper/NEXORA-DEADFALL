@@ -3,7 +3,7 @@ extends "res://src/network/DuoNetworkSession.gd"
 
 const BuildInfoScript = preload("res://src/release/BuildInfo.gd")
 const AbuseGuardScript = preload("res://src/network/NetworkAbuseGuard.gd")
-const PlayerCommandScript = preload("res://src/network/PlayerCommand.gd")
+const BetaPlayerCommandScript = preload("res://src/network/PlayerCommand.gd")
 
 var _guard = AbuseGuardScript.new()
 var _build_verified_peers: Dictionary = {}
@@ -81,7 +81,7 @@ func _server_submit_command(raw_command: Dictionary) -> void:
 		_security_reject(sender, "command_payload_too_large", 3)
 		return
 	var record: Dictionary = _peers.get(sender, {})
-	if not PlayerCommandScript.validate_shape(raw_command, int(record.get("last_command_seq", -1))):
+	if not BetaPlayerCommandScript.validate_shape(raw_command, int(record.get("last_command_seq", -1))):
 		_security_reject(sender, "malformed_command", 2)
 		return
 	super._server_submit_command(raw_command)
