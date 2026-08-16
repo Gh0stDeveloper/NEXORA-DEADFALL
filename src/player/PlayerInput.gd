@@ -13,6 +13,7 @@ const KEY_BINDINGS := {
 	"camera_cycle": KEY_V,
 	"reload": KEY_R,
 	"interact": KEY_E,
+	"flashlight": KEY_F,
 }
 
 var _mobile_move := Vector2.ZERO
