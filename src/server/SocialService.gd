@@ -376,14 +376,14 @@ func _friends_snapshot(guest_id: String) -> Dictionary:
 	var friends_public: Array = []
 	for friend_id_value in _friend_list(guest_id):
 		var friend_id := String(friend_id_value)
-		var profile := account_store.public_account(friend_id) if account_store != null else {}
+		var profile: Dictionary = account_store.public_account(friend_id) if account_store != null else {}
 		if not profile.is_empty():
 			profile.merge(_presence_snapshot(friend_id), true)
 			friends_public.append(profile)
 	var incoming_public: Array = []
 	for request_id_value in _incoming_list(guest_id):
 		var request_id := String(request_id_value)
-		var profile := account_store.public_account(request_id) if account_store != null else {}
+		var profile: Dictionary = account_store.public_account(request_id) if account_store != null else {}
 		if not profile.is_empty():
 			profile.merge(_presence_snapshot(request_id), true)
 			incoming_public.append(profile)
