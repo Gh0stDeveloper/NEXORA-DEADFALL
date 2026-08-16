@@ -35,6 +35,16 @@ func start_client(host: String, port: int = 24560, requested_name: String = "Pla
 	_ping_elapsed = 0.0
 	_last_pong_usec = Time.get_ticks_usec()
 	_set_ping(999)
+	# Register callbacks before the inherited implementation assigns the ENet
+	# peer. A localhost or very-low-latency connection can otherwise complete
+	# between multiplayer_peer assignment and the inherited signal wiring,
+	# causing the beta hello/join handshake to be missed entirely.
+	if not multiplayer.connected_to_server.is_connected(_on_connected_to_server):
+		multiplayer.connected_to_server.connect(_on_connected_to_server)
+	if not multiplayer.connection_failed.is_connected(_on_connection_failed):
+		multiplayer.connection_failed.connect(_on_connection_failed)
+	if not multiplayer.server_disconnected.is_connected(_on_server_disconnected):
+		multiplayer.server_disconnected.connect(_on_server_disconnected)
 	# Orchestrated matches intentionally do not consume the legacy room resume
 	# token. Proper reconnect will be scoped to match_id + admission ticket in a
 	# later Phase 11 milestone; until then a ticket can only create fresh state.
