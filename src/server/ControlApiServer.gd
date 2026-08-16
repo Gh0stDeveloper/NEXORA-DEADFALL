@@ -8,11 +8,13 @@ var _server := TCPServer.new()
 var _clients: Array = []
 var _account_store: Node
 var _social_service: Node
+var _match_orchestrator: Node
 var listen_port := 24562
 
-func configure(account_store: Node, social_service: Node) -> void:
+func configure(account_store: Node, social_service: Node, match_orchestrator: Node = null) -> void:
 	_account_store = account_store
 	_social_service = social_service
+	_match_orchestrator = match_orchestrator
 
 func start(port: int = 24562) -> Error:
 	listen_port = port
@@ -122,7 +124,10 @@ func _handle_request(peer: StreamPeerTCP, raw: PackedByteArray) -> void:
 
 func _route(method: String, path: String, token: String, payload: Dictionary) -> Dictionary:
 	if method == "GET" and path == "/v1/health":
-		return {"ok": true, "service": "deadfall-control"}
+		var active_matches := 0
+		if _match_orchestrator != null and _match_orchestrator.has_method("get_status_snapshot"):
+			active_matches = int(Dictionary(_match_orchestrator.call("get_status_snapshot")).get("active_count", 0))
+		return {"ok": true, "service": "deadfall-control", "active_matches": active_matches}
 	if method == "POST" and path == "/v1/guest/register":
 		if _account_store == null or _social_service == null:
 			return _server_unavailable()
@@ -148,6 +153,8 @@ func _route(method: String, path: String, token: String, payload: Dictionary) ->
 			return verified
 		var guest_id := String(Dictionary(verified.get("account", {})).get("guest_id", ""))
 		return _social_service.issue_session(guest_id)
+	if method == "POST" and path == "/v1/presence":
+		return _social_service.update_presence(token, int(payload.get("ping_ms", 999))) if _social_service != null else _server_unavailable()
 	if method == "GET" and path.begins_with("/v1/profile/"):
 		if _account_store == null or _social_service == null:
 			return _server_unavailable()
@@ -179,6 +186,21 @@ func _route(method: String, path: String, token: String, payload: Dictionary) ->
 		return _social_service.set_party_state(token, String(payload.get("state", ""))) if _social_service != null else _server_unavailable()
 	if method == "GET" and path == "/v1/party/current":
 		return _social_service.current_party(token) if _social_service != null else _server_unavailable()
+	if method == "POST" and path == "/v1/match/start":
+		if _match_orchestrator == null:
+			return _server_unavailable()
+		return _match_orchestrator.start_party_match(token, String(payload.get("mission_id", "mission_01_first_signal")))
+	if method == "POST" and path == "/v1/match/cancel":
+		if _match_orchestrator == null:
+			return _server_unavailable()
+		return _match_orchestrator.cancel_party_match(token)
+	if method == "GET" and path == "/v1/match/status":
+		if _social_service == null:
+			return _server_unavailable()
+		var party := _social_service.party_snapshot_for_token(token)
+		if party.is_empty() and _social_service.guest_for_token(token).is_empty():
+			return {"ok": false, "reason": "unauthorized", "_status": 401}
+		return {"ok": true, "party": party}
 	if method == "POST" and path == "/v1/friends/request":
 		if _account_store == null or _social_service == null:
 			return _server_unavailable()
