@@ -6,6 +6,7 @@ signal login_failed(reason: String)
 signal party_updated(party: Dictionary)
 signal friends_updated(snapshot: Dictionary)
 signal profile_loaded(profile: Dictionary)
+signal account_updated(account: Dictionary)
 signal chat_updated(channel: String, messages: Array)
 signal request_failed(operation: String, reason: String)
 
@@ -14,6 +15,7 @@ const DEFAULT_API_BASE := "https://nexoradeadfall.duckdns.org/api/deadfall/v1"
 var api_base := DEFAULT_API_BASE
 var session_token := ""
 var session_expires_unix := 0
+var current_account: Dictionary = {}
 var current_party: Dictionary = {}
 var friends: Dictionary = {}
 var _pending_operations: Dictionary = {}
@@ -37,9 +39,12 @@ func authenticate_current_guest() -> bool:
 		return false
 	return _request_json("auth_challenge", HTTPClient.METHOD_POST, "/guest/challenge", {"guest_id": GuestIdentity.guest_id}, false)
 
-func load_profile(guest_id: String = "") -> bool:
-	var target := guest_id if not guest_id.is_empty() else GuestIdentity.guest_id
+func load_profile(account_id: String = "") -> bool:
+	var target := account_id if not account_id.is_empty() else GuestIdentity.guest_id
 	return _request_json("profile", HTTPClient.METHOD_GET, "/profile/%s" % target, {}, true)
+
+func update_selected_character(character_id: StringName) -> bool:
+	return _request_json("character_update", HTTPClient.METHOD_POST, "/profile/character", {"character_id": String(character_id)}, true)
 
 func create_party(capacity: int) -> bool:
 	return _request_json("party_create", HTTPClient.METHOD_POST, "/party/create", {"capacity": capacity}, true)
@@ -59,8 +64,8 @@ func set_party_state(state: String) -> bool:
 func refresh_party() -> bool:
 	return _request_json("party_current", HTTPClient.METHOD_GET, "/party/current", {}, true)
 
-func request_friend(guest_id: String) -> bool:
-	return _request_json("friend_request", HTTPClient.METHOD_POST, "/friends/request", {"guest_id": guest_id}, true)
+func request_friend(account_id: String) -> bool:
+	return _request_json("friend_request", HTTPClient.METHOD_POST, "/friends/request", {"account_id": account_id}, true)
 
 func accept_friend(guest_id: String) -> bool:
 	return _request_json("friend_accept", HTTPClient.METHOD_POST, "/friends/accept", {"guest_id": guest_id}, true)
@@ -126,7 +131,8 @@ func _handle_success(operation: String, response: Dictionary, context: Dictionar
 			if not GuestIdentity.set_username(accepted_username):
 				login_failed.emit("local_username_commit_failed")
 				return
-			login_succeeded.emit(Dictionary(response.get("account", {})))
+			current_account = Dictionary(response.get("account", {})).duplicate(true)
+			login_succeeded.emit(current_account)
 		"auth_challenge":
 			var nonce := String(response.get("nonce", ""))
 			var proof := GuestIdentity.build_auth_proof(nonce)
@@ -136,9 +142,15 @@ func _handle_success(operation: String, response: Dictionary, context: Dictionar
 			_request_json("auth_verify", HTTPClient.METHOD_POST, "/guest/verify", {"guest_id": GuestIdentity.guest_id, "nonce": nonce, "proof": proof}, false)
 		"auth_verify":
 			_adopt_session(response)
-			login_succeeded.emit(Dictionary(response.get("account", {})))
+			current_account = Dictionary(response.get("account", {})).duplicate(true)
+			login_succeeded.emit(current_account)
 		"profile":
 			profile_loaded.emit(Dictionary(response.get("profile", {})))
+		"character_update":
+			current_account = Dictionary(response.get("account", {})).duplicate(true)
+			account_updated.emit(current_account)
+			if not current_party.is_empty():
+				refresh_party()
 		"party_create", "party_join", "party_kick", "party_state", "party_current", "party_chat":
 			current_party = Dictionary(response.get("party", {})).duplicate(true)
 			party_updated.emit(current_party)
