@@ -41,13 +41,18 @@ grep -Fq 'configure_nginx_site "$DEADFALL_ROOT/deploy/nginx/nexora-deadfall.conf
 grep -Fq 'configure_nginx_site "$DEADFALL_ROOT/deploy/nginx/nexora-deadfall.conf.template"' deploy/vps/update.sh
 grep -Fq '/etc/nginx/sites-enabled/' deploy/vps/lib/common.sh
 grep -Fq '/etc/nginx/conf.d/' deploy/vps/lib/common.sh
+grep -Fq 'listen 443 ssl http2;' deploy/vps/lib/common.sh
+grep -Fq 'ssl_certificate $cert_dir/fullchain.pem;' deploy/vps/lib/common.sh
+grep -Fq 'vhost HTTPS administrado' deploy/vps/lib/common.sh
 grep -Fq 'last_deployed_sha' deploy/vps/update.sh
 grep -Fq 'last_deploy_status=failed' deploy/vps/update.sh
 grep -Fq 'last_deploy_status=success' deploy/vps/update.sh
 grep -Fq "volverá a ejecutar los gates/builds" deploy/vps/update.sh
-grep -Fq 'Portal Next.js validado en localhost y Nginx.' deploy/vps/update.sh
+grep -Fq 'Portal Next.js validado en localhost y HTTPS' deploy/vps/update.sh
+grep -Fq 'El puerto HTTP/80 local no pertenece a DEADFALL' deploy/vps/update.sh
 grep -Fq 'http://127.0.0.1:3100/' deploy/vps/update.sh
 grep -Fq -- '--resolve "$DEADFALL_DOMAIN:443:127.0.0.1"' deploy/vps/update.sh
+grep -Fq 'configure_nginx_site "$1/deploy/nginx/nexora-deadfall.conf.template" "$2"' deploy/vps/nexora-deadfall
 if grep -Fq -- '--skip-ssh-key' deploy/vps/install.sh || grep -Fq -- '--skip-ssh-key' deploy/vps/nexora-deadfall; then
   echo 'Unsupported gh --skip-ssh-key flag must not be used by VPS scripts' >&2
   exit 1
@@ -94,6 +99,7 @@ assert p['dependencies']['react']=='19.2.8'
 assert p['dependencies']['react-dom']=='19.2.8'
 update=Path('deploy/vps/update.sh').read_text()
 assert update.index('build_download_site.sh') < update.index('build_android_vps.sh'), 'portal must deploy before Android build'
+assert update.index('https://$DEADFALL_DOMAIN/') < update.index('El puerto HTTP/80 local no pertenece a DEADFALL'), 'HTTPS must be authoritative when a certificate exists'
 PY
 
 echo 'NEXORA: DEADFALL Phase 10 VPS installer smoke passed'
