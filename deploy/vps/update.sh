@@ -10,10 +10,10 @@ FORCE=0
 [[ "${1:-}" == "--initial" ]] && INITIAL=1
 [[ "${1:-}" == "--force" ]] && FORCE=1
 [[ -d "$DEADFALL_ROOT/.git" ]] || die "Repositorio no instalado: $DEADFALL_ROOT"
-run_deadfall gh auth status --hostname github.com >/dev/null 2>&1 || die "GitHub auth inválida. Ejecuta: nexora-deadfall auth"
-run_deadfall git -C "$DEADFALL_ROOT" fetch --prune origin "$DEADFALL_BRANCH"
-OLD="$(run_deadfall git -C "$DEADFALL_ROOT" rev-parse HEAD)"
-NEW="$(run_deadfall git -C "$DEADFALL_ROOT" rev-parse "origin/$DEADFALL_BRANCH")"
+run_deadfall_home gh auth status --hostname github.com >/dev/null 2>&1 || die "GitHub auth inválida. Ejecuta: nexora-deadfall auth"
+run_deadfall_home git -C "$DEADFALL_ROOT" fetch --prune origin "$DEADFALL_BRANCH"
+OLD="$(run_deadfall_home git -C "$DEADFALL_ROOT" rev-parse HEAD)"
+NEW="$(run_deadfall_home git -C "$DEADFALL_ROOT" rev-parse "origin/$DEADFALL_BRANCH")"
 
 if [[ "$INITIAL" -eq 1 || "$FORCE" -eq 1 ]]; then
   CHANGED="ALL"
@@ -21,10 +21,10 @@ elif [[ "$OLD" == "$NEW" ]]; then
   log "Sin actualizaciones ($OLD)."
   exit 0
 else
-  CHANGED="$(run_deadfall git -C "$DEADFALL_ROOT" diff --name-only "$OLD..$NEW")"
+  CHANGED="$(run_deadfall_home git -C "$DEADFALL_ROOT" diff --name-only "$OLD..$NEW")"
 fi
 
-run_deadfall git -C "$DEADFALL_ROOT" reset --hard "$NEW"
+run_deadfall_home git -C "$DEADFALL_ROOT" reset --hard "$NEW"
 APP=0; SERVER=0; WEB=0; DEPLOY=0
 if [[ "$CHANGED" == "ALL" ]]; then
   APP=1; SERVER=1; WEB=1; DEPLOY=1
@@ -37,13 +37,10 @@ fi
 log "Cambios detectados: app=$APP server=$SERVER web=$WEB deploy=$DEPLOY"
 
 if [[ "$DEPLOY" -eq 1 ]]; then
-  cp "$DEADFALL_ROOT/deploy/vps/nexora-deadfall" /usr/local/bin/nexora-deadfall
-  chmod 0755 /usr/local/bin/nexora-deadfall
+  install -m 0755 "$DEADFALL_ROOT/deploy/vps/nexora-deadfall" /usr/local/bin/nexora-deadfall
   cp "$DEADFALL_ROOT/deploy/systemd/nexora-deadfall.service" /etc/systemd/system/nexora-deadfall.service
   cp "$DEADFALL_ROOT/deploy/systemd/nexora-deadfall-download.service" /etc/systemd/system/nexora-deadfall-download.service
-  sed -e "s/__DEADFALL_DOMAIN__/${DEADFALL_DOMAIN:-_}/g" "$DEADFALL_ROOT/deploy/nginx/nexora-deadfall.conf.template" > /etc/nginx/sites-available/nexora-deadfall
-  ln -sf /etc/nginx/sites-available/nexora-deadfall /etc/nginx/sites-enabled/nexora-deadfall
-  nginx -t
+  configure_nginx_site "$DEADFALL_ROOT/deploy/nginx/nexora-deadfall.conf.template" "${DEADFALL_DOMAIN:-_}"
   systemctl daemon-reload
   systemctl reload nginx
 fi
