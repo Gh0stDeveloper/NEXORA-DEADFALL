@@ -53,8 +53,8 @@ APP=0; SERVER=0; WEB=0; DEPLOY=0
 if [[ "$CHANGED" == "ALL" ]]; then
   APP=1; SERVER=1; WEB=1; DEPLOY=1
 else
-  grep -Eq '^(project\.godot|export_presets\.cfg|src/|assets/|android/)' <<<"$CHANGED" && { APP=1; SERVER=1; }
-  grep -Eq '^(src/(server|network|core|horde|zombies|campaign|identity|lobby|social|login)/|scripts/server/)' <<<"$CHANGED" && SERVER=1
+  grep -Eq '^(project\.godot|export_presets\.cfg|src/|assets/|android/|scripts/assets/)' <<<"$CHANGED" && { APP=1; SERVER=1; }
+  grep -Eq '^(src/(server|network|core|horde|zombies|campaign|identity|lobby|social|login|assets|player)/|scripts/server/)' <<<"$CHANGED" && SERVER=1
   grep -Eq '^web/download-site/' <<<"$CHANGED" && WEB=1
   grep -Eq '^(deploy/(systemd|vps|nginx)/|scripts/build/)' <<<"$CHANGED" && { DEPLOY=1; SERVER=1; WEB=1; }
 fi
@@ -65,11 +65,14 @@ if [[ "$DEPLOY" -eq 1 ]]; then
   cp "$DEADFALL_ROOT/deploy/systemd/nexora-deadfall.service" /etc/systemd/system/nexora-deadfall.service
   cp "$DEADFALL_ROOT/deploy/systemd/nexora-deadfall-download.service" /etc/systemd/system/nexora-deadfall-download.service
   configure_nginx_site "$DEADFALL_ROOT/deploy/nginx/nexora-deadfall.conf.template" "${DEADFALL_DOMAIN:-_}"
+  ufw allow 24600:24749/udp >/dev/null || true
   systemctl daemon-reload
   systemctl reload nginx
 fi
 
 if [[ "$APP" -eq 1 || "$SERVER" -eq 1 ]]; then
+  log "Sincronizando modelos 3D provisionales desde Gh0stDeveloper/Objetos3D..."
+  run_deadfall_home bash "$DEADFALL_ROOT/scripts/assets/sync_objetos3d.sh" "$DEADFALL_ROOT"
   rm -f "$DEADFALL_ROOT/.godot/global_script_class_cache.cfg"
   log "Importando y validando GDScript en contexto completo del proyecto..."
   run_deadfall_home godot --headless --editor --path "$DEADFALL_ROOT" --quit
@@ -124,14 +127,14 @@ if [[ "$SERVER" -eq 1 ]]; then
     sleep 1
   done
   [[ "$CONTROL_OK" -eq 1 ]] || die "La API social DEADFALL no responde en 127.0.0.1:24562. Revisa: journalctl -u nexora-deadfall -n 150 --no-pager"
-  log "API social DEADFALL validada en localhost:24562."
+  log "API social/match DEADFALL validada en localhost:24562."
 
   if [[ -n "${DEADFALL_DOMAIN:-}" && "${DEADFALL_DOMAIN:-}" != "_" ]]; then
     CERT="/etc/letsencrypt/live/$DEADFALL_DOMAIN/fullchain.pem"
     if [[ -f "$CERT" ]]; then
       curl -kfsS --max-time 8 --resolve "$DEADFALL_DOMAIN:443:127.0.0.1" "https://$DEADFALL_DOMAIN/api/deadfall/v1/health" | jq -e '.ok == true' >/dev/null || \
         die "Nginx HTTPS no está publicando /api/deadfall/v1/health."
-      log "API social DEADFALL validada detrás de HTTPS."
+      log "API social/match DEADFALL validada detrás de HTTPS."
     fi
   fi
 fi
