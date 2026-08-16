@@ -38,9 +38,6 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y \
   openjdk-17-jdk-headless build-essential openssl libfontconfig1 libgl1 libx11-6 libxcursor1 \
   libxinerama1 libxrandr2 libxi6 ufw gh
 
-# Install the recovery/admin entry point early. Commands that need /opt will only
-# work after the managed clone exists, but `nexora-deadfall auth` remains usable
-# even if a first bootstrap is interrupted during GitHub authentication.
 install -m 0755 "$ROOT/deploy/vps/nexora-deadfall" /usr/local/bin/nexora-deadfall
 
 ARCH_RAW="$(uname -m)"
@@ -88,10 +85,6 @@ if [[ ! -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]]; then
   mv "$TMP_ANDROID/unpack/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
   rm -rf "$TMP_ANDROID"
 fi
-# A previous Phase 10 installer revision could ask sdkmanager to install the
-# already-present latest package, producing latest-2 and repeated warnings.
-# Keep the canonical manually installed latest directory and remove that exact
-# redundant recovery artifact when present.
 if [[ -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" && -d "$ANDROID_HOME/cmdline-tools/latest-2" ]]; then
   warn "Eliminando Android cmdline-tools/latest-2 redundante creado por una ejecución anterior."
   rm -rf "$ANDROID_HOME/cmdline-tools/latest-2"
@@ -99,8 +92,6 @@ fi
 JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")"
 export ANDROID_HOME JAVA_HOME
 yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" --licenses >/dev/null || true
-# cmdline-tools itself is installed above. Do not ask sdkmanager to install
-# cmdline-tools;latest again, otherwise current tools create a redundant latest-2.
 "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" \
   "platform-tools" "build-tools;35.0.1" "platforms;android-35" "platforms;android-36" \
   "cmake;3.10.2.4988404" "ndk;28.1.13356709"
@@ -115,9 +106,6 @@ export/android/java_sdk_path = "$JAVA_HOME"
 EOF
 chown -R "$DEADFALL_USER:$DEADFALL_GROUP" "$DEADFALL_HOME/.config"
 
-# All service-user bootstrap operations are explicitly started from deadfall's
-# HOME. This avoids `fatal: failed to stat /root/...: Permission denied` when
-# root launches the installer from a private checkout under /root.
 if [[ -n "$TOKEN_FILE" ]]; then
   [[ -r "$TOKEN_FILE" ]] || die "No se puede leer $TOKEN_FILE"
   run_deadfall_home gh auth login --hostname github.com --git-protocol https --with-token < "$TOKEN_FILE"
@@ -135,7 +123,11 @@ if [[ ! -d "$DEADFALL_ROOT/.git" ]]; then
   install -d -o "$DEADFALL_USER" -g "$DEADFALL_GROUP" "$DEADFALL_ROOT"
   run_deadfall_home git clone --branch "$BRANCH" "https://github.com/${REPO}.git" "$DEADFALL_ROOT"
 else
-  log "Instalación existente detectada; se conservarán keystore, estado y artefactos."
+  log "Instalación existente detectada; sincronizando $BRANCH y conservando keystore/estado/artefactos."
+  run_deadfall_home git -C "$DEADFALL_ROOT" remote set-url origin "https://github.com/${REPO}.git"
+  run_deadfall_home git -C "$DEADFALL_ROOT" fetch --prune origin "$BRANCH"
+  run_deadfall_home git -C "$DEADFALL_ROOT" checkout -B "$BRANCH" "origin/$BRANCH"
+  run_deadfall_home git -C "$DEADFALL_ROOT" reset --hard "origin/$BRANCH"
 fi
 
 if [[ -z "$DOMAIN" && -f "$DEADFALL_ENV" ]]; then
@@ -183,15 +175,10 @@ EOF
 chmod 0640 "$DEADFALL_ENV"
 chown root:"$DEADFALL_GROUP" "$DEADFALL_ENV"
 
-# Reinstall the command from the managed clone so future self-updates use the
-# exact deployed revision rather than the bootstrap checkout.
 install -m 0755 "$DEADFALL_ROOT/deploy/vps/nexora-deadfall" /usr/local/bin/nexora-deadfall
 cp "$DEADFALL_ROOT/deploy/systemd/nexora-deadfall.service" /etc/systemd/system/nexora-deadfall.service
 cp "$DEADFALL_ROOT/deploy/systemd/nexora-deadfall-download.service" /etc/systemd/system/nexora-deadfall-download.service
-sed -e "s/__DEADFALL_DOMAIN__/${DOMAIN:-_}/g" "$DEADFALL_ROOT/deploy/nginx/nexora-deadfall.conf.template" > /etc/nginx/sites-available/nexora-deadfall
-ln -sf /etc/nginx/sites-available/nexora-deadfall /etc/nginx/sites-enabled/nexora-deadfall
-rm -f /etc/nginx/sites-enabled/default
-nginx -t
+configure_nginx_site "$DEADFALL_ROOT/deploy/nginx/nexora-deadfall.conf.template" "${DOMAIN:-_}"
 systemctl daemon-reload
 systemctl enable nginx nexora-deadfall nexora-deadfall-download
 ufw allow OpenSSH >/dev/null || true
