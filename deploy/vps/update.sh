@@ -53,7 +53,7 @@ APP=0; SERVER=0; WEB=0; DEPLOY=0
 if [[ "$CHANGED" == "ALL" ]]; then
   APP=1; SERVER=1; WEB=1; DEPLOY=1
 else
-  grep -Eq '^(project\.godot|export_presets\.cfg|src/|assets/|android/|scripts/assets/)' <<<"$CHANGED" && { APP=1; SERVER=1; }
+  grep -Eq '^(project\.godot|export_presets\.cfg|\.gitmodules$|vendor/Objetos3D($|/)|src/|assets/|android/|scripts/assets/)' <<<"$CHANGED" && { APP=1; SERVER=1; }
   grep -Eq '^(src/(server|network|core|horde|zombies|campaign|identity|lobby|social|login|assets|player)/|scripts/server/)' <<<"$CHANGED" && SERVER=1
   grep -Eq '^web/download-site/' <<<"$CHANGED" && WEB=1
   grep -Eq '^(deploy/(systemd|vps|nginx)/|scripts/build/)' <<<"$CHANGED" && { DEPLOY=1; SERVER=1; WEB=1; }
@@ -80,7 +80,10 @@ if [[ "$DEPLOY" -eq 1 ]]; then
 fi
 
 if [[ "$APP" -eq 1 || "$SERVER" -eq 1 ]]; then
-  log "Sincronizando modelos 3D provisionales desde Gh0stDeveloper/Objetos3D..."
+  log "Preparando modelos 3D vendorizados desde vendor/Objetos3D..."
+  run_deadfall_home git -C "$DEADFALL_ROOT" submodule sync -- vendor/Objetos3D >/dev/null 2>&1 || true
+  run_deadfall_home git -C "$DEADFALL_ROOT" submodule update --init --recursive --depth 1 vendor/Objetos3D || \
+    warn "No se pudo inicializar el submódulo directamente; sync_objetos3d.sh intentará el fallback autenticado."
   run_deadfall_home bash "$DEADFALL_ROOT/scripts/assets/sync_objetos3d.sh" "$DEADFALL_ROOT"
   rm -f "$DEADFALL_ROOT/.godot/global_script_class_cache.cfg"
   log "Importando y validando GDScript en contexto completo del proyecto..."
