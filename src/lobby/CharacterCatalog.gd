@@ -8,7 +8,7 @@ const CHARACTERS := [
 		"role": "SUPERVIVIENTE",
 		"description": "Operadora equilibrada para reconocimiento y combate urbano.",
 		"accent": Color(0.74, 0.08, 0.10, 1.0),
-		"model_scene": "",
+		"model_scene": "res://assets/external/objetos3d/operator_01.glb",
 	},
 	{
 		"id": &"operator_02",
@@ -16,7 +16,7 @@ const CHARACTERS := [
 		"role": "VANGUARDIA",
 		"description": "Operador de primera línea preparado para presión y rescate.",
 		"accent": Color(0.15, 0.34, 0.48, 1.0),
-		"model_scene": "",
+		"model_scene": "res://assets/external/objetos3d/operator_02.glb",
 	},
 ]
 
