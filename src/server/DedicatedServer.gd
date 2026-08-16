@@ -6,12 +6,14 @@ const SquadArenaScene = preload("res://src/maps/duo/DuoArena.tscn")
 const CampaignArenaScene = preload("res://src/maps/campaign/OutbreakDistrict.tscn")
 const RoomCodeScript = preload("res://src/network/RoomCodeService.gd")
 const DirectoryServerScript = preload("res://src/network/RoomDirectoryServer.gd")
+const GuestAccountStoreScript = preload("res://src/server/GuestAccountStore.gd")
 
 var peer := ENetMultiplayerPeer.new()
 var listen_port := 24560
 var room_code := ""
 var _arena: Node3D
 var _directory: Node
+var _guest_accounts: Node
 var _campaign_mode := false
 
 func start(port: int = 24560, max_clients: int = DEFAULT_MAX_CLIENTS, directory_port: int = 24561, public_host: String = "127.0.0.1", requested_room_code: String = "", campaign_mode: bool = false, mission_id: StringName = &"mission_01_first_signal") -> Error:
@@ -26,6 +28,7 @@ func start(port: int = 24560, max_clients: int = DEFAULT_MAX_CLIENTS, directory_
 		return error
 	multiplayer.multiplayer_peer = peer
 	Game.start_dedicated_server_session()
+	_boot_guest_accounts()
 	_boot_network_arena(campaign_mode, mission_id)
 	_directory = DirectoryServerScript.new()
 	_directory.name = "RoomDirectoryServer"
@@ -40,6 +43,16 @@ func start(port: int = 24560, max_clients: int = DEFAULT_MAX_CLIENTS, directory_
 	if campaign_mode:
 		print("DEADFALL_CAMPAIGN_SERVER mission=%s" % String(mission_id))
 	return OK
+
+func get_guest_account_store() -> Node:
+	return _guest_accounts
+
+func _boot_guest_accounts() -> void:
+	if _guest_accounts != null and is_instance_valid(_guest_accounts):
+		return
+	_guest_accounts = GuestAccountStoreScript.new()
+	_guest_accounts.name = "GuestAccountStore"
+	add_child(_guest_accounts)
 
 func _boot_network_arena(campaign_mode: bool, mission_id: StringName) -> void:
 	_arena = (CampaignArenaScene.instantiate() if campaign_mode else SquadArenaScene.instantiate()) as Node3D
