@@ -20,7 +20,7 @@ has_required_source_models(){
 }
 
 prepare_source(){
-  # Preferred path: Objetos3D is now versioned by DEADFALL as a pinned Git
+  # Preferred path: Objetos3D is versioned by DEADFALL as a pinned Git
   # submodule. On the production VPS the deadfall service account already has
   # GitHub authentication, so normal update/install flows can initialize it.
   if has_required_source_models "$VENDOR"; then
@@ -81,13 +81,29 @@ copy_model(){
   local source_path="$SOURCE_DIR/$source_name"
   local destination_path="$DEST/$canonical_name"
 
-  rm -f "$destination_path"
   [[ -f "$source_path" ]] || {
     printf '[DEADFALL] Required model missing from vendored source: %s\n' "$source_name" >&2
     exit 1
   }
-
   validate_glb "$source_path"
+
+  # On a normal DEADFALL checkout the canonical runtime path is a tracked
+  # symlink into vendor/Objetos3D. Preserve it so production updates do not
+  # dirty the worktree or duplicate multi-megabyte binaries locally.
+  if [[ "$SOURCE_DIR" == "$VENDOR" && -L "$destination_path" ]]; then
+    local resolved_source resolved_destination
+    resolved_source="$(readlink -f "$source_path")"
+    resolved_destination="$(readlink -f "$destination_path")"
+    if [[ "$resolved_source" == "$resolved_destination" ]]; then
+      validate_glb "$destination_path"
+      printf '[DEADFALL] Modelo vendorizado validado: %s -> %s\n' "$source_name" "$canonical_name"
+      return 0
+    fi
+  fi
+
+  # Compatibility fallback for older checkouts or CI environments where the
+  # submodule cannot be represented as a working symlink.
+  rm -f "$destination_path"
   install -m 0644 "$source_path" "$destination_path"
   validate_glb "$destination_path"
   printf '[DEADFALL] Modelo staged and validated: %s -> %s\n' "$source_name" "$canonical_name"
