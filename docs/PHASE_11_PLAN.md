@@ -11,94 +11,132 @@ Phase 11 starts after the first successful real-device Closed Beta playtest. The
 - Physical Android install completed successfully.
 - Game launches and is playable on a real Android device.
 
+## Milestone 11.1 — implemented in source, awaiting VPS/device validation
+
+Implemented on `agent/bootstrap-deadfall`:
+
+- [x] Settings persistence foundation with schema version.
+- [x] Touch sensitivity range `0.10–1.00`, current default `0.50`, applied immediately by PlayerController.
+- [x] In-match sensitivity quick panel.
+- [x] Horde Wave/Score/Kills moved to a compact upper-right panel so Campaign mission UI can remain upper-left.
+- [x] Circular semi-transparent vector-icon mobile action controls and pressed feedback.
+- [x] Mobile flashlight action plus camera-mounted SpotLight3D.
+- [x] Night ambient/exposure/moon readability pass.
+- [x] Data model for persistent HUD position/scale/opacity/visibility.
+- [x] Game-generated guest credential foundation in `user://account/guest.dat`.
+- [x] Server-side verifier/challenge account store foundation.
+- [x] Data-driven two-character catalog shell.
+- [x] Pre-match lobby shell with central 3D operator stage, character selection, party rail, Solo/Duo/Squad selector and leader-labelled local slot.
+- [x] Visible clients boot through lobby; headless/server/explicit connection paths retain direct boot for automation.
+- [x] Phase 11 smoke script added to CI and VPS updater.
+
+Not yet accepted until:
+
+- [ ] `phase11_smoke.gd` passes on the real VPS with Godot 4.6.3.
+- [ ] Android Release rebuild succeeds.
+- [ ] New APK is installed and tested on the physical Android device.
+- [ ] User confirms sensitivity, HUD spacing, night readability, flashlight and lobby layout feel correct enough to continue.
+
 ## Workstream A — Playtest fixes first
 
 ### A1. HUD top-area redesign
 
-Problem: Mission and Wave/Score/Kills UI overlap in the upper-left corner.
+Problem: Mission and Wave/Score/Kills UI overlapped in the upper-left corner.
 
-Target:
+Current implementation:
 
-- Treat Mission and combat status as one coordinated responsive HUD region.
-- Mission/objective information should have its own readable block.
-- Wave, score and kills should be compact and visually separate.
-- Respect Android safe areas/notches.
-- Avoid hard-coded coordinates where anchors/containers can be used.
-- Add regression coverage for expected node/layout structure where practical.
+- Campaign mission/objective remains on the upper-left.
+- Horde Wave/Score/Kills/Enemies/Population are grouped in a compact upper-right panel.
+- SafeArea remains active.
+
+Still required:
+
+- verify on multiple Android aspect ratios/notches;
+- tune size/spacing from physical screenshots if needed.
 
 ### A2. Camera sensitivity preference
 
-- Add persistent touch sensitivity setting.
-- Slider range: approximately `0.1–1.0`.
-- Sensible default should be selected from physical-device testing.
-- Apply immediately without scene reload.
-- In-game pause/settings exposes sensitivity only.
-- Main-menu settings exposes the same underlying preference.
+Implemented foundation:
+
+- persistent touch sensitivity;
+- range `0.10–1.00`;
+- current default `0.50`;
+- immediate application without scene reload;
+- in-match quick sensitivity UI;
+- same Setting will feed the future full settings screen.
 
 ### A3. Night readability + flashlight
 
-- Tune WorldEnvironment for readable darkness without turning night into daylight.
-- Add low-energy moon DirectionalLight3D with soft shadows.
-- Add player flashlight using SpotLight3D attached to the active camera/view rig.
-- Add mobile flashlight control with icon and pressed/on state.
-- Flashlight state should survive FPS/TPS camera changes without duplicating lights.
-- Consider battery/resource gameplay later; Phase 11 only requires robust on/off behavior.
+Implemented foundation:
+
+- tuned WorldEnvironment ambient/exposure/brightness;
+- cool low-energy moon DirectionalLight3D;
+- player flashlight using SpotLight3D on the first-person camera rig;
+- mobile flashlight button and desktop `F` input;
+- flashlight controller kept as presentation/input logic, not authoritative combat state.
+
+Still required:
+
+- physical Android readability/performance check;
+- decide later whether flashlight should visually follow TPS cameras or remain character-forward while TPS is active;
+- optional future battery/resource mechanic.
 
 ### A4. Mobile HUD visual redesign
 
-- Circular semi-transparent controls.
-- Real icons, not text labels or emoji.
-- Larger touch targets.
-- Thumb-friendly spacing.
-- Visual pressed feedback.
-- Controls must still feed the existing PlayerCommand/authority pipeline rather than adding direct gameplay mutations.
+Implemented foundation:
+
+- circular semi-transparent controls;
+- original vector icons drawn in GDScript, not emoji/text labels;
+- larger touch targets;
+- new thumb spacing;
+- visual pressed scale/accent feedback;
+- actions still feed PlayerInput and the existing command/authority path.
 
 ### A5. Audio foundation
 
-Add an explicit audio architecture before dropping sounds directly into scenes:
+Pending next block:
 
 - Master bus.
 - Music bus.
 - SFX bus.
 - UI bus.
 - Optional Ambience bus.
-
-Initial assets/events:
-
 - weapon fire;
 - zombie vocal/growl;
 - ambience;
 - music;
 - UI press/confirm/back.
 
-Settings must persist master and music volumes at minimum.
+Settings persistence for master/music already exists and will be bound once buses/UI are created.
 
 ## Workstream B — Settings/HUD editor
 
 ### B1. Settings persistence
 
-Use one settings service/autoload as the source of truth.
-
-Required persisted fields initially:
+Implemented fields:
 
 - touch camera sensitivity;
 - master volume;
 - music volume;
 - HUD layout schema/version;
-- per-control HUD position/scale/opacity/visibility.
+- per-control normalized position/scale/opacity/visibility.
 
-Use a schema version so future UI changes can migrate/reset old layouts safely.
+Path:
+
+```text
+user://deadfall_settings_v1.json
+```
 
 ### B2. In-game settings
 
-Keep minimal:
+Implemented initial scope:
 
 - sensitivity slider;
-- close/back.
-
-Do not put the full HUD editor or long graphics menus into the active match pause flow initially.
+- open/close via settings icon.
 
 ### B3. Full main-menu settings
+
+Pending:
 
 - sensitivity;
 - master volume;
@@ -108,7 +146,7 @@ Do not put the full HUD editor or long graphics menus into the active match paus
 
 ### B4. HUD editor
 
-For every supported mobile control:
+Persistence/data contract exists. Visual editor still pending:
 
 - drag/reposition;
 - scale/size;
@@ -116,15 +154,20 @@ For every supported mobile control:
 - visibility;
 - reset individual control;
 - reset all controls;
-- prevent controls from becoming permanently inaccessible off-screen.
+- keep controls within recoverable screen bounds.
 
 ## Workstream C — Character asset integration
 
-The developer already has two distinct playable-character models and zombie models.
+The developer already has two distinct playable-character models and zombie models, but the actual model files are not yet present in Git.
 
-Integrate characters through a data-driven character definition rather than hard-coding model paths into lobby/gameplay scenes.
+Phase 11 now contains a data-driven character catalog with stable IDs:
 
-Character definition should be able to grow to include:
+- `operator_01`
+- `operator_02`
+
+The lobby currently uses original placeholder geometry. Once the real assets are uploaded/imported, replace only each catalog/model resource mapping rather than hard-coding models into lobby/gameplay scripts.
+
+Character definition/catalog must continue to support:
 
 - stable character ID;
 - display name;
@@ -133,48 +176,92 @@ Character definition should be able to grow to include:
 - animation mapping;
 - optional future cosmetic metadata.
 
-The selected character must be reusable by both gameplay spawning and the future lobby preview.
-
 ## Workstream D — Guest identity foundation
 
-Do this before the visual multiplayer lobby so lobby state has a real identity model.
+### Chosen local guest file
 
-### Local guest file
+```text
+user://account/guest.dat
+```
 
-A local `.dat` file contains plain-text JSON readable by the app. Suggested shape:
+It is plain-text JSON in the Android app-private user directory. Do not use OBB or asset packs for credentials.
+
+Current shape:
 
 ```json
 {
-  "schema": 1,
-  "guest_id": "...",
+  "schema_version": 1,
+  "guest_id": "gst_...",
   "username": "...",
-  "auth_secret": "..."
+  "auth_secret": "game-generated 256-bit secret",
+  "selected_character": "operator_01",
+  "created_unix": 0
 }
 ```
 
-Do not store a plaintext human password. If a password-like recovery/auth secret is required, use generated high-entropy secret material locally and store only an appropriate verifier/hash on the server.
+Rules:
 
-### Server rules
+- password/auth secret is generated automatically by the game;
+- user does not choose the password;
+- username is user-chosen, 1–12 ASCII letters/numbers/underscore for the first implementation, which excludes emoji/control characters;
+- guest ID and secret use cryptographically secure random bytes;
+- server never persists the raw secret.
 
-- Server assigns/accepts one stable unique guest ID.
-- Username maximum 12 characters.
-- Reject emoji/control characters.
-- Normalize username consistently before uniqueness checks.
-- Username uniqueness enforced atomically by the server.
-- Apply rate limiting to create/rename/auth attempts.
-- Never let client-provided guest data confer gameplay authority.
+### Server verifier/auth foundation
+
+Current design:
+
+- client derives `SHA-256(auth_secret)` verifier;
+- server stores verifier, username and selected character;
+- server issues short-lived cryptographically random challenge nonce;
+- client builds HMAC-SHA256 proof using the derived verifier key;
+- server compares proof in constant time;
+- username uniqueness index is case-insensitive.
+
+Still required before live deployment of identity RPCs:
+
+- wire enrollment/challenge/proof into ClosedBetaNetworkSession;
+- rate-limit enroll/auth/rename;
+- bind authenticated guest ID to peer/session;
+- reject rename conflicts atomically;
+- add reconnect/auth integration tests.
 
 ## Workstream E — Lobby foundation
 
-### Party modes
+### Visual direction
 
-- Solo: 1 player.
-- Duo: maximum 2.
-- Squad: maximum 4.
+Use an original DEADFALL composition inspired only by useful interaction patterns from modern mobile survival/shooter lobbies:
 
-### Party state
+- prominent full-body character stage in center;
+- character-selection section;
+- strong bottom mode/start bar;
+- tactical party/squad rail on the right;
+- compact identity/navigation on the left/top.
 
-Server-authoritative party model should track at least:
+Do not copy Free Fire/Call of Duty artwork, logos or proprietary assets.
+
+### Current lobby shell
+
+Implemented:
+
+- username setup overlay for a new guest;
+- central SubViewport 3D operator preview;
+- two-character selection overlay;
+- Solo/Duo/Squad formation selector;
+- four party slots;
+- local leader label;
+- large start action;
+- character selection persists to guest profile;
+- normal visible startup enters the lobby first.
+
+Current transition rule:
+
+- Solo can start local Campaign.
+- Duo/Squad are visible but intentionally refuse start until authoritative party creation/member flow exists.
+
+### Party state — next networking block
+
+Server-authoritative party model must track at least:
 
 - party/lobby ID;
 - leader guest/player ID;
@@ -184,42 +271,34 @@ Server-authoritative party model should track at least:
 - selected character per member;
 - lobby state (`OPEN`, `STARTING`, `IN_MATCH`, etc.).
 
-### Permissions
+Permissions:
 
-- Members can leave freely.
-- Leader can kick members.
-- Non-leaders cannot kick.
-- Only leader can start.
-- Server validates capacity and all leadership operations.
+- members leave freely;
+- leader can kick;
+- non-leaders cannot kick;
+- only leader can start;
+- capacity and leadership validated server-side.
 
-### Lobby chat
+### Lobby chat — pending
 
-- Text only initially.
-- Server relay/validation.
-- Length limits.
-- Rate limits / anti-spam.
-- Reject problematic control characters.
-- Do not mix lobby chat messages with authoritative gameplay RPCs.
-
-### Lobby presentation
-
-- Visually polished Android-first scene.
-- Local selected character shown prominently.
-- Duo/Squad slots show each member's selected character.
-- Leader visually identifiable.
-- Join/leave/start actions use icons/layout appropriate for touch.
+- text only initially;
+- server relay/validation;
+- length limits;
+- rate limits / anti-spam;
+- reject control characters;
+- separate chat from authoritative gameplay RPCs.
 
 ## Workstream F — Environment expansion
 
-Needed low-poly environment content:
+Still needed:
 
-- walls/barriers;
+- low-poly walls/barriers;
 - houses/buildings;
 - abandoned cars;
 - urban debris;
 - road/sidewalk props.
 
-Vehicle fire should be implemented with GPUParticles3D plus shader/material effects. Avoid a static fire mesh as the final effect.
+Vehicle fire should be implemented with GPUParticles3D plus shader/material effects, not a final static fire mesh.
 
 Performance rules:
 
@@ -229,36 +308,34 @@ Performance rules:
 - pool/reuse repeating effects where useful;
 - profile on Android before moving systems to GDExtension.
 
-## Recommended execution order
+## Revised execution order from current head
 
-1. HUD overlap fix/redesign.
-2. Persistent sensitivity slider and improve physical-device camera feel.
-3. Night lighting + flashlight.
-4. Mobile control/icon redesign.
-5. Audio buses + initial SFX/music and volume settings.
-6. Full Settings screen + HUD editor foundation.
-7. Integrate two playable character assets through a data-driven character system.
-8. Guest identity persistence + server validation.
-9. Server-authoritative party/lobby state.
-10. Lobby scene + character previews.
-11. Lobby chat.
-12. Environment asset expansion and particle fire.
-13. Multiplayer/Android soak tests and polish.
+1. Validate Milestone 11.1 on VPS and physical Android.
+2. Fix any real-device layout/sensitivity/night/lobby issues found.
+3. Audio buses + initial SFX/music and volume settings.
+4. Full Settings screen + functional HUD editor.
+5. Import/integrate the developer's two real playable character assets.
+6. Wire guest enrollment/authentication into the live network handshake with rate limits.
+7. Server-authoritative party/lobby state + invitation/join/leave/kick/start.
+8. Display real party member character previews.
+9. Lobby text chat.
+10. Environment asset expansion and particle fire.
+11. Multiplayer/Android soak tests and polish.
 
 ## Acceptance criteria
 
-Phase 11 should not be considered complete until:
+Phase 11 is not complete until:
 
-- HUD no longer overlaps on supported Android aspect ratios.
+- HUD no longer overlaps on supported Android aspect ratios;
 - sensitivity feels usable and persists across restarts;
-- night gameplay is readable and flashlight works across camera modes;
+- night gameplay is readable and flashlight works appropriately across camera modes;
 - mobile controls are icon-based and configurable;
 - master/music volume persists;
 - HUD editor persists and can safely reset;
-- both available playable-character models can be selected/spawned;
+- both real playable-character models can be selected/spawned;
 - guest identity persists locally and is validated by server;
 - Duo/Squad leader/member permissions are enforced server-side;
 - lobby shows selected party characters;
 - lobby text chat has validation/rate limiting;
-- real Android build/install still succeeds;
+- real Android build/install remains successful;
 - offline and online gameplay remain on one shared gameplay implementation.
