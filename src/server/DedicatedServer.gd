@@ -7,6 +7,8 @@ const CampaignArenaScene = preload("res://src/maps/campaign/OutbreakDistrict.tsc
 const RoomCodeScript = preload("res://src/network/RoomCodeService.gd")
 const DirectoryServerScript = preload("res://src/network/RoomDirectoryServer.gd")
 const GuestAccountStoreScript = preload("res://src/server/GuestAccountStore.gd")
+const SocialServiceScript = preload("res://src/server/SocialService.gd")
+const ControlApiServerScript = preload("res://src/server/ControlApiServer.gd")
 
 var peer := ENetMultiplayerPeer.new()
 var listen_port := 24560
@@ -14,6 +16,8 @@ var room_code := ""
 var _arena: Node3D
 var _directory: Node
 var _guest_accounts: Node
+var _social_service: Node
+var _control_api: Node
 var _campaign_mode := false
 
 func start(port: int = 24560, max_clients: int = DEFAULT_MAX_CLIENTS, directory_port: int = 24561, public_host: String = "127.0.0.1", requested_room_code: String = "", campaign_mode: bool = false, mission_id: StringName = &"mission_01_first_signal") -> Error:
@@ -29,6 +33,7 @@ func start(port: int = 24560, max_clients: int = DEFAULT_MAX_CLIENTS, directory_
 	multiplayer.multiplayer_peer = peer
 	Game.start_dedicated_server_session()
 	_boot_guest_accounts()
+	_boot_social_services()
 	_boot_network_arena(campaign_mode, mission_id)
 	_directory = DirectoryServerScript.new()
 	_directory.name = "RoomDirectoryServer"
@@ -47,12 +52,30 @@ func start(port: int = 24560, max_clients: int = DEFAULT_MAX_CLIENTS, directory_
 func get_guest_account_store() -> Node:
 	return _guest_accounts
 
+func get_social_service() -> Node:
+	return _social_service
+
 func _boot_guest_accounts() -> void:
 	if _guest_accounts != null and is_instance_valid(_guest_accounts):
 		return
 	_guest_accounts = GuestAccountStoreScript.new()
 	_guest_accounts.name = "GuestAccountStore"
 	add_child(_guest_accounts)
+
+func _boot_social_services() -> void:
+	if _social_service == null or not is_instance_valid(_social_service):
+		_social_service = SocialServiceScript.new()
+		_social_service.name = "SocialService"
+		add_child(_social_service)
+		_social_service.call("configure", _guest_accounts)
+	if _control_api == null or not is_instance_valid(_control_api):
+		_control_api = ControlApiServerScript.new()
+		_control_api.name = "ControlApiServer"
+		add_child(_control_api)
+		_control_api.call("configure", _guest_accounts, _social_service)
+		var control_error := int(_control_api.call("start", 24562))
+		if control_error != OK:
+			push_error("Unable to start DEADFALL control API: %s" % error_string(control_error))
 
 func _boot_network_arena(campaign_mode: bool, mission_id: StringName) -> void:
 	_arena = (CampaignArenaScene.instantiate() if campaign_mode else SquadArenaScene.instantiate()) as Node3D
@@ -65,6 +88,8 @@ func _boot_network_arena(campaign_mode: bool, mission_id: StringName) -> void:
 		session.call("configure_server", room_code)
 
 func stop() -> void:
+	if _control_api != null and is_instance_valid(_control_api) and _control_api.has_method("stop"):
+		_control_api.call("stop")
 	if _directory != null and is_instance_valid(_directory) and _directory.has_method("stop"):
 		_directory.call("stop")
 	if _arena != null and is_instance_valid(_arena):
