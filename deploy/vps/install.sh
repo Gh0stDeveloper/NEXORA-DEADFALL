@@ -93,7 +93,7 @@ JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")"
 export ANDROID_HOME JAVA_HOME
 yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" --licenses >/dev/null || true
 "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" \
-  "platform-tools" "build-tools;35.0.1" "platforms;android-35" "platforms;android-36" \
+  "platform-tools" "build-tools;35.0.1" "build-tools;36.0.0" "platforms;android-35" "platforms;android-36" \
   "cmake;3.10.2.4988404" "ndk;28.1.13356709"
 chown -R "$DEADFALL_USER:$DEADFALL_GROUP" "$ANDROID_HOME"
 
