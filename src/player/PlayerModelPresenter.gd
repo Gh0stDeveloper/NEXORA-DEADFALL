@@ -34,10 +34,13 @@ func configure_character(character_id: StringName) -> bool:
 	if _loaded_model == null:
 		_set_fallback_visible(true)
 		return false
+	var configured_scale: Vector3 = config.get("scale", Vector3.ONE)
+	var configured_rotation: Vector3 = config.get("rotation_degrees", Vector3.ZERO)
+	var configured_offset: Vector3 = config.get("offset", Vector3.ZERO)
 	_loaded_model.name = "ExternalCharacterModel"
-	_loaded_model.scale = Vector3(config.get("scale", Vector3.ONE))
-	_loaded_model.rotation_degrees = Vector3(config.get("rotation_degrees", Vector3.ZERO))
-	_loaded_model.position = Vector3(config.get("offset", Vector3.ZERO))
+	_loaded_model.scale = configured_scale
+	_loaded_model.rotation_degrees = configured_rotation
+	_loaded_model.position = configured_offset
 	add_child(_loaded_model)
 	_set_fallback_visible(false)
 	_play_idle_if_available(_loaded_model)
