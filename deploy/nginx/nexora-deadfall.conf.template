@@ -4,12 +4,12 @@ server {
     server_name __DEADFALL_DOMAIN__;
     client_max_body_size 1m;
 
-    location /downloads/ {
-        alias /var/www/nexora-deadfall/downloads/;
-        types { application/vnd.android.package-archive apk; }
+    location = /downloads/NEXORA-DEADFALL-latest.apk {
+        alias /var/www/nexora-deadfall/downloads/NEXORA-DEADFALL-latest.apk;
+        default_type application/vnd.android.package-archive;
         add_header Cache-Control "no-store" always;
         add_header X-Content-Type-Options "nosniff" always;
-        try_files $uri =404;
+        add_header Content-Disposition "attachment; filename=NEXORA-DEADFALL-latest.apk" always;
     }
 
     location / {
