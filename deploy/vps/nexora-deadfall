@@ -25,7 +25,11 @@ case "${1:-status}" in
     [[ -f "$ROOT/deploy/vps/lib/common.sh" ]] || { echo "Instalación administrada incompleta: falta $ROOT/deploy/vps/lib/common.sh" >&2; exit 1; }
     sudo bash -c 'set -euo pipefail; source "$1/deploy/vps/lib/common.sh"; configure_nginx_site "$1/deploy/nginx/nexora-deadfall.conf.template" "$2"' bash "$ROOT" "$DEADFALL_DOMAIN"
     sudo systemctl reload nginx
-    exec sudo certbot --nginx --agree-tos --redirect -m "$DEADFALL_EMAIL" -d "$DEADFALL_DOMAIN"
+    sudo certbot --nginx --agree-tos --redirect -m "$DEADFALL_EMAIL" -d "$DEADFALL_DOMAIN"
+    sudo bash -c 'set -euo pipefail; source "$1/deploy/vps/lib/common.sh"; configure_nginx_site "$1/deploy/nginx/nexora-deadfall.conf.template" "$2"' bash "$ROOT" "$DEADFALL_DOMAIN"
+    sudo systemctl reload nginx
+    curl -kfsS --max-time 8 --resolve "$DEADFALL_DOMAIN:443:127.0.0.1" "https://$DEADFALL_DOMAIN/" >/dev/null
+    echo "HTTPS DEADFALL activo: https://$DEADFALL_DOMAIN/"
     ;;
   auth)
     exec sudo -Hu deadfall bash -c 'cd "$HOME" && exec gh auth login --hostname github.com --git-protocol https'
