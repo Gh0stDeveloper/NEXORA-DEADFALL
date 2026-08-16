@@ -182,8 +182,9 @@ func _sanitize_value(value, depth: int):
 			return _sanitize_dictionary(value, depth)
 		TYPE_ARRAY:
 			var clean_array: Array = []
-			for item in Array(value).slice(0, 16):
-				clean_array.append(_sanitize_value(item, depth + 1))
+			var items: Array = value
+			for index in range(mini(items.size(), 16)):
+				clean_array.append(_sanitize_value(items[index], depth + 1))
 			return clean_array
 		_:
 			return String(value).left(160)

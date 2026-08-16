@@ -36,7 +36,6 @@ jobs:
           unzip -q /tmp/godot.zip -d /tmp/godot
           sudo mv "/tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
           sudo chmod +x /usr/local/bin/godot
-
           curl -fsSL -o /tmp/templates.tpz "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
           mkdir -p /tmp/export-templates
           unzip -q /tmp/templates.tpz -d /tmp/export-templates
@@ -64,57 +63,55 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p build/android
-          godot --verbose --headless --path . --export-debug "Android Debug" build/android/NEXORA-DEADFALL-debug-unsigned.apk
-          test -s build/android/NEXORA-DEADFALL-debug-unsigned.apk
+          godot --verbose --headless --path . --export-debug "Android Debug" build/android/NEXORA-DEADFALL-closed-beta-debug-unsigned.apk
+          test -s build/android/NEXORA-DEADFALL-closed-beta-debug-unsigned.apk
 
-      - name: Sign test APK with ephemeral CI key
+      - name: Sign debug APK with ephemeral CI key
         shell: bash
         run: |
           set -euo pipefail
           keytool -genkeypair -noprompt \
-            -keystore /tmp/deadfall-physical-test.keystore \
+            -keystore /tmp/deadfall-beta-debug.keystore \
             -storepass android \
             -keypass android \
-            -alias deadfall-physical-test \
+            -alias deadfall-beta-debug \
             -keyalg RSA \
             -keysize 2048 \
             -validity 2 \
-            -dname "CN=NEXORA DEADFALL Physical Test,O=Ghost Developer,C=MX"
-
+            -dname "CN=NEXORA DEADFALL Closed Beta Debug,O=Ghost Developer,C=MX"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           test -x "$APKSIGNER"
           "$APKSIGNER" sign \
-            --ks /tmp/deadfall-physical-test.keystore \
+            --ks /tmp/deadfall-beta-debug.keystore \
             --ks-pass pass:android \
             --key-pass pass:android \
-            --out build/android/NEXORA-DEADFALL-phase1.1-test.apk \
-            build/android/NEXORA-DEADFALL-debug-unsigned.apk
-          "$APKSIGNER" verify --verbose build/android/NEXORA-DEADFALL-phase1.1-test.apk
-          test -s build/android/NEXORA-DEADFALL-phase1.1-test.apk
-          ls -lh build/android/NEXORA-DEADFALL-phase1.1-test.apk
+            --out build/android/NEXORA-DEADFALL-closed-beta-debug.apk \
+            build/android/NEXORA-DEADFALL-closed-beta-debug-unsigned.apk
+          "$APKSIGNER" verify --verbose build/android/NEXORA-DEADFALL-closed-beta-debug.apk
+          test -s build/android/NEXORA-DEADFALL-closed-beta-debug.apk
 
-      - name: Upload APK when artifact storage is available
+      - name: Upload debug APK when artifact storage is available
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: NEXORA-DEADFALL-phase1.1-test-apk
-          path: build/android/NEXORA-DEADFALL-phase1.1-test.apk
+          name: NEXORA-DEADFALL-closed-beta-debug
+          path: build/android/NEXORA-DEADFALL-closed-beta-debug.apk
           if-no-files-found: error
 
-      - name: Publish latest Phase 1.1 test APK as prerelease
+      - name: Publish latest Closed Beta debug APK as prerelease
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: phase-1.1-android-test
+          RELEASE_TAG: closed-beta-android-debug
           TARGET_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
           gh release delete "$RELEASE_TAG" --cleanup-tag --yes --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || true
           gh release create "$RELEASE_TAG" \
-            build/android/NEXORA-DEADFALL-phase1.1-test.apk \
+            build/android/NEXORA-DEADFALL-closed-beta-debug.apk \
             --repo "$GITHUB_REPOSITORY" \
             --target "$TARGET_SHA" \
-            --title "NEXORA: DEADFALL Phase 1.1 Android Test" \
-            --notes "Installable ARM64 debug build for physical Android validation. This build uses an ephemeral CI test signature; uninstall an older Phase 1.1 test APK first if Android reports a signature mismatch. This is not the production signing key." \
+            --title "NEXORA: DEADFALL Closed Beta Debug" \
+            --notes "Installable ARM64 debug build for current closed-beta validation. This artifact uses an ephemeral CI debug signature and is not the persistent Play upload key." \
             --prerelease
