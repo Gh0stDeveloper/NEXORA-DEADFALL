@@ -16,6 +16,14 @@ install -d -o "$DEADFALL_USER" -g "$DEADFALL_GROUP" "$DEADFALL_BUILD_DIR"
 install -m 0600 -o "$DEADFALL_USER" -g "$DEADFALL_GROUP" "$DEADFALL_KEYSTORE" "$BUILD_KEYSTORE"
 chown -R "$DEADFALL_USER:$DEADFALL_GROUP" "$DEADFALL_ROOT"
 
+SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+if [[ ! -d "$ANDROID_HOME/build-tools/36.0.0" ]]; then
+  test -x "$SDKMANAGER"
+  log "Instalando Android SDK Build-Tools 36.0.0 para targetSdk 36..."
+  "$SDKMANAGER" --sdk_root="$ANDROID_HOME" "build-tools;36.0.0"
+  chown -R "$DEADFALL_USER:$DEADFALL_GROUP" "$ANDROID_HOME/build-tools/36.0.0"
+fi
+
 INSTALL_TEMPLATE_ARGS=()
 if [[ ! -f "$DEADFALL_ROOT/android/build/build.gradle" ]]; then
   rm -rf "$DEADFALL_ROOT/android/build"
