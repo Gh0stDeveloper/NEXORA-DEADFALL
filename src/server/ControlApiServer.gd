@@ -2,6 +2,7 @@ class_name DeadfallControlApiServer
 extends Node
 
 const MAX_REQUEST_BYTES := 32768
+const VALID_CHARACTER_IDS := ["operator_01", "operator_02"]
 
 var _server := TCPServer.new()
 var _clients: Array = []
@@ -148,7 +149,24 @@ func _route(method: String, path: String, token: String, payload: Dictionary) ->
 		var guest_id := String(Dictionary(verified.get("account", {})).get("guest_id", ""))
 		return _social_service.issue_session(guest_id)
 	if method == "GET" and path.begins_with("/v1/profile/"):
-		return _social_service.profile_by_id(token, path.trim_prefix("/v1/profile/")) if _social_service != null else _server_unavailable()
+		if _account_store == null or _social_service == null:
+			return _server_unavailable()
+		var profile_guest_id := String(_account_store.resolve_guest_id(path.trim_prefix("/v1/profile/")))
+		if profile_guest_id.is_empty():
+			return {"ok": false, "reason": "profile_not_found", "_status": 404}
+		return _social_service.profile_by_id(token, profile_guest_id)
+	if method == "POST" and path == "/v1/profile/character":
+		if _account_store == null or _social_service == null:
+			return _server_unavailable()
+		var owner_guest_id := String(_social_service.guest_for_token(token))
+		if owner_guest_id.is_empty():
+			return {"ok": false, "reason": "unauthorized", "_status": 401}
+		var character_id := String(payload.get("character_id", ""))
+		if character_id not in VALID_CHARACTER_IDS:
+			return _reject("invalid_character")
+		if not bool(_account_store.update_character(owner_guest_id, StringName(character_id))):
+			return _reject("character_update_failed")
+		return {"ok": true, "account": _account_store.public_account(owner_guest_id)}
 	if method == "POST" and path == "/v1/party/create":
 		return _social_service.create_party(token, int(payload.get("capacity", 4))) if _social_service != null else _server_unavailable()
 	if method == "POST" and path == "/v1/party/join":
@@ -162,7 +180,13 @@ func _route(method: String, path: String, token: String, payload: Dictionary) ->
 	if method == "GET" and path == "/v1/party/current":
 		return _social_service.current_party(token) if _social_service != null else _server_unavailable()
 	if method == "POST" and path == "/v1/friends/request":
-		return _social_service.request_friend(token, String(payload.get("guest_id", ""))) if _social_service != null else _server_unavailable()
+		if _account_store == null or _social_service == null:
+			return _server_unavailable()
+		var friend_identifier := String(payload.get("account_id", payload.get("guest_id", "")))
+		var friend_guest_id := String(_account_store.resolve_guest_id(friend_identifier))
+		if friend_guest_id.is_empty():
+			return {"ok": false, "reason": "profile_not_found", "_status": 404}
+		return _social_service.request_friend(token, friend_guest_id)
 	if method == "POST" and path == "/v1/friends/accept":
 		return _social_service.accept_friend(token, String(payload.get("guest_id", ""))) if _social_service != null else _server_unavailable()
 	if method == "GET" and path == "/v1/friends":
