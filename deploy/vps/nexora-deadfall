@@ -28,9 +28,9 @@ case "${1:-status}" in
     exec sudo certbot --nginx --agree-tos --redirect -m "$DEADFALL_EMAIL" -d "$DEADFALL_DOMAIN"
     ;;
   auth)
-    # Compatible with the gh version shipped by Ubuntu 24.04. HTTPS mode does
-    # not require SSH key setup, so --skip-ssh-key is intentionally omitted.
-    exec sudo -Hu deadfall gh auth login --hostname github.com --git-protocol https
+    # Run from the service HOME so this also works when root invokes the command
+    # while standing inside /root or another directory deadfall cannot traverse.
+    exec sudo -Hu deadfall bash -c 'cd "$HOME" && exec gh auth login --hostname github.com --git-protocol https'
     ;;
   *) echo "Uso: nexora-deadfall {status|update|build-app|build-web|build-all|logs|https|auth}"; exit 2;;
 esac
