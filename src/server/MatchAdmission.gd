@@ -9,6 +9,7 @@ var public_host := ""
 var port := 0
 var mission_id := "mission_01_first_signal"
 var created_unix := 0
+var ready_path := ""
 var expected_members := 0
 var _members_by_ticket: Dictionary = {}
 var _tickets_by_guest: Dictionary = {}
@@ -31,6 +32,7 @@ func load_from_file(path: String) -> bool:
 	port = int(root.get("port", 0))
 	mission_id = String(root.get("mission_id", "mission_01_first_signal"))
 	created_unix = int(root.get("created_unix", 0))
+	ready_path = String(root.get("ready_path", "")).strip_edges()
 	_members_by_ticket.clear()
 	_tickets_by_guest.clear()
 	var members_value: Variant = root.get("members", [])
@@ -42,12 +44,12 @@ func load_from_file(path: String) -> bool:
 		var member := Dictionary(item).duplicate(true)
 		var ticket := String(member.get("ticket", "")).strip_edges()
 		var guest_id := String(member.get("guest_id", "")).strip_edges()
-		if ticket.length() < 32 or guest_id.is_empty():
+		if ticket.length() != 64 or not ticket.is_valid_hex_number(false) or guest_id.is_empty():
 			continue
 		_members_by_ticket[ticket] = member
 		_tickets_by_guest[guest_id] = ticket
 	expected_members = _members_by_ticket.size()
-	return not match_id.is_empty() and not party_code.is_empty() and port > 0 and expected_members > 0
+	return not match_id.is_empty() and not party_code.is_empty() and port > 0 and expected_members > 0 and not ready_path.is_empty()
 
 func validate_ticket(ticket: String) -> Dictionary:
 	var clean := ticket.strip_edges()
@@ -76,5 +78,6 @@ func snapshot() -> Dictionary:
 		"port": port,
 		"mission_id": mission_id,
 		"created_unix": created_unix,
+		"ready_path": ready_path,
 		"expected_members": expected_members,
 	}
