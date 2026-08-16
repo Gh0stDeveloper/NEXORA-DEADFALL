@@ -2,6 +2,7 @@ class_name DeadfallRoomDirectoryServer
 extends Node
 
 const RoomCodeScript = preload("res://src/network/RoomCodeService.gd")
+const BuildInfoScript = preload("res://src/release/BuildInfo.gd")
 
 var _server := TCPServer.new()
 var _clients: Array[StreamPeerTCP] = []
@@ -54,13 +55,20 @@ func _respond(peer: StreamPeerTCP, request: String) -> void:
 	if parts.size() >= 2 and String(parts[0]) == "GET" and String(parts[1]).begins_with("/room/"):
 		requested_code = RoomCodeScript.normalize(String(parts[1]).trim_prefix("/room/").split("?", false)[0])
 	var ok := RoomCodeScript.is_valid(requested_code) and requested_code == room_code
+	var build := BuildInfoScript.snapshot()
 	var payload := {
 		"ok": ok,
 		"room_code": room_code if ok else requested_code,
 		"host": public_host if ok else "",
 		"port": gameplay_port if ok else 0,
-		"protocol": RoomCodeScript.PROTOCOL_VERSION,
-		"max_players": RoomCodeScript.MAX_PLAYERS,
+		"protocol": BuildInfoScript.NETWORK_PROTOCOL,
+		"max_players": BuildInfoScript.MAX_PLAYERS,
+		"app_version": build.get("app_version", ""),
+		"version_code": build.get("version_code", 0),
+		"content_version": build.get("content_version", 0),
+		"build_channel": build.get("build_channel", ""),
+		"min_client_version_code": build.get("min_client_version_code", 0),
+		"max_client_version_code": build.get("max_client_version_code", 0),
 	}
 	var body := JSON.stringify(payload)
 	var status := "200 OK" if ok else "404 Not Found"

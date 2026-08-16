@@ -12,6 +12,7 @@ config/features=PackedStringArray("4.6", "Mobile")
 Game="*res://src/autoload/Game.gd"
 Settings="*res://src/autoload/Settings.gd"
 Gore="*res://src/gore/GoreManager.gd"
+BetaRuntime="*res://src/diagnostics/BetaRuntime.gd"
 
 [display]
 window/size/viewport_width=1920

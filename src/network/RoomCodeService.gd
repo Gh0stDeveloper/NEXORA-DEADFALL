@@ -1,10 +1,11 @@
 class_name DeadfallRoomCodeService
 extends RefCounted
 
+const BuildInfoScript = preload("res://src/release/BuildInfo.gd")
 const ALPHABET := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 const CODE_LENGTH := 6
-const PROTOCOL_VERSION := 2
-const MAX_PLAYERS := 4
+const PROTOCOL_VERSION := BuildInfoScript.NETWORK_PROTOCOL
+const MAX_PLAYERS := BuildInfoScript.MAX_PLAYERS
 
 static func generate_code(rng: RandomNumberGenerator = null) -> String:
 	var source := rng
@@ -40,7 +41,8 @@ static func parse_resolution_payload(text: String) -> Dictionary:
 	var payload: Dictionary = parsed
 	if not bool(payload.get("ok", false)):
 		return {}
-	if int(payload.get("protocol", 0)) != PROTOCOL_VERSION:
+	var compatibility := BuildInfoScript.validate_server_snapshot(payload)
+	if not bool(compatibility.get("compatible", false)):
 		return {}
 	var host := String(payload.get("host", "")).strip_edges()
 	var port := int(payload.get("port", 0))
@@ -52,4 +54,8 @@ static func parse_resolution_payload(text: String) -> Dictionary:
 		"room_code": normalize(String(payload.get("room_code", ""))),
 		"protocol": PROTOCOL_VERSION,
 		"max_players": clampi(int(payload.get("max_players", MAX_PLAYERS)), 1, MAX_PLAYERS),
+		"app_version": String(payload.get("app_version", "")),
+		"version_code": int(payload.get("version_code", 0)),
+		"content_version": int(payload.get("content_version", 0)),
+		"build_channel": String(payload.get("build_channel", "")),
 	}
