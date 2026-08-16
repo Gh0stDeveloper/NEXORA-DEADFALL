@@ -88,6 +88,14 @@ if [[ ! -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]]; then
   mv "$TMP_ANDROID/unpack/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
   rm -rf "$TMP_ANDROID"
 fi
+# A previous Phase 10 installer revision could ask sdkmanager to install the
+# already-present latest package, producing latest-2 and repeated warnings.
+# Keep the canonical manually installed latest directory and remove that exact
+# redundant recovery artifact when present.
+if [[ -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" && -d "$ANDROID_HOME/cmdline-tools/latest-2" ]]; then
+  warn "Eliminando Android cmdline-tools/latest-2 redundante creado por una ejecución anterior."
+  rm -rf "$ANDROID_HOME/cmdline-tools/latest-2"
+fi
 JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")"
 export ANDROID_HOME JAVA_HOME
 yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" --licenses >/dev/null || true
@@ -107,24 +115,25 @@ export/android/java_sdk_path = "$JAVA_HOME"
 EOF
 chown -R "$DEADFALL_USER:$DEADFALL_GROUP" "$DEADFALL_HOME/.config"
 
+# All service-user bootstrap operations are explicitly started from deadfall's
+# HOME. This avoids `fatal: failed to stat /root/...: Permission denied` when
+# root launches the installer from a private checkout under /root.
 if [[ -n "$TOKEN_FILE" ]]; then
   [[ -r "$TOKEN_FILE" ]] || die "No se puede leer $TOKEN_FILE"
-  sudo -H -u "$DEADFALL_USER" gh auth login --hostname github.com --git-protocol https --with-token < "$TOKEN_FILE"
+  run_deadfall_home gh auth login --hostname github.com --git-protocol https --with-token < "$TOKEN_FILE"
 fi
-if ! run_deadfall gh auth status --hostname github.com >/dev/null 2>&1; then
-  [[ -t 0 ]] || die "GitHub no está autenticado. Ejecuta: sudo -Hu $DEADFALL_USER gh auth login --hostname github.com --git-protocol https"
+if ! run_deadfall_home gh auth status --hostname github.com >/dev/null 2>&1; then
+  [[ -t 0 ]] || die "GitHub no está autenticado. Ejecuta: nexora-deadfall auth"
   log "Autenticando GitHub para el repositorio privado..."
-  # Ubuntu 24.04 can ship a gh build without --skip-ssh-key. HTTPS already
-  # prevents SSH-key setup, so the portable invocation needs no extra flag.
-  sudo -Hu "$DEADFALL_USER" gh auth login --hostname github.com --git-protocol https
+  sudo -H -u "$DEADFALL_USER" -- bash -c 'cd "$HOME" && exec gh auth login --hostname github.com --git-protocol https'
 fi
-run_deadfall gh auth setup-git --hostname github.com
+run_deadfall_home gh auth setup-git --hostname github.com
 
 if [[ ! -d "$DEADFALL_ROOT/.git" ]]; then
   log "Clonando $REPO ($BRANCH)..."
   rm -rf "$DEADFALL_ROOT"
   install -d -o "$DEADFALL_USER" -g "$DEADFALL_GROUP" "$DEADFALL_ROOT"
-  run_deadfall git clone --branch "$BRANCH" "https://github.com/${REPO}.git" "$DEADFALL_ROOT"
+  run_deadfall_home git clone --branch "$BRANCH" "https://github.com/${REPO}.git" "$DEADFALL_ROOT"
 else
   log "Instalación existente detectada; se conservarán keystore, estado y artefactos."
 fi
