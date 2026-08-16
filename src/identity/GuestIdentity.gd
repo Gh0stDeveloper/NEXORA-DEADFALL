@@ -38,8 +38,11 @@ func snapshot() -> Dictionary:
 		"requires_username": username.is_empty(),
 	}
 
+func has_local_credentials() -> bool:
+	return not guest_id.is_empty() and not auth_secret.is_empty()
+
 func has_complete_profile() -> bool:
-	return not guest_id.is_empty() and not auth_secret.is_empty() and is_valid_username(username)
+	return has_local_credentials() and is_valid_username(username)
 
 func is_valid_username(value: String) -> bool:
 	var clean := value.strip_edges()
@@ -56,6 +59,13 @@ func set_username(value: String) -> bool:
 	username_changed.emit(username)
 	return true
 
+func clear_username() -> void:
+	if username.is_empty():
+		return
+	username = ""
+	_save()
+	username_changed.emit(username)
+
 func set_selected_character(character_id: StringName) -> void:
 	if character_id.is_empty() or selected_character == character_id:
 		return
@@ -64,11 +74,17 @@ func set_selected_character(character_id: StringName) -> void:
 	selected_character_changed.emit(selected_character)
 
 func registration_claim() -> Dictionary:
+	return registration_claim_for_username(username)
+
+func registration_claim_for_username(candidate_username: String) -> Dictionary:
+	var clean := candidate_username.strip_edges()
+	if not is_valid_username(clean) or not has_local_credentials():
+		return {}
 	# The game-generated secret never needs to be stored by the server. The
 	# server enrolls only this verifier and then authenticates with nonce/HMAC.
 	return {
 		"guest_id": guest_id,
-		"username": username,
+		"username": clean,
 		"secret_verifier": auth_secret.sha256_text(),
 		"selected_character": String(selected_character),
 	}
