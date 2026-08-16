@@ -1,20 +1,24 @@
 class_name DeadfallGuestAccountStore
 extends Node
 
-const SCHEMA_VERSION := 1
+const SCHEMA_VERSION := 2
 const STORE_DIR := "user://server"
 const STORE_PATH := "user://server/guest_accounts.dat"
 const USERNAME_PATTERN := "^[A-Za-z0-9_]{1,12}$"
+const PUBLIC_ID_PATTERN := "^[0-9]{10}$"
 const CHALLENGE_TTL_SECONDS := 30
 
 var _accounts: Dictionary = {}
 var _username_index: Dictionary = {}
+var _public_id_index: Dictionary = {}
 var _challenges: Dictionary = {}
 var _crypto := Crypto.new()
 var _username_regex := RegEx.new()
+var _public_id_regex := RegEx.new()
 
 func _ready() -> void:
 	_username_regex.compile(USERNAME_PATTERN)
+	_public_id_regex.compile(PUBLIC_ID_PATTERN)
 	_load()
 
 func register_claim(claim: Dictionary) -> Dictionary:
@@ -43,6 +47,7 @@ func register_claim(claim: Dictionary) -> Dictionary:
 		var previous_key := String(current.get("username_key", ""))
 		if not previous_key.is_empty() and previous_key != username_key:
 			_username_index.erase(previous_key)
+		_ensure_public_id(current, guest_id)
 		current["username"] = username
 		current["username_key"] = username_key
 		current["selected_character"] = character_id
@@ -53,8 +58,10 @@ func register_claim(claim: Dictionary) -> Dictionary:
 		return {"ok": true, "created": false, "account": public_account(guest_id)}
 
 	var now := int(Time.get_unix_time_from_system())
+	var public_id := _new_public_id()
 	_accounts[guest_id] = {
 		"guest_id": guest_id,
+		"public_id": public_id,
 		"username": username,
 		"username_key": username_key,
 		"secret_verifier": verifier,
@@ -63,6 +70,7 @@ func register_claim(claim: Dictionary) -> Dictionary:
 		"updated_unix": now,
 	}
 	_username_index[username_key] = guest_id
+	_public_id_index[public_id] = guest_id
 	_save()
 	return {"ok": true, "created": true, "account": public_account(guest_id)}
 
@@ -110,10 +118,23 @@ func public_account(guest_id: String) -> Dictionary:
 	var account: Dictionary = Dictionary(_accounts[guest_id])
 	return {
 		"guest_id": String(account.get("guest_id", guest_id)),
+		"public_id": String(account.get("public_id", "")),
 		"username": String(account.get("username", "")),
 		"selected_character": String(account.get("selected_character", "operator_01")),
 		"created_unix": int(account.get("created_unix", 0)),
 	}
+
+func public_account_by_lookup(account_id: String) -> Dictionary:
+	var guest_id := resolve_guest_id(account_id)
+	return public_account(guest_id) if not guest_id.is_empty() else {}
+
+func resolve_guest_id(account_id: String) -> String:
+	var value := account_id.strip_edges()
+	if _accounts.has(value):
+		return value
+	if _valid_public_id(value):
+		return String(_public_id_index.get(value, ""))
+	return ""
 
 func username_available(username: String, except_guest_id: String = "") -> bool:
 	if not _valid_username(username):
@@ -124,8 +145,35 @@ func username_available(username: String, except_guest_id: String = "") -> bool:
 func _valid_guest_id(value: String) -> bool:
 	return value.begins_with("gst_") and value.length() >= 20 and value.length() <= 80
 
+func _valid_public_id(value: String) -> bool:
+	return _public_id_regex.search(value) != null
+
 func _valid_username(value: String) -> bool:
 	return value.length() <= 12 and _username_regex.search(value) != null
+
+func _new_public_id() -> String:
+	for _attempt in range(64):
+		var bytes := _crypto.generate_random_bytes(8)
+		var value: int = 0
+		for byte_value in bytes:
+			value = ((value * 256) + int(byte_value)) % 9_000_000_000
+		var candidate := "%010d" % (1_000_000_000 + value)
+		if not _public_id_index.has(candidate):
+			return candidate
+	push_error("Unable to allocate unique DEADFALL public player ID")
+	return ""
+
+func _ensure_public_id(account: Dictionary, guest_id: String) -> bool:
+	var public_id := String(account.get("public_id", ""))
+	if _valid_public_id(public_id) and (not _public_id_index.has(public_id) or String(_public_id_index[public_id]) == guest_id):
+		_public_id_index[public_id] = guest_id
+		return false
+	public_id = _new_public_id()
+	if public_id.is_empty():
+		return false
+	account["public_id"] = public_id
+	_public_id_index[public_id] = guest_id
+	return true
 
 func _cleanup_challenges() -> void:
 	var now := int(Time.get_unix_time_from_system())
@@ -140,6 +188,7 @@ func _reject(reason: String) -> Dictionary:
 func _load() -> void:
 	_accounts.clear()
 	_username_index.clear()
+	_public_id_index.clear()
 	if not FileAccess.file_exists(STORE_PATH):
 		return
 	var file := FileAccess.open(STORE_PATH, FileAccess.READ)
@@ -154,11 +203,18 @@ func _load() -> void:
 	if typeof(stored) != TYPE_DICTIONARY:
 		return
 	_accounts = Dictionary(stored).duplicate(true)
-	for guest_id in _accounts.keys():
+	var migrated := false
+	for guest_id_value in _accounts.keys():
+		var guest_id := String(guest_id_value)
 		var account: Dictionary = Dictionary(_accounts[guest_id])
 		var key := String(account.get("username_key", ""))
 		if not key.is_empty():
-			_username_index[key] = String(guest_id)
+			_username_index[key] = guest_id
+		if _ensure_public_id(account, guest_id):
+			_accounts[guest_id] = account
+			migrated = true
+	if migrated:
+		_save()
 
 func _save() -> void:
 	var base := DirAccess.open("user://")
