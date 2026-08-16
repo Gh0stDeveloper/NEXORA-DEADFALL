@@ -37,8 +37,6 @@ func _ready() -> void:
 		print("NEXORA: DEADFALL test range client bootstrap ready")
 		return
 
-	# Normal visible clients authenticate a persistent guest account before the
-	# lobby. Headless smoke tests and explicit skip flags keep deterministic boot.
 	if DisplayServer.get_name() != "headless" and "--skip-login" not in args and "--skip-lobby" not in args:
 		_boot_login_gate(mission_id)
 		_boot_android_diagnostics()
@@ -73,6 +71,8 @@ func _boot_lobby(mission_id: StringName) -> void:
 	add_child(lobby)
 	if lobby.has_signal("start_requested"):
 		lobby.connect("start_requested", Callable(self, "_on_lobby_start_requested").bind(lobby, mission_id))
+	if lobby.has_signal("online_match_ready"):
+		lobby.connect("online_match_ready", Callable(self, "_on_lobby_online_match_ready").bind(lobby))
 
 func _on_lobby_start_requested(mode: int, lobby: Node, mission_id: StringName) -> void:
 	if mode != 1:
@@ -80,6 +80,17 @@ func _on_lobby_start_requested(mode: int, lobby: Node, mission_id: StringName) -
 	Game.start_local_session()
 	lobby.queue_free()
 	call_deferred("_boot_local_campaign", mission_id)
+
+func _on_lobby_online_match_ready(match: Dictionary, lobby: Node) -> void:
+	var host := String(match.get("host", "")).strip_edges()
+	var port := int(match.get("port", 0))
+	var ticket := String(match.get("join_ticket", "")).strip_edges()
+	var mission_id := StringName(String(match.get("mission_id", "mission_01_first_signal")))
+	if host.is_empty() or port <= 0 or ticket.length() != 64:
+		push_error("Invalid orchestrated match assignment")
+		return
+	lobby.queue_free()
+	call_deferred("_boot_network_arena_client", host, port, GuestIdentity.username, "", true, mission_id, ticket)
 
 func _boot_local_test_range() -> void:
 	var test_range := TestRangeScene.instantiate()
@@ -99,7 +110,7 @@ func _boot_direct_network_client(endpoint: String, args: PackedStringArray, camp
 	if endpoint.contains(":"):
 		host = endpoint.get_slice(":", 0)
 		port = int(endpoint.get_slice(":", 1))
-	_boot_network_arena_client(host, port, _arg_value(args, "--name="), _arg_value(args, "--resume-token="), campaign_mode, mission_id)
+	_boot_network_arena_client(host, port, _arg_value(args, "--name="), _arg_value(args, "--resume-token="), campaign_mode, mission_id, _arg_value(args, "--match-ticket="))
 
 func _boot_room_network_client(code: String, directory: String, args: PackedStringArray, campaign_mode: bool, mission_id: StringName) -> void:
 	_pending_room_name = _arg_value(args, "--name=")
@@ -113,14 +124,14 @@ func _boot_room_network_client(code: String, directory: String, args: PackedStri
 	resolver.call_deferred("resolve_room", code, directory)
 
 func _on_room_resolved(endpoint: Dictionary, resolver: Node, resume: String) -> void:
-	_boot_network_arena_client(String(endpoint.get("host", "")), int(endpoint.get("port", 24560)), _pending_room_name, resume, _pending_campaign_mode, _pending_mission_id)
+	_boot_network_arena_client(String(endpoint.get("host", "")), int(endpoint.get("port", 24560)), _pending_room_name, resume, _pending_campaign_mode, _pending_mission_id, "")
 	resolver.queue_free()
 
 func _on_room_resolution_failed(reason: String, resolver: Node) -> void:
 	push_error("Room resolution failed: %s" % reason)
 	resolver.queue_free()
 
-func _boot_network_arena_client(host: String, port: int, requested_name: String, resume: String, campaign_mode: bool, mission_id: StringName) -> void:
+func _boot_network_arena_client(host: String, port: int, requested_name: String, resume: String, campaign_mode: bool, mission_id: StringName, match_ticket: String = "") -> void:
 	var arena := CampaignArenaScene.instantiate() if campaign_mode else SquadArenaScene.instantiate()
 	arena.name = "CampaignArena" if campaign_mode else "DuoArena"
 	if campaign_mode:
@@ -131,11 +142,11 @@ func _boot_network_arena_client(host: String, port: int, requested_name: String,
 	if session == null or not session.has_method("start_client"):
 		push_error("NetworkSession missing")
 		return
-	var error := int(session.call("start_client", host, port, name_value, resume))
+	var error := int(session.call("start_client", host, port, name_value, resume, match_ticket))
 	if error != OK:
 		push_error("Unable to start network client: %s" % error_string(error))
 	_boot_android_diagnostics()
-	print("NEXORA: DEADFALL %s client connecting to %s:%d" % ["Campaign" if campaign_mode else "Squad", host, port])
+	print("NEXORA: DEADFALL %s client connecting to %s:%d orchestrated=%s" % ["Campaign" if campaign_mode else "Squad", host, port, str(not match_ticket.is_empty())])
 
 func _boot_android_diagnostics() -> void:
 	if not OS.has_feature("android") or not OS.is_debug_build():
@@ -149,10 +160,12 @@ func _boot_dedicated_server(args: PackedStringArray, campaign_mode: bool, missio
 	var directory_port := int(_arg_value(args, "--directory-port=", "24561"))
 	var public_host := _arg_value(args, "--public-host=", "127.0.0.1")
 	var requested_room := _arg_value(args, "--room=")
+	var match_instance := "--match-instance" in args
+	var match_config_path := _arg_value(args, "--match-config=")
 	var server := DedicatedServerScript.new()
 	server.name = "DedicatedServer"
 	add_child(server)
-	server.start(port, 4, directory_port, public_host, requested_room, campaign_mode, mission_id)
+	server.start(port, 4, directory_port, public_host, requested_room, campaign_mode, mission_id, match_instance, match_config_path)
 
 func _arg_value(args: PackedStringArray, prefix: String, fallback: String = "") -> String:
 	for arg in args:
