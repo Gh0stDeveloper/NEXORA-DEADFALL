@@ -51,6 +51,16 @@ const REQUIRED_FILES := [
 	"res://src/maps/test_range/TestRange.tscn",
 	"res://src/maps/test_range/TestTarget.tscn",
 	"res://src/maps/duo/DuoArena.tscn",
+	"res://src/campaign/CampaignObjectiveData.gd",
+	"res://src/campaign/CampaignMissionData.gd",
+	"res://src/campaign/CampaignSaveStore.gd",
+	"res://src/campaign/CampaignDirector.gd",
+	"res://src/campaign/CampaignNetworkBridge.gd",
+	"res://src/campaign/CampaignHUD.gd",
+	"res://src/campaign/data/mission_01_first_signal.tres",
+	"res://src/campaign/data/mission_02_last_broadcast.tres",
+	"res://src/maps/campaign/OutbreakDistrict.gd",
+	"res://src/maps/campaign/OutbreakDistrict.tscn",
 	"res://scripts/ci/android_runtime_smoke.sh",
 	"res://scripts/ci/combat_smoke.gd",
 	"res://scripts/ci/zombie_smoke.gd",
@@ -58,8 +68,10 @@ const REQUIRED_FILES := [
 	"res://scripts/ci/horde_smoke.gd",
 	"res://scripts/ci/network_smoke.gd",
 	"res://scripts/ci/squad_smoke.gd",
+	"res://scripts/ci/campaign_smoke.gd",
 	"res://scripts/ci/duo_integration.sh",
 	"res://scripts/ci/squad_integration.sh",
+	"res://scripts/ci/campaign_integration.sh",
 ]
 
 func _initialize() -> void:
@@ -127,6 +139,20 @@ func _initialize() -> void:
 			_fail("Phase 7 Squad arena missing %s" % node_path)
 			return
 	squad.free()
+	var campaign_scene := load("res://src/maps/campaign/OutbreakDistrict.tscn") as PackedScene
+	if campaign_scene == null:
+		_fail("Phase 8 Campaign arena could not be loaded")
+		return
+	var campaign := campaign_scene.instantiate()
+	root.add_child(campaign)
+	for node_path in ["CampaignDirector", "CampaignNetworkBridge", "CampaignHUD", "CampaignTargets/StreetGate", "CampaignTargets/EvacPoint", "CampaignTargets/RadioConsole", "NetworkSession", "PlayerSpawnPoints/SpawnA", "PlayerSpawnPoints/SpawnD"]:
+		if campaign.get_node_or_null(node_path) == null:
+			_fail("Phase 8 Campaign arena missing %s" % node_path)
+			return
+	if not campaign.get_node("CampaignDirector").has_method("get_status_snapshot"):
+		_fail("Phase 8 CampaignDirector snapshot contract missing")
+		return
+	campaign.free()
 	for action in ["move_forward", "move_back", "move_left", "move_right", "jump", "sprint", "crouch", "prone", "camera_cycle", "fire", "reload", "interact"]:
 		if not InputMap.has_action(action):
 			_fail("Input action was not registered: %s" % action)
