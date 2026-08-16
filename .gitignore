@@ -12,6 +12,10 @@ dist/
 *.pck
 *.zip
 
+# Provisional external 3D assets are synchronized from Gh0stDeveloper/Objetos3D
+# by scripts/assets/sync_objetos3d.sh before VPS production builds.
+assets/external/objetos3d/*.glb
+
 # Node / Next.js
 node_modules/
 .next/
