@@ -10,6 +10,7 @@ Phase 7 expands the Phase 6 authoritative network slice from Duo to a maximum of
 - Stable gameplay `entity_id` remains separate from transient ENet `peer_id`.
 - Reconnect grace: 45 seconds.
 - A valid reconnect reservation owns its previous slot during the grace window, so new peers cannot displace a temporarily disconnected squad member.
+- Room directory resolution advertises `max_players: 4` alongside the protocol and gameplay endpoint.
 
 ## Life state
 
@@ -66,9 +67,9 @@ The client adds a Squad HUD showing up to four members with HP, DOWN bleedout, r
 
 ## Validation
 
-- `network_smoke.gd`: protocol, command sanitation, capacity and authoritative weapon regressions.
-- `squad_smoke.gd`: downed, revive, bleedout, weapon lock, four-player Horde scaling and server-held revive.
-- `duo_integration.sh`: two-peer backward-regression integration.
-- `squad_integration.sh`: one headless server plus four real ENet clients; every client must observe `DEADFALL_SQUAD_SNAPSHOT players=4`.
+- `scripts/ci/network_smoke.gd`: client authority rejection, command sanitation/sequencing, room-code protocol/capacity payloads and server weapon regressions.
+- `scripts/ci/squad_smoke.gd`: downed, revive, bleedout, weapon lock, reconnect-slot capacity, replication budgets, four-player Horde scaling and server-held revive.
+- `scripts/ci/duo_integration.sh`: two-peer backward-regression integration.
+- `scripts/ci/squad_integration.sh`: one headless server plus four real ENet clients; every client must observe `DEADFALL_SQUAD_SNAPSHOT players=4`.
 
 Execution of the new current-head gates remains dependent on GitHub Actions billing/spending being available. Physical four-phone Android soak, latency, reconciliation and FPS profiling remains a separate acceptance gate.
