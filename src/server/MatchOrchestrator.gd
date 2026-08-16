@@ -4,7 +4,6 @@ extends Node
 const PORT_START := 24600
 const PORT_END := 24749
 const MAX_CONCURRENT_MATCHES := 24
-const READY_DELAY_USEC := 1_500_000
 const MATCH_SCHEMA_VERSION := 1
 const ALLOWED_MISSIONS := ["mission_01_first_signal", "mission_02_extraction"]
 
@@ -74,6 +73,9 @@ func start_party_match(token: String, requested_mission_id: String = "mission_01
 			"ticket": ticket,
 		})
 	var config_path := "%s/%s.json" % [_match_dir, match_id]
+	var ready_path := "%s.ready" % config_path
+	if FileAccess.file_exists(ready_path):
+		DirAccess.remove_absolute(ready_path)
 	var config := {
 		"schema_version": MATCH_SCHEMA_VERSION,
 		"match_id": match_id,
@@ -82,6 +84,7 @@ func start_party_match(token: String, requested_mission_id: String = "mission_01
 		"port": port,
 		"mission_id": mission_id,
 		"created_unix": int(Time.get_unix_time_from_system()),
+		"ready_path": ready_path,
 		"members": member_configs,
 	}
 	if not _write_match_config(config_path, config):
@@ -113,8 +116,8 @@ func start_party_match(token: String, requested_mission_id: String = "mission_01
 		"mission_id": mission_id,
 		"pid": pid,
 		"config_path": config_path,
+		"ready_path": ready_path,
 		"status": "STARTING",
-		"launch_usec": Time.get_ticks_usec(),
 		"created_unix": int(Time.get_unix_time_from_system()),
 		"tickets": tickets_by_guest,
 		"member_count": members.size(),
@@ -190,12 +193,24 @@ func _process(_delta: float) -> void:
 		if not _is_match_process_alive(record):
 			_cleanup_match(match_id, "process_exited")
 			continue
-		if String(record.get("status", "")) == "STARTING" and Time.get_ticks_usec() - int(record.get("launch_usec", 0)) >= READY_DELAY_USEC:
+		var ready_path := String(record.get("ready_path", ""))
+		if String(record.get("status", "")) == "STARTING" and not ready_path.is_empty() and FileAccess.file_exists(ready_path):
 			record["status"] = "READY"
 			_matches[match_id] = record
 			if social_service != null:
 				social_service.call("update_party_match_status", String(record.get("party_code", "")), match_id, "READY")
 			print("DEADFALL_MATCH_READY match=%s party=%s port=%d" % [match_id, String(record.get("party_code", "")), int(record.get("port", 0))])
+
+func _exit_tree() -> void:
+	for match_id_value in _matches.keys().duplicate():
+		var match_id := String(match_id_value)
+		if not _matches.has(match_id):
+			continue
+		var record: Dictionary = Dictionary(_matches[match_id])
+		var pid := int(record.get("pid", 0))
+		if pid > 0 and OS.is_process_running(pid):
+			OS.kill(pid)
+		_cleanup_match(match_id, "orchestrator_shutdown")
 
 func _assignment_from_record(record: Dictionary) -> Dictionary:
 	return {
@@ -214,9 +229,9 @@ func _allocate_port() -> int:
 		var record: Dictionary = Dictionary(record_value)
 		if _is_match_process_alive(record):
 			used[int(record.get("port", 0))] = true
-	for port in range(PORT_START, PORT_END + 1):
-		if not used.has(port):
-			return port
+	for candidate_port in range(PORT_START, PORT_END + 1):
+		if not used.has(candidate_port):
+			return candidate_port
 	return 0
 
 func _is_match_process_alive(record: Dictionary) -> bool:
@@ -229,13 +244,15 @@ func _cleanup_match(match_id: String, reason: String) -> void:
 	var record: Dictionary = Dictionary(_matches[match_id])
 	var party_code := String(record.get("party_code", ""))
 	var config_path := String(record.get("config_path", ""))
+	var ready_path := String(record.get("ready_path", ""))
 	_matches.erase(match_id)
 	if String(_party_match.get(party_code, "")) == match_id:
 		_party_match.erase(party_code)
 	if social_service != null:
 		social_service.call("clear_party_match_assignment", party_code, match_id)
-	if not config_path.is_empty() and FileAccess.file_exists(config_path):
-		DirAccess.remove_absolute(config_path)
+	for path in [config_path, ready_path]:
+		if not path.is_empty() and FileAccess.file_exists(path):
+			DirAccess.remove_absolute(path)
 	print("DEADFALL_MATCH_END match=%s party=%s reason=%s" % [match_id, party_code, reason])
 
 func _write_match_config(path: String, payload: Dictionary) -> bool:
