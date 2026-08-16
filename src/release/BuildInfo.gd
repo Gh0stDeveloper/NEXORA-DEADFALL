@@ -1,8 +1,8 @@
 class_name DeadfallBuildInfo
 extends RefCounted
 
-const APP_VERSION := "0.9.0-beta.1"
-const VERSION_CODE := 900001
+const APP_VERSION := "0.9.0-beta.2"
+const VERSION_CODE := 900002
 const BUILD_CHANNEL := "closed_beta"
 const NETWORK_PROTOCOL := 2
 const CONTENT_VERSION := 1
