@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://src/player/PlayerController.gd" id="1_controller"]
 [ext_resource type="Script" path="res://src/player/PlayerInput.gd" id="2_input"]
@@ -8,6 +8,7 @@
 [ext_resource type="Resource" path="res://src/weapons/data/nxr_rifle_01.tres" id="6_rifle"]
 [ext_resource type="Script" path="res://src/player/PlayerLifeState.gd" id="7_life"]
 [ext_resource type="Script" path="res://src/player/FlashlightController.gd" id="8_flashlight"]
+[ext_resource type="Script" path="res://src/player/PlayerModelPresenter.gd" id="9_model"]
 
 [sub_resource type="CapsuleShape3D" id="Capsule_player"]
 radius = 0.4
@@ -64,6 +65,10 @@ shape = SubResource("Capsule_player")
 position = Vector3(0, 0.9, 0)
 mesh = SubResource("Box_body")
 cast_shadow = 1
+
+[node name="ModelPresenter" type="Node3D" parent="VisualRoot"]
+script = ExtResource("9_model")
+fallback_body_path = NodePath("../Body")
 
 [node name="CameraRig" type="Node3D" parent="."]
 position = Vector3(0, 1.62, 0)
