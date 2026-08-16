@@ -4,6 +4,7 @@ const DedicatedServerScript = preload("res://src/server/DedicatedServer.gd")
 const TestRangeScene = preload("res://src/maps/test_range/TestRange.tscn")
 const SquadArenaScene = preload("res://src/maps/duo/DuoArena.tscn")
 const CampaignArenaScene = preload("res://src/maps/campaign/OutbreakDistrict.tscn")
+const LobbyScene = preload("res://src/lobby/Lobby.tscn")
 const DirectoryClientScript = preload("res://src/network/RoomDirectoryClient.gd")
 const AndroidDiagnosticsScript = preload("res://src/mobile/AndroidDiagnostics.gd")
 
@@ -27,13 +28,40 @@ func _ready() -> void:
 	if not room_value.is_empty() and not directory_value.is_empty():
 		_boot_room_network_client(room_value, directory_value, args, campaign_mode, mission_id)
 		return
-	Game.start_local_session()
+
 	if "--test-range" in args:
+		Game.start_local_session()
 		_boot_local_test_range()
-	else:
-		_boot_local_campaign(mission_id)
+		_boot_android_diagnostics()
+		print("NEXORA: DEADFALL test range client bootstrap ready")
+		return
+
+	# Real visible clients enter the pre-match lobby first. Headless smoke tests
+	# and explicit --skip-lobby runs preserve the deterministic direct boot path.
+	if DisplayServer.get_name() != "headless" and "--skip-lobby" not in args:
+		_boot_lobby(mission_id)
+		_boot_android_diagnostics()
+		print("NEXORA: DEADFALL lobby bootstrap ready")
+		return
+
+	Game.start_local_session()
+	_boot_local_campaign(mission_id)
 	_boot_android_diagnostics()
 	print("NEXORA: DEADFALL client bootstrap ready")
+
+func _boot_lobby(mission_id: StringName) -> void:
+	var lobby := LobbyScene.instantiate()
+	lobby.name = "Lobby"
+	add_child(lobby)
+	if lobby.has_signal("start_requested"):
+		lobby.connect("start_requested", Callable(self, "_on_lobby_start_requested").bind(lobby, mission_id))
+
+func _on_lobby_start_requested(mode: int, lobby: Node, mission_id: StringName) -> void:
+	if mode != 1:
+		return
+	Game.start_local_session()
+	lobby.queue_free()
+	call_deferred("_boot_local_campaign", mission_id)
 
 func _boot_local_test_range() -> void:
 	var test_range := TestRangeScene.instantiate()
