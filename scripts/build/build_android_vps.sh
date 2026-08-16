@@ -1,16 +1,52 @@
 #!/usr/bin/env bash
 set -euo pipefail
-source /opt/nexora-deadfall/deploy/vps/lib/common.sh; require_root; load_env; source "$DEADFALL_KEYSTORE_META"
-VERSION="$(grep -oP 'const APP_VERSION := "\K[^"]+' "$DEADFALL_ROOT/src/release/BuildInfo.gd")"; OUT="$DEADFALL_BUILD_DIR/NEXORA-DEADFALL-${VERSION}.apk"; TMP="$OUT.tmp"
-export GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$DEADFALL_KEYSTORE" GODOT_ANDROID_KEYSTORE_RELEASE_USER="$DEADFALL_KEYSTORE_ALIAS" GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="$DEADFALL_KEYSTORE_PASSWORD" ANDROID_HOME JAVA_HOME
+source /opt/nexora-deadfall/deploy/vps/lib/common.sh
+require_root
+load_env
+source "$DEADFALL_KEYSTORE_META"
+
+VERSION="$(grep -oP 'const APP_VERSION := "\K[^"]+' "$DEADFALL_ROOT/src/release/BuildInfo.gd")"
+OUT="$DEADFALL_BUILD_DIR/NEXORA-DEADFALL-${VERSION}.apk"
+TMP="$DEADFALL_BUILD_DIR/.NEXORA-DEADFALL-${VERSION}.tmp.apk"
+install -d -o "$DEADFALL_USER" -g "$DEADFALL_GROUP" "$DEADFALL_BUILD_DIR"
+rm -f "$TMP"
 chown -R "$DEADFALL_USER:$DEADFALL_GROUP" "$DEADFALL_ROOT"
-if [[ ! -d "$DEADFALL_ROOT/android/build" ]]; then run_deadfall godot --headless --path "$DEADFALL_ROOT" --install-android-build-template --quit; fi
-rm -f "$TMP"; run_deadfall godot --verbose --headless --path "$DEADFALL_ROOT" --export-release "Android Closed Beta APK" "$TMP"; test -s "$TMP"
-APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n1)"; "$APKSIGNER" verify --verbose "$TMP"
-mv "$TMP" "$OUT"; SHA="$(sha256sum "$OUT" | awk '{print $1}')"; BYTES="$(stat -c %s "$OUT")"; PUBLISHED="$DEADFALL_DOWNLOAD_DIR/NEXORA-DEADFALL-latest.apk"
-install -m 0644 "$OUT" "$PUBLISHED.tmp"; mv "$PUBLISHED.tmp" "$PUBLISHED"
+
+if [[ ! -d "$DEADFALL_ROOT/android/build" ]]; then
+  sudo -H -u "$DEADFALL_USER" env ANDROID_HOME="$ANDROID_HOME" JAVA_HOME="$JAVA_HOME" \
+    godot --headless --path "$DEADFALL_ROOT" --install-android-build-template --quit
+fi
+
+sudo -H -u "$DEADFALL_USER" env \
+  ANDROID_HOME="$ANDROID_HOME" \
+  JAVA_HOME="$JAVA_HOME" \
+  GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$DEADFALL_KEYSTORE" \
+  GODOT_ANDROID_KEYSTORE_RELEASE_USER="$DEADFALL_KEYSTORE_ALIAS" \
+  GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="$DEADFALL_KEYSTORE_PASSWORD" \
+  godot --verbose --headless --path "$DEADFALL_ROOT" --export-release "Android Closed Beta APK" "$TMP"
+
+test -s "$TMP"
+APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n1)"
+test -x "$APKSIGNER"
+"$APKSIGNER" verify --verbose "$TMP"
+mv "$TMP" "$OUT"
+SHA="$(sha256sum "$OUT" | awk '{print $1}')"
+BYTES="$(stat -c %s "$OUT")"
+PUBLISHED="$DEADFALL_DOWNLOAD_DIR/NEXORA-DEADFALL-latest.apk"
+install -m 0644 "$OUT" "$PUBLISHED.tmp"
+mv "$PUBLISHED.tmp" "$PUBLISHED"
 python3 - "$DEADFALL_PUBLIC_DIR/release.json" "$VERSION" "$SHA" "$BYTES" "$(git -C "$DEADFALL_ROOT" rev-parse HEAD)" <<'PY'
 import json,sys,time,pathlib
-p=pathlib.Path(sys.argv[1]); p.write_text(json.dumps({'version':sys.argv[2],'sha256':sys.argv[3],'bytes':int(sys.argv[4]),'git_sha':sys.argv[5],'published_unix':int(time.time()),'download':'/downloads/NEXORA-DEADFALL-latest.apk'},indent=2)+'\n')
+p=pathlib.Path(sys.argv[1])
+p.write_text(json.dumps({
+    'version':sys.argv[2],
+    'sha256':sys.argv[3],
+    'bytes':int(sys.argv[4]),
+    'git_sha':sys.argv[5],
+    'published_unix':int(time.time()),
+    'download':'/downloads/NEXORA-DEADFALL-latest.apk'
+},indent=2)+'\n')
 PY
-chown www-data:www-data "$PUBLISHED" "$DEADFALL_PUBLIC_DIR/release.json"; log "APK publicada: $PUBLISHED ($VERSION)"
+chown www-data:www-data "$PUBLISHED" "$DEADFALL_PUBLIC_DIR/release.json"
+chmod 0644 "$PUBLISHED" "$DEADFALL_PUBLIC_DIR/release.json"
+log "APK Release verificada y publicada: $PUBLISHED ($VERSION)"
