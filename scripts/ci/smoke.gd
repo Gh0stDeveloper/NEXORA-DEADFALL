@@ -166,8 +166,8 @@ func _initialize() -> void:
 		if squad.get_node_or_null(node_path) == null:
 			_fail("Phase 7 Squad arena missing %s" % node_path)
 			return
-	var squad_network := squad.get_node("NetworkSession")
-	var squad_network_script := squad_network.get_script()
+	var squad_network: Node = squad.get_node("NetworkSession")
+	var squad_network_script: Script = squad_network.get_script() as Script
 	if squad_network_script == null or String(squad_network_script.resource_path) != "res://src/network/ClosedBetaNetworkSession.gd":
 		_fail("Phase 9 hardened network session is not active in Squad arena")
 		return
@@ -188,8 +188,8 @@ func _initialize() -> void:
 	if not campaign.get_node("CampaignDirector").has_method("get_status_snapshot"):
 		_fail("Phase 8 CampaignDirector snapshot contract missing")
 		return
-	var campaign_network := campaign.get_node("NetworkSession")
-	var campaign_network_script := campaign_network.get_script()
+	var campaign_network: Node = campaign.get_node("NetworkSession")
+	var campaign_network_script: Script = campaign_network.get_script() as Script
 	if campaign_network_script == null or String(campaign_network_script.resource_path) != "res://src/network/ClosedBetaNetworkSession.gd":
 		_fail("Phase 9 hardened network session is not active in Campaign arena")
 		return
