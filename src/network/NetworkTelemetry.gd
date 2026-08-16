@@ -1,0 +1,212 @@
+class_name DeadfallNetworkTelemetry
+extends Node
+
+signal ping_changed(display_ping_ms: int, raw_ping_ms: int, quality: String, source: String)
+
+const CONTROL_PING_INTERVAL_SECONDS := 3.0
+const PRESENCE_INTERVAL_SECONDS := 5.0
+const MATCH_PING_STALE_SECONDS := 5.0
+const REQUEST_TIMEOUT_SECONDS := 5.0
+const EXCELLENT_PING_THRESHOLD_MS := 25
+
+var _display_ping_ms := 999
+var _raw_ping_ms := 999
+var _quality := "SIN CONEXIÓN"
+var _source := "control"
+var _control_display_ping := 999
+var _control_raw_ping := 999
+var _control_quality := "SIN CONEXIÓN"
+var _match_display_ping := 999
+var _match_raw_ping := 999
+var _match_quality := "SIN CONEXIÓN"
+var _last_match_ping_usec := 0
+var _control_elapsed := 0.0
+var _presence_elapsed := 0.0
+var _request_in_flight := false
+var _request_started_usec := 0
+var _overlay_label: Label
+
+func _ready() -> void:
+	if DisplayServer.get_name() == "headless" or "--server" in OS.get_cmdline_user_args():
+		set_process(false)
+		return
+	_build_overlay()
+	set_process(true)
+	call_deferred("_start_control_ping")
+
+func _process(delta: float) -> void:
+	_control_elapsed += delta
+	_presence_elapsed += delta
+	if _control_elapsed >= CONTROL_PING_INTERVAL_SECONDS:
+		_control_elapsed = 0.0
+		_start_control_ping()
+	if _presence_elapsed >= PRESENCE_INTERVAL_SECONDS:
+		_presence_elapsed = 0.0
+		_report_presence()
+	if _last_match_ping_usec > 0 and float(Time.get_ticks_usec() - _last_match_ping_usec) / 1_000_000.0 > MATCH_PING_STALE_SECONDS:
+		_last_match_ping_usec = 0
+		_apply_effective_ping()
+
+func set_match_ping(display_ping_ms: int, raw_ping_ms: int, quality: String) -> void:
+	_match_display_ping = clampi(display_ping_ms, 0, 999)
+	_match_raw_ping = clampi(raw_ping_ms, 0, 999)
+	_match_quality = quality
+	_last_match_ping_usec = Time.get_ticks_usec()
+	_apply_effective_ping()
+
+func clear_match_ping() -> void:
+	_last_match_ping_usec = 0
+	_match_display_ping = 999
+	_match_raw_ping = 999
+	_match_quality = "SIN CONEXIÓN"
+	_apply_effective_ping()
+
+func get_display_ping_ms() -> int:
+	return _display_ping_ms
+
+func get_raw_ping_ms() -> int:
+	return _raw_ping_ms
+
+func get_quality() -> String:
+	return _quality
+
+func get_source() -> String:
+	return _source
+
+func is_online() -> bool:
+	return _display_ping_ms < 999
+
+func snapshot() -> Dictionary:
+	return {
+		"display_ping_ms": _display_ping_ms,
+		"raw_ping_ms": _raw_ping_ms,
+		"quality": _quality,
+		"source": _source,
+		"online": is_online(),
+	}
+
+func _start_control_ping() -> void:
+	if _request_in_flight:
+		return
+	var social := get_node_or_null("/root/SocialClient")
+	if social == null:
+		_set_control_ping(999)
+		return
+	var base := String(social.get("api_base")).trim_suffix("/v1").trim_suffix("/")
+	if base.is_empty():
+		_set_control_ping(999)
+		return
+	var request := HTTPRequest.new()
+	request.name = "PingRequest"
+	request.timeout = REQUEST_TIMEOUT_SECONDS
+	add_child(request)
+	request.request_completed.connect(_on_control_ping_completed.bind(request))
+	_request_in_flight = true
+	_request_started_usec = Time.get_ticks_usec()
+	var error := request.request("%s/v1/health" % base, PackedStringArray(["Accept: application/json", "Cache-Control: no-store"]), HTTPClient.METHOD_GET)
+	if error != OK:
+		_request_in_flight = false
+		request.queue_free()
+		_set_control_ping(999)
+
+func _on_control_ping_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray, request: HTTPRequest) -> void:
+	_request_in_flight = false
+	if is_instance_valid(request):
+		request.queue_free()
+	if result != HTTPRequest.RESULT_SUCCESS or response_code < 200 or response_code >= 300:
+		_set_control_ping(999)
+		return
+	var parsed = JSON.parse_string(body.get_string_from_utf8())
+	if typeof(parsed) != TYPE_DICTIONARY or not bool(Dictionary(parsed).get("ok", false)):
+		_set_control_ping(999)
+		return
+	var elapsed_ms := clampi(int(round(float(Time.get_ticks_usec() - _request_started_usec) / 1000.0)), 0, 999)
+	_set_control_ping(elapsed_ms)
+
+func _set_control_ping(raw_ms: int) -> void:
+	_control_raw_ping = clampi(raw_ms, 0, 999)
+	if _control_raw_ping >= 999:
+		_control_display_ping = 999
+		_control_quality = "SIN CONEXIÓN"
+	elif _control_raw_ping <= EXCELLENT_PING_THRESHOLD_MS:
+		_control_display_ping = 0
+		_control_quality = "EXCELENTE"
+	elif _control_raw_ping <= 70:
+		_control_display_ping = _control_raw_ping
+		_control_quality = "BUENO"
+	elif _control_raw_ping <= 140:
+		_control_display_ping = _control_raw_ping
+		_control_quality = "MEDIO"
+	else:
+		_control_display_ping = _control_raw_ping
+		_control_quality = "ALTO"
+	_apply_effective_ping()
+
+func _apply_effective_ping() -> void:
+	var match_fresh := _last_match_ping_usec > 0 and float(Time.get_ticks_usec() - _last_match_ping_usec) / 1_000_000.0 <= MATCH_PING_STALE_SECONDS
+	if match_fresh:
+		_display_ping_ms = _match_display_ping
+		_raw_ping_ms = _match_raw_ping
+		_quality = _match_quality
+		_source = "match"
+	else:
+		_display_ping_ms = _control_display_ping
+		_raw_ping_ms = _control_raw_ping
+		_quality = _control_quality
+		_source = "control"
+	_refresh_overlay()
+	ping_changed.emit(_display_ping_ms, _raw_ping_ms, _quality, _source)
+
+func _report_presence() -> void:
+	var social := get_node_or_null("/root/SocialClient")
+	if social != null and social.has_method("has_session") and bool(social.call("has_session")) and social.has_method("report_presence"):
+		social.call("report_presence", _display_ping_ms)
+
+func _build_overlay() -> void:
+	var layer := CanvasLayer.new()
+	layer.name = "NetworkPingOverlay"
+	layer.layer = 190
+	add_child(layer)
+	var panel := PanelContainer.new()
+	panel.anchor_left = 1.0
+	panel.anchor_top = 0.0
+	panel.anchor_right = 1.0
+	panel.anchor_bottom = 0.0
+	panel.offset_left = -190.0
+	panel.offset_top = 18.0
+	panel.offset_right = -18.0
+	panel.offset_bottom = 62.0
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.015, 0.020, 0.028, 0.84)
+	style.border_color = Color(0.25, 0.28, 0.34, 0.65)
+	style.set_border_width_all(1)
+	style.corner_radius_top_left = 10
+	style.corner_radius_top_right = 10
+	style.corner_radius_bottom_left = 10
+	style.corner_radius_bottom_right = 10
+	panel.add_theme_stylebox_override("panel", style)
+	layer.add_child(panel)
+	_overlay_label = Label.new()
+	_overlay_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_overlay_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_overlay_label.add_theme_font_size_override("font_size", 14)
+	_overlay_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(_overlay_label)
+	_refresh_overlay()
+
+func _refresh_overlay() -> void:
+	if _overlay_label == null:
+		return
+	var ping_text := "+999" if _display_ping_ms >= 999 else str(_display_ping_ms)
+	_overlay_label.text = "PING %s · %s" % [ping_text, _quality]
+	if _display_ping_ms >= 999:
+		_overlay_label.add_theme_color_override("font_color", Color(0.88, 0.20, 0.22))
+	elif _display_ping_ms == 0:
+		_overlay_label.add_theme_color_override("font_color", Color(0.35, 0.92, 0.58))
+	elif _display_ping_ms <= 70:
+		_overlay_label.add_theme_color_override("font_color", Color(0.60, 0.88, 0.58))
+	elif _display_ping_ms <= 140:
+		_overlay_label.add_theme_color_override("font_color", Color(0.95, 0.74, 0.30))
+	else:
+		_overlay_label.add_theme_color_override("font_color", Color(0.95, 0.38, 0.28))
