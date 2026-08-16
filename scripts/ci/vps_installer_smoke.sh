@@ -55,12 +55,21 @@ if grep -Fq '> /etc/nginx/sites-available/nexora-deadfall' deploy/vps/install.sh
   echo 'Installer/updater must use configure_nginx_site instead of assuming sites-available exists' >&2
   exit 1
 fi
+if grep -Fq 'godot --headless --path "$DEADFALL_ROOT" --install-android-build-template --quit' scripts/build/build_android_vps.sh; then
+  echo 'Android Gradle template installation must be coupled to the export invocation' >&2
+  exit 1
+fi
 grep -Fq 'cmdline-tools/latest-2' deploy/vps/install.sh
 grep -Fq 'platforms;android-36' deploy/vps/install.sh
+grep -Fq 'build-tools;36.0.0' deploy/vps/install.sh
 grep -Fq 'Node.js 24 LTS' deploy/vps/install.sh
 grep -Fq 'reboot-required' deploy/vps/install.sh
 grep -Fq 'NEXORA-DEADFALL-latest.apk' scripts/build/build_android_vps.sh
 grep -Fq 'apksigner' scripts/build/build_android_vps.sh
+grep -Fq 'INSTALL_TEMPLATE_ARGS+=(--install-android-build-template)' scripts/build/build_android_vps.sh
+grep -Fq 'run_deadfall_home env' scripts/build/build_android_vps.sh
+grep -Fq 'Instalando Android SDK Build-Tools 36.0.0' scripts/build/build_android_vps.sh
+grep -Fq 'func is_dedicated_server() -> bool:' src/autoload/Game.gd
 grep -Fq 'APP=0; SERVER=0; WEB=0; DEPLOY=0' deploy/vps/update.sh
 grep -Fq 'output:' web/download-site/next.config.ts || grep -Fq "output: 'standalone'" web/download-site/next.config.ts
 grep -Fq 'proxy_pass http://127.0.0.1:3100' deploy/nginx/nexora-deadfall.conf.template
