@@ -197,7 +197,7 @@ func _route(method: String, path: String, token: String, payload: Dictionary) ->
 	if method == "GET" and path == "/v1/match/status":
 		if _social_service == null:
 			return _server_unavailable()
-		var party := _social_service.party_snapshot_for_token(token)
+		var party: Dictionary = _social_service.party_snapshot_for_token(token)
 		if party.is_empty() and _social_service.guest_for_token(token).is_empty():
 			return {"ok": false, "reason": "unauthorized", "_status": 401}
 		return {"ok": true, "party": party}
