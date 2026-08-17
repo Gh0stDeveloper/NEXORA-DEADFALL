@@ -80,7 +80,13 @@ func _run() -> void:
 				instance.free()
 				_fail("Animated model could not apply an initial non-bind pose: %s result=%s" % [model_name, JSON.stringify(pose_result)])
 				return
+			var semantics: Dictionary = AnimationDriver.semantic_inventory(instance)
+			if semantics.is_empty():
+				instance.free()
+				_fail("Animated model has no semantic animation mapping: %s inventory=%s" % [model_name, JSON.stringify(inventory)])
+				return
 			print("DEADFALL_MODEL_ANIMATION_READY model=%s clip=%s" % [model_name, String(pose_result.get("animation", ""))])
+			print("DEADFALL_MODEL_SEMANTICS model=%s semantics=%s" % [model_name, JSON.stringify(semantics)])
 		instance.free()
 		await process_frame
 
