@@ -18,6 +18,7 @@ case "${1:-status}" in
     sudo systemctl restart nexora-deadfall nexora-deadfall-download
     ;;
   test-network)
+    run_godot_smoke "scripts/ci/gameplay_compile_smoke.gd"
     run_godot_smoke "scripts/ci/phase11_network_transport_smoke.gd"
     run_godot_smoke "scripts/ci/phase11_orchestration_smoke.gd"
     ;;
@@ -28,6 +29,7 @@ case "${1:-status}" in
     run_godot_smoke "scripts/ci/phase11_external_models_smoke.gd"
     ;;
   test-phase11)
+    run_godot_smoke "scripts/ci/gameplay_compile_smoke.gd"
     run_godot_smoke "scripts/ci/phase11_smoke.gd"
     ;;
   test-api)
