@@ -1,0 +1,183 @@
+extends SceneTree
+
+const BuildInfoScript = preload("res://src/release/BuildInfo.gd")
+const MatchAdmissionScript = preload("res://src/server/MatchAdmission.gd")
+const MatchGuardScript = preload("res://src/server/MatchInstanceGuard.gd")
+const MatchOrchestratorScript = preload("res://src/server/MatchOrchestrator.gd")
+const LifecycleSessionScript = preload("res://src/network/LifecycleMtuSafeNetworkSession.gd")
+const ResultOverlayScript = preload("res://src/ui/MatchResultOverlay.gd")
+
+class FakeLifecycleSession:
+	extends Node
+	var published_result: Dictionary = {}
+	var connected_players := 2
+	var reconnects := 3
+
+	func get_status_snapshot() -> Dictionary:
+		return {
+			"connected_players": connected_players,
+			"reserved_slots": 1,
+			"match_lifecycle": {"orchestrated_reconnects": reconnects},
+		}
+
+	func publish_match_result(result: Dictionary) -> bool:
+		published_result = result.duplicate(true)
+		return true
+
+func _initialize() -> void:
+	call_deferred("_run")
+
+func _run() -> void:
+	if BuildInfoScript.APP_VERSION != "0.9.0-beta.5" or BuildInfoScript.VERSION_CODE != 900005:
+		_fail("Phase 12 requires beta.5 / 900005")
+		return
+	if BuildInfoScript.MIN_CLIENT_VERSION_CODE != 900005 or BuildInfoScript.MIN_SERVER_VERSION_CODE != 900005:
+		_fail("Phase 12 compatibility floor must reject beta.4")
+		return
+
+	var lifecycle_script := LifecycleSessionScript as Script
+	if lifecycle_script == null or not lifecycle_script.can_instantiate():
+		_fail("Lifecycle MTU-safe session cannot be instantiated")
+		return
+	var lifecycle_session := lifecycle_script.new()
+	if not lifecycle_session.has_signal("match_finished") or not lifecycle_session.has_method("publish_match_result"):
+		_fail("Lifecycle session lost authoritative result signal/method")
+		return
+	var lifecycle_status: Dictionary = lifecycle_session.call("get_status_snapshot")
+	var lifecycle_contract: Dictionary = Dictionary(lifecycle_status.get("match_lifecycle", {}))
+	if not bool(lifecycle_contract.get("authoritative_result_rpc", false)):
+		_fail("Lifecycle session does not advertise authoritative result RPC")
+		return
+	lifecycle_session.free()
+
+	var temp_dir := ProjectSettings.globalize_path("user://ci_phase12")
+	DirAccess.make_dir_recursive_absolute(temp_dir)
+	var match_id := "mtc_phase12_ci"
+	var config_path := "%s/%s.json" % [temp_dir, match_id]
+	var ready_path := "%s.ready" % config_path
+	var heartbeat_path := "%s.heartbeat" % config_path
+	var result_path := "%s.result" % config_path
+	var ticket := "a".repeat(64)
+	_cleanup([config_path, ready_path, heartbeat_path, result_path, heartbeat_path + ".tmp", result_path + ".tmp"])
+	var config := {
+		"schema_version": 2,
+		"match_id": match_id,
+		"party_code": "ABC234",
+		"public_host": "203.0.113.10",
+		"port": 24642,
+		"mission_id": "mission_01_first_signal",
+		"created_unix": int(Time.get_unix_time_from_system()),
+		"ready_path": ready_path,
+		"heartbeat_path": heartbeat_path,
+		"result_path": result_path,
+		"members": [{
+			"guest_id": "guest_phase12",
+			"public_id": "NXR-PHASE12",
+			"username": "Phase12",
+			"selected_character": "operator_01",
+			"ticket": ticket,
+		}],
+	}
+	var config_file := FileAccess.open(config_path, FileAccess.WRITE)
+	if config_file == null:
+		_fail("Unable to create Phase 12 admission config")
+		return
+	config_file.store_string(JSON.stringify(config, "\t"))
+	config_file.close()
+
+	var admission = MatchAdmissionScript.new()
+	if not admission.load_from_file(config_path):
+		_fail("MatchAdmission rejected schema v2 lifecycle config")
+		return
+	var admitted: Dictionary = admission.validate_ticket(ticket)
+	if String(admitted.get("guest_id", "")) != "guest_phase12":
+		_fail("Identity-bound ticket was not resolved")
+		return
+	var admission_snapshot: Dictionary = admission.snapshot()
+	if String(admission_snapshot.get("heartbeat_path", "")) != heartbeat_path or String(admission_snapshot.get("result_path", "")) != result_path:
+		_fail("Admission snapshot lost heartbeat/result IPC paths")
+		return
+
+	var fake := FakeLifecycleSession.new()
+	root.add_child(fake)
+	var guard = MatchGuardScript.new()
+	root.add_child(guard)
+	guard.configure(fake, match_id, heartbeat_path, result_path, null, null)
+	guard.call("_write_heartbeat", "RUNNING")
+	var heartbeat := _read_json(heartbeat_path)
+	if String(heartbeat.get("match_id", "")) != match_id or int(heartbeat.get("connected_players", 0)) != 2:
+		_fail("Match heartbeat does not contain authoritative runtime state")
+		return
+	if int(heartbeat.get("orchestrated_reconnects", -1)) != 3:
+		_fail("Match heartbeat does not export reconnect telemetry")
+		return
+	guard.call("_finalize_result", "VICTORY", "phase12_ci", "mission_01_first_signal", 5, 1234, 27)
+	var result := _read_json(result_path)
+	if String(result.get("outcome", "")) != "VICTORY" or int(result.get("score", 0)) != 1234 or not bool(result.get("server_authoritative", false)):
+		_fail("Authoritative result IPC payload is invalid")
+		return
+	if String(fake.published_result.get("match_id", "")) != match_id or String(fake.published_result.get("outcome", "")) != "VICTORY":
+		_fail("Match guard did not publish the same authoritative result to the network session")
+		return
+	guard.queue_free()
+	fake.queue_free()
+	await process_frame
+
+	var orchestrator = MatchOrchestratorScript.new()
+	var orchestrator_status: Dictionary = orchestrator.get_status_snapshot()
+	var metrics: Dictionary = Dictionary(orchestrator_status.get("metrics", {}))
+	for key in ["started_total", "completed_total", "defeated_total", "failed_total", "frozen_total", "crashed_total", "reaped_total", "reconnects_total"]:
+		if not metrics.has(key):
+			_fail("Lifecycle metric missing: %s" % key)
+			return
+	if int(orchestrator_status.get("heartbeat_stale_seconds", 0)) <= 0 or int(orchestrator_status.get("max_match_runtime_seconds", 0)) <= 0:
+		_fail("Orchestrator watchdog/TTL status contract missing")
+		return
+	orchestrator.free()
+
+	var result_overlay_script := ResultOverlayScript as Script
+	if result_overlay_script == null or not result_overlay_script.can_instantiate():
+		_fail("Match result overlay cannot compile")
+		return
+	var campaign_scene := load("res://src/maps/campaign/OutbreakDistrict.tscn") as PackedScene
+	if campaign_scene == null:
+		_fail("Campaign scene missing for lifecycle smoke")
+		return
+	var campaign := campaign_scene.instantiate()
+	root.add_child(campaign)
+	var campaign_session := campaign.get_node_or_null("NetworkSession")
+	if campaign_session == null or String(campaign_session.get_script().resource_path) != "res://src/network/LifecycleMtuSafeNetworkSession.gd":
+		_fail("Campaign is not bound to lifecycle network session")
+		return
+	campaign.queue_free()
+	await process_frame
+
+	var main_file := FileAccess.open("res://src/main/Main.gd", FileAccess.READ)
+	var main_source := main_file.get_as_text() if main_file != null else ""
+	for contract in ["MATCH_RECONNECT_WINDOW_SECONDS := 42.0", "MATCH_RECONNECT_MAX_ATTEMPTS := 10", "_on_authoritative_match_finished", "_finish_reconnect_failure", "_refresh_returned_lobby"]:
+		if not main_source.contains(contract):
+			_fail("Client lifecycle contract missing: %s" % contract)
+			return
+
+	_cleanup([config_path, ready_path, heartbeat_path, result_path, heartbeat_path + ".tmp", result_path + ".tmp"])
+	print("NEXORA: DEADFALL beta.5 match lifecycle smoke passed")
+	quit(0)
+
+func _read_json(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
+		return {}
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return {}
+	var parsed = JSON.parse_string(file.get_as_text())
+	return Dictionary(parsed) if typeof(parsed) == TYPE_DICTIONARY else {}
+
+func _cleanup(paths: Array) -> void:
+	for value in paths:
+		var path := String(value)
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(path)
+
+func _fail(message: String) -> void:
+	push_error(message)
+	quit(1)
