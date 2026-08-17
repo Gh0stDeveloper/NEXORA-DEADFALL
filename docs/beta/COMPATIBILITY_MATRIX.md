@@ -20,9 +20,8 @@ Beta.3 intentionally rejects beta.2 gameplay clients/servers. It is the first ca
 - Runtime visual height is normalized independently from authoritative gameplay colliders/hitboxes.
 - Animated GLBs must expose at least one non-`RESET` runtime animation.
 - Semantic names (`idle`, `walk`, `run`, `attack`, `hurt`, `death`, etc.) are preferred and mapped automatically when present.
-- A GLB that exposes only a generic imported animation name can run in `generic_fallback` presentation mode. The clip is evaluated immediately so the model does not remain in bind/T-pose, but DEADFALL does not falsely classify that generic clip as a verified gameplay semantic.
-- `operator_02` (Animated Character Base by J-Toastie) currently imports a usable generic clip named `mixamo_com`; it therefore uses `generic_fallback` until the source asset exposes distinguishable clips or an explicit verified mapping is available.
-- `zombie_animated` (Animated Zombie by Quaternius) is inspected by `nexora-deadfall test-models`; its runtime inventory is printed before semantic aliases are pinned.
+- Generic-only animation names are accepted in `generic_fallback` mode to prevent bind/T-pose without falsely classifying the clip as a verified semantic.
+- `operator_02` currently imports the usable generic clip `mixamo_com`; `zombie_animated` is inspected with `nexora-deadfall test-models` before pinning aliases.
 - Dedicated/headless server processes do not instantiate presentation GLBs.
 
 | Date | Build | Manufacturer / model | SoC | GPU | RAM | Android / API | Resolution | Tier | FPS p50 | FPS 1% low | Peak RAM | Thermal after 20m | Wi-Fi | Mobile data | Campaign | 4-player Squad | Reconnect | Crash/ANR | Result |
