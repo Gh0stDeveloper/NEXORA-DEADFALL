@@ -2,6 +2,7 @@ extends SceneTree
 
 const OrchestratorScript = preload("res://src/server/MatchOrchestrator.gd")
 const MatchAdmissionScript = preload("res://src/server/MatchAdmission.gd")
+const ClosedBetaSessionScript = preload("res://src/network/ClosedBetaNetworkSession.gd")
 const LEADER_TOKEN := "phase11-leader-token"
 const MEMBER_TOKEN := "phase11-member-token"
 const LEADER_GUEST := "gst_phase11_smoke_leader"
@@ -118,6 +119,10 @@ func _run() -> void:
 	_social = FakeSocialService.new()
 	_orchestrator = OrchestratorScript.new()
 	root.add_child(_orchestrator)
+
+	if int(ClosedBetaSessionScript.ENET_UNRELIABLE_PAYLOAD_BUDGET_BYTES) > 1200:
+		_fail("Closed Beta unreliable snapshot budget exceeds the MTU-safe contract")
+		return
 
 	if not bool(_orchestrator.call("configure_validation_port_range", TEST_PORT_START, TEST_PORT_END)):
 		_fail("Could not configure isolated validation port range")
@@ -251,7 +256,7 @@ func _run_network_probe(port: int, ticket: String, expected_marker: String, prob
 	if not text.contains(expected_marker):
 		_fail("Network probe %s did not produce expected marker '%s' (exit=%d): %s" % [probe_name, expected_marker, exit_code, text])
 		return false
-	print("DEADFALL_PHASE11_NETWORK_PROBE name=%s marker=%s exit=%d" % [probe_name, expected_marker, exit_code])
+	print("DEADFALL_PHASE11_NETWORK_PROBE name=%s marker=%s exit=%d timeout_expected=%s" % [probe_name, expected_marker, exit_code, str(exit_code == 124)])
 	return true
 
 func _cleanup() -> void:
