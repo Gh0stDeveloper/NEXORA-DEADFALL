@@ -46,9 +46,16 @@ func _run() -> void:
 
 	var animation_file := FileAccess.open("res://src/assets/ImportedAnimationDriver.gd", FileAccess.READ)
 	var animation_text := animation_file.get_as_text() if animation_file != null else ""
-	for contract in ["play_semantic", "semantic_inventory", "capability_snapshot", "generic_fallback", "idle", "walk", "run", "attack", "death", "advance(0.0)"]:
+	for contract in ["play_semantic", "play_named", "has_named_animation", "semantic_inventory", "capability_snapshot", "generic_fallback", "idle", "walk", "run", "attack", "death", "advance(0.0)"]:
 		if not animation_text.contains(contract):
 			_fail("Semantic imported animation contract missing: %s" % contract)
+			return
+
+	var catalog_file := FileAccess.open("res://src/assets/ExternalModelCatalog.gd", FileAccess.READ)
+	var catalog_text := catalog_file.get_as_text() if catalog_file != null else ""
+	for contract in ["generic_animation_fallback", "mixamo_com", "animation_semantics", "Zombie|ZombieIdle", "Zombie|ZombieWalk", "Zombie|ZombieRun", "Zombie|ZombieCrawl", "Zombie|ZombieBite"]:
+		if not catalog_text.contains(contract):
+			_fail("Verified external-model animation mapping contract missing: %s" % contract)
 			return
 
 	var player_presenter_file := FileAccess.open("res://src/player/PlayerModelPresenter.gd", FileAccess.READ)
@@ -59,8 +66,8 @@ func _run() -> void:
 
 	var zombie_presenter_file := FileAccess.open("res://src/zombies/base/ZombieModelPresenter.gd", FileAccess.READ)
 	var zombie_presenter_text := zombie_presenter_file.get_as_text() if zombie_presenter_file != null else ""
-	if not zombie_presenter_text.contains("_desired_semantic_state") or not zombie_presenter_text.contains("dedicated_server"):
-		_fail("Zombie model semantic/headless presentation contract missing")
+	if not zombie_presenter_text.contains("_desired_semantic_state") or not zombie_presenter_text.contains("dedicated_server") or not zombie_presenter_text.contains("_animation_overrides") or not zombie_presenter_text.contains("play_named"):
+		_fail("Zombie model exact-semantic/headless presentation contract missing")
 		return
 
 	var rifle_file := FileAccess.open("res://src/weapons/rifles/HitscanRifle.gd", FileAccess.READ)
