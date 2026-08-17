@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://src/maps/campaign/OutbreakDistrict.gd" id="1_map"]
 [ext_resource type="Script" path="res://src/horde/HordeDirector.gd" id="2_horde"]
@@ -6,9 +6,16 @@
 [ext_resource type="Script" path="res://src/campaign/CampaignDirector.gd" id="4_campaign"]
 [ext_resource type="Script" path="res://src/campaign/CampaignNetworkBridge.gd" id="5_bridge"]
 [ext_resource type="Script" path="res://src/campaign/CampaignHUD.gd" id="6_hud"]
+[ext_resource type="Script" path="res://src/maps/campaign/DayNightCycle.gd" id="7_daynight"]
 
 [node name="CampaignArena" type="Node3D"]
 script = ExtResource("1_map")
+
+[node name="DayNightCycle" type="Node" parent="."]
+script = ExtResource("7_daynight")
+full_cycle_seconds = 720.0
+starting_time = 0.28
+lighting_update_interval = 0.20
 
 [node name="PlayerSpawnPoints" type="Node3D" parent="."]
 [node name="SpawnA" type="Marker3D" parent="PlayerSpawnPoints"]
