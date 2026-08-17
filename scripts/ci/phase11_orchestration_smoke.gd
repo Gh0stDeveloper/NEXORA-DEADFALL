@@ -2,6 +2,7 @@ extends SceneTree
 
 const ORCHESTRATOR_PATH := "res://src/server/MatchOrchestrator.gd"
 const MATCH_ADMISSION_PATH := "res://src/server/MatchAdmission.gd"
+const TICKET_PROBE_PATH := "res://scripts/ci/phase12_ticket_probe.gd"
 const LEADER_TOKEN := "phase11-leader-token"
 const MEMBER_TOKEN := "phase11-member-token"
 const LEADER_GUEST := "gst_phase11_smoke_leader"
@@ -10,7 +11,6 @@ const PARTY_CODE := "DFT242"
 const TEST_PORT_START := 30000
 const TEST_PORT_END := 30007
 const READY_TIMEOUT_SECONDS := 20.0
-const CLIENT_PROBE_TIMEOUT_SECONDS := 5
 const RECONNECT_OBSERVE_TIMEOUT_SECONDS := 8.0
 const INVALID_TICKET := "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 
@@ -119,8 +119,9 @@ func _initialize() -> void:
 func _run() -> void:
 	_orchestrator_script = load(ORCHESTRATOR_PATH) as Script
 	_match_admission_script = load(MATCH_ADMISSION_PATH) as Script
-	if _orchestrator_script == null or _match_admission_script == null:
-		_fail("Could not load Phase 11 orchestration dependencies after autoload initialization")
+	var ticket_probe_script := load(TICKET_PROBE_PATH) as Script
+	if _orchestrator_script == null or _match_admission_script == null or ticket_probe_script == null or not ticket_probe_script.can_instantiate():
+		_fail("Could not load Phase 11/12 orchestration dependencies after autoload initialization")
 		return
 
 	_store = FakeAccountStore.new()
@@ -218,18 +219,18 @@ func _run() -> void:
 	if OS.get_name() != "Linux":
 		_fail("Phase 11.3 network probes require the Linux/VPS validation environment")
 		return
-	if not _run_network_probe(assigned_port, "", "DEADFALL_SQUAD_JOIN_REJECTED reason=match_ticket_required", "NoTicket"):
+	if not _run_network_probe(assigned_port, "", "DEADFALL_PHASE12_PROBE_REJECTED reason=match_ticket_required", "NoTicket"):
 		return
-	if not _run_network_probe(assigned_port, leader_ticket, "DEADFALL_SQUAD_JOIN_ACCEPTED", "TicketLeaderFirst"):
+	if not _run_network_probe(assigned_port, leader_ticket, "DEADFALL_PHASE12_PROBE_JOINED", "TicketLeaderFirst"):
 		return
 
-	# The first probe is intentionally killed by timeout after admission. Give
-	# ENet enough time to publish the disconnect and ticket-keyed resume record,
-	# then reconnect using exactly the same private member capability.
-	await create_timer(1.0).timeout
-	if not _run_network_probe(assigned_port, leader_ticket, "DEADFALL_SQUAD_JOIN_ACCEPTED", "TicketLeaderReconnect"):
+	# The dedicated probe closes ENet explicitly after admission. The server must
+	# persist the authoritative entity under the identity-bound match ticket and
+	# accept the same capability again as a reconnect, not a fresh guest state.
+	await create_timer(0.50).timeout
+	if not _run_network_probe(assigned_port, leader_ticket, "DEADFALL_PHASE12_PROBE_JOINED", "TicketLeaderReconnect"):
 		return
-	if not _run_network_probe(assigned_port, member_ticket, "DEADFALL_SQUAD_JOIN_ACCEPTED", "TicketMember"):
+	if not _run_network_probe(assigned_port, member_ticket, "DEADFALL_PHASE12_PROBE_JOINED", "TicketMember"):
 		return
 
 	var reconnect_observed := false
@@ -289,27 +290,30 @@ func _run() -> void:
 
 func _run_network_probe(port: int, ticket: String, expected_marker: String, probe_name: String) -> bool:
 	var project_root := ProjectSettings.globalize_path("res://")
+	var probe_script := ProjectSettings.globalize_path(TICKET_PROBE_PATH)
 	var process_args := PackedStringArray([
-		"%ds" % CLIENT_PROBE_TIMEOUT_SECONDS,
-		OS.get_executable_path(),
 		"--headless",
 		"--path", project_root,
+		"--script", probe_script,
 		"--",
-		"--connect=127.0.0.1:%d" % port,
-		"--campaign",
+		"--host=127.0.0.1",
+		"--port=%d" % port,
 		"--name=%s" % probe_name,
 	])
 	if not ticket.is_empty():
-		process_args.append("--match-ticket=%s" % ticket)
+		process_args.append("--ticket=%s" % ticket)
 	var output: Array = []
-	var exit_code := OS.execute("timeout", process_args, output, true)
+	var exit_code := OS.execute(OS.get_executable_path(), process_args, output, true, false)
 	var text := ""
 	for value in output:
 		text += String(value)
-	if not text.contains(expected_marker):
+	if exit_code != 0 or not text.contains(expected_marker):
 		_fail("Network probe %s did not produce expected marker '%s' (exit=%d): %s" % [probe_name, expected_marker, exit_code, text])
 		return false
-	print("DEADFALL_PHASE11_NETWORK_PROBE name=%s marker=%s exit=%d timeout_expected=%s" % [probe_name, expected_marker, exit_code, str(exit_code == 124)])
+	if not text.contains("DEADFALL_PHASE12_PROBE_CLOSED"):
+		_fail("Network probe %s did not close ENet cleanly: %s" % [probe_name, text])
+		return false
+	print("DEADFALL_PHASE11_NETWORK_PROBE name=%s marker=%s exit=%d graceful=true" % [probe_name, expected_marker, exit_code])
 	return true
 
 func _cleanup() -> void:
