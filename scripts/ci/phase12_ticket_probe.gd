@@ -6,6 +6,7 @@ const PROBE_TIMEOUT_SECONDS := 7.0
 var _session: Node
 var _arena: Node
 var _finished := false
+var _closing_intentionally := false
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -60,7 +61,7 @@ func _on_join_failed(reason: String) -> void:
 	_finish(0, "DEADFALL_PHASE12_PROBE_CLOSED rejected=%s" % reason)
 
 func _on_disconnected(reason: String) -> void:
-	if _finished:
+	if _finished or _closing_intentionally:
 		return
 	_finish(3, "DEADFALL_PHASE12_PROBE_ERROR disconnected:%s" % reason)
 
@@ -71,6 +72,7 @@ func _on_timeout() -> void:
 	_finish(4, "DEADFALL_PHASE12_PROBE_ERROR timeout")
 
 func _graceful_close() -> void:
+	_closing_intentionally = true
 	if _session != null:
 		var client_peer := _session.get("_client_peer") as ENetMultiplayerPeer
 		if client_peer != null:
