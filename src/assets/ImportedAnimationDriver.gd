@@ -26,6 +26,33 @@ const UNSAFE_GENERIC_KEYWORDS := ["death", "die", "dead", "ragdoll", "hurt", "da
 static func play_best_pose(root: Node, preferred_keywords: Array = DEFAULT_KEYWORDS) -> Dictionary:
 	return _play_scored(root, preferred_keywords, &"idle", true, 0.0, 1.0)
 
+static func play_named(root: Node, animation_name: StringName, semantic: StringName = &"", blend_seconds: float = 0.12, speed: float = 1.0) -> Dictionary:
+	if root == null:
+		return {"ok": false, "reason": "missing_root", "semantic": String(semantic)}
+	if animation_name.is_empty():
+		return {"ok": false, "reason": "missing_animation_name", "semantic": String(semantic)}
+	var players: Array[AnimationPlayer] = []
+	_collect_animation_players(root, players)
+	for player in players:
+		if not player.has_animation(animation_name):
+			continue
+		player.play(animation_name, maxf(0.0, blend_seconds), maxf(0.05, speed))
+		player.advance(0.0)
+		return {
+			"ok": true,
+			"animation": String(animation_name),
+			"semantic": String(semantic),
+			"matched": true,
+			"explicit_mapping": true,
+			"player_path": String(player.get_path()),
+		}
+	return {
+		"ok": false,
+		"reason": "named_animation_missing",
+		"animation": String(animation_name),
+		"semantic": String(semantic),
+	}
+
 static func play_semantic(root: Node, semantic: StringName, blend_seconds: float = 0.12, speed: float = 1.0) -> Dictionary:
 	if root == null:
 		return {"ok": false, "reason": "missing_root", "semantic": String(semantic)}
@@ -69,6 +96,16 @@ static func play_semantic(root: Node, semantic: StringName, blend_seconds: float
 			generic_result["player_path"] = String(player.get_path())
 			return generic_result
 	return result
+
+static func has_named_animation(root: Node, animation_name: StringName) -> bool:
+	if root == null or animation_name.is_empty():
+		return false
+	var players: Array[AnimationPlayer] = []
+	_collect_animation_players(root, players)
+	for player in players:
+		if player.has_animation(animation_name):
+			return true
+	return false
 
 static func has_semantic_animation(root: Node, semantic: StringName) -> bool:
 	if root == null:
