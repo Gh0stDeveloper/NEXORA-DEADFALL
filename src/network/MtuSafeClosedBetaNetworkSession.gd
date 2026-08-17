@@ -122,6 +122,31 @@ func _on_loadout_switch_requested(slot: int, sequence: int) -> void:
 		return
 	rpc_id(SERVER_PEER_ID, "_server_loadout_switch", slot, sequence)
 
+# Compatibility path for beta.2-era clients. The inherited RPC still exists so
+# old clients can connect during a controlled rollout, but it may only operate
+# the primary rifle when that rifle is the server-authoritative active slot.
+@rpc("any_peer", "call_remote", "reliable", 2)
+func _server_fire_request(request_sequence: int, client_tick: int) -> void:
+	if role != Role.SERVER:
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	var loadout := _server_loadout_for_sender(sender)
+	if loadout != null and int(loadout.get("active_slot")) != 0:
+		_security_reject(sender, "legacy_fire_inactive_primary", 2)
+		return
+	super._server_fire_request(request_sequence, client_tick)
+
+@rpc("any_peer", "call_remote", "reliable", 2)
+func _server_reload_request(request_sequence: int) -> void:
+	if role != Role.SERVER:
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	var loadout := _server_loadout_for_sender(sender)
+	if loadout != null and int(loadout.get("active_slot")) != 0:
+		_security_reject(sender, "legacy_reload_inactive_primary", 2)
+		return
+	super._server_reload_request(request_sequence)
+
 @rpc("any_peer", "call_remote", "reliable", 2)
 func _server_loadout_switch(slot: int, request_sequence: int) -> void:
 	if role != Role.SERVER:
