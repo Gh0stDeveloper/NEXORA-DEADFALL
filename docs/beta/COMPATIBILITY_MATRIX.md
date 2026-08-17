@@ -1,10 +1,23 @@
 # Android compatibility matrix
 
-Use one row per physical device/build combination. Do not mark Phase 9 physical compatibility complete until representative low/mid/high devices have actual measurements.
+Use one row per physical device/build combination. Do not mark physical compatibility complete until representative low/mid/high devices have actual measurements.
+
+## Current closed-beta candidate
+
+- App version: `0.9.0-beta.3`
+- Version code: `900003`
+- Network protocol: `2`
+- Content version: `1`
+- Accepted client range: `900003–900999`
+- Accepted server range: `900003–900999`
+- Target Android API: `36`
+- Maximum players: `4`
+
+Beta.3 intentionally rejects beta.2 gameplay clients/servers. It is the first candidate containing the authoritative rifle/pistol/machete loadout, replicated ammo pickups, revised mobile HUD, sprint toggle, recoverable match-loading flow, Game Over restart hardening, model normalization and the day/night presentation pass. The MTU-safe FastLZ transport framing remains protocol `2`; the version-code compatibility floor prevents old gameplay clients from entering beta.3 matches.
 
 | Date | Build | Manufacturer / model | SoC | GPU | RAM | Android / API | Resolution | Tier | FPS p50 | FPS 1% low | Peak RAM | Thermal after 20m | Wi-Fi | Mobile data | Campaign | 4-player Squad | Reconnect | Crash/ANR | Result |
 |---|---|---|---|---|---:|---|---|---|---:|---:|---:|---|---|---|---|---|---|---|---|
-| | 0.9.0-beta.1 | | | | | | | | | | | | | | | | | | |
+| | 0.9.0-beta.3 | | | | | | | | | | | | | | | | | | |
 
 ## Minimum test set
 
