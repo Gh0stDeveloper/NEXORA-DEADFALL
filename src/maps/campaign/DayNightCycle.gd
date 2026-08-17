@@ -12,6 +12,9 @@ var _elapsed := 0.0
 var _environment: Environment
 var _sun: DirectionalLight3D
 var _moon: DirectionalLight3D
+var _quality_tier := 1
+var _dynamic_sun_shadows := true
+var _dynamic_moon_shadows := false
 
 func _ready() -> void:
 	normalized_time = starting_time
@@ -63,11 +66,47 @@ func _initialize_lighting() -> void:
 		_sun = DirectionalLight3D.new()
 		_sun.name = "SunLight"
 		_sun.light_color = Color(1.0, 0.91, 0.74)
-		_sun.shadow_enabled = true
 		_sun.shadow_blur = 1.15
 		arena.add_child(_sun)
+	_bind_quality_profile()
 	_apply_lighting()
 	set_process(true)
+
+func _bind_quality_profile() -> void:
+	var settings := get_tree().root.get_node_or_null("Settings") if get_tree() != null else null
+	if settings == null:
+		_apply_quality_tier(1)
+		return
+	var tier_value = settings.get("quality_tier")
+	_apply_quality_tier(int(tier_value) if tier_value != null else 1)
+	if settings.has_signal("quality_profile_changed"):
+		var callback := Callable(self, "_on_quality_profile_changed")
+		if not settings.is_connected("quality_profile_changed", callback):
+			settings.connect("quality_profile_changed", callback)
+
+func _on_quality_profile_changed(tier: int, _profile: Dictionary) -> void:
+	_apply_quality_tier(tier)
+	_apply_lighting()
+
+func _apply_quality_tier(tier: int) -> void:
+	_quality_tier = clampi(tier, 0, 3)
+	match _quality_tier:
+		0:
+			lighting_update_interval = maxf(lighting_update_interval, 0.35)
+			_dynamic_sun_shadows = false
+			_dynamic_moon_shadows = false
+		1:
+			lighting_update_interval = maxf(lighting_update_interval, 0.25)
+			_dynamic_sun_shadows = true
+			_dynamic_moon_shadows = false
+		2:
+			lighting_update_interval = minf(lighting_update_interval, 0.18)
+			_dynamic_sun_shadows = true
+			_dynamic_moon_shadows = true
+		_:
+			lighting_update_interval = minf(lighting_update_interval, 0.14)
+			_dynamic_sun_shadows = true
+			_dynamic_moon_shadows = true
 
 func _apply_lighting() -> void:
 	if _environment == null or _sun == null or _moon == null:
@@ -82,12 +121,12 @@ func _apply_lighting() -> void:
 	_sun.rotation_degrees = Vector3(normalized_time * 360.0 - 105.0, -28.0, 0.0)
 	_sun.light_energy = 0.05 + sun_strength * 1.18
 	_sun.light_color = Color(1.0, 0.66, 0.42).lerp(Color(1.0, 0.94, 0.80), sun_strength)
-	_sun.shadow_enabled = daylight > 0.18
+	_sun.shadow_enabled = _dynamic_sun_shadows and daylight > 0.18
 
 	_moon.rotation_degrees = Vector3(normalized_time * 360.0 + 75.0, 148.0, 0.0)
 	_moon.light_energy = 0.10 + moon_strength * 0.48
 	_moon.light_color = Color(0.48, 0.64, 0.94)
-	_moon.shadow_enabled = moon_strength > 0.34
+	_moon.shadow_enabled = _dynamic_moon_shadows and moon_strength > 0.34
 
 	var night_bg := Color(0.018, 0.030, 0.052)
 	var day_bg := Color(0.33, 0.55, 0.66)
