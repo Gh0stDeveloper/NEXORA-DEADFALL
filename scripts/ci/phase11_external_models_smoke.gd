@@ -72,6 +72,10 @@ func _run() -> void:
 		if expects_animation:
 			var capability: Dictionary = AnimationDriver.capability_snapshot(instance)
 			var inventory: Array = Array(capability.get("inventory", []))
+			var semantics: Dictionary = Dictionary(capability.get("semantic", {}))
+			var generic_fallback := bool(capability.get("generic_fallback", false))
+			var mode := "generic_fallback" if semantics.is_empty() and generic_fallback else "semantic"
+			print("DEADFALL_MODEL_CAPABILITY model=%s mode=%s semantics=%s inventory=%s" % [model_name, mode, JSON.stringify(semantics), JSON.stringify(inventory)])
 			if not bool(capability.get("usable", false)):
 				instance.free()
 				_fail("Animated model imported without a usable runtime animation: %s inventory=%s" % [model_name, JSON.stringify(inventory)])
@@ -81,12 +85,9 @@ func _run() -> void:
 				instance.free()
 				_fail("Animated model could not apply an initial non-bind pose: %s result=%s" % [model_name, JSON.stringify(pose_result)])
 				return
-			var semantics: Dictionary = Dictionary(capability.get("semantic", {}))
-			var generic_fallback := bool(capability.get("generic_fallback", false))
-			var mode := "generic_fallback" if semantics.is_empty() and generic_fallback else "semantic"
 			if semantics.is_empty() and not generic_fallback:
 				instance.free()
-				_fail("Animated model has neither semantic clips nor a usable generic fallback: %s inventory=%s" % [model_name, JSON.stringify(inventory)])
+				_fail("Animated model has neither semantic clips nor a safe generic fallback: %s inventory=%s" % [model_name, JSON.stringify(inventory)])
 				return
 			var idle_result := AnimationDriver.play_semantic(instance, &"idle", 0.0)
 			if not bool(idle_result.get("ok", false)):
