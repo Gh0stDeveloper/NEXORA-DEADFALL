@@ -13,6 +13,8 @@ enum Slot {
 	MELEE,
 }
 
+const SLOT_COUNT := 3
+
 @export var primary_path := NodePath("../PrimaryWeapon")
 @export var secondary_path := NodePath("../SecondaryWeapon")
 @export var melee_path := NodePath("../MacheteWeapon")
@@ -48,7 +50,7 @@ func _process(_delta: float) -> void:
 	elif bool(_input.call("consume_action_just_pressed", &"weapon_melee")):
 		request_slot(Slot.MELEE)
 	elif bool(_input.call("consume_action_just_pressed", &"weapon_next")):
-		request_slot((active_slot + 1) % Slot.size())
+		request_slot((active_slot + 1) % SLOT_COUNT)
 
 func request_slot(slot: int) -> bool:
 	var requested := clampi(slot, Slot.PRIMARY, Slot.MELEE)
