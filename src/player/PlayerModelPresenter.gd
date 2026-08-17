@@ -17,7 +17,7 @@ var _configured_once := false
 var _animation_status: Dictionary = {}
 var _animation_elapsed := 0.0
 var _semantic_state := StringName()
-var _last_action_sequence := 0
+var _last_action_sequences := {0: 0, 1: 0, 2: 0}
 var _attack_until_usec := 0
 var _visuals_enabled := true
 
@@ -117,8 +117,9 @@ func _detect_weapon_action() -> void:
 		_:
 			weapon_state = Dictionary(state.get("primary", {}))
 	var sequence := int(weapon_state.get("last_sequence", 0))
-	if sequence > _last_action_sequence:
-		_last_action_sequence = sequence
+	var previous := int(_last_action_sequences.get(slot, 0))
+	if sequence > previous:
+		_last_action_sequences[slot] = sequence
 		_attack_until_usec = Time.get_ticks_usec() + ATTACK_PRESENTATION_USEC
 
 func _update_semantic_animation() -> void:
@@ -166,7 +167,7 @@ func _clear_loaded_model() -> void:
 	_loaded_model = null
 	_animation_status = {}
 	_semantic_state = StringName()
-	_last_action_sequence = 0
+	_last_action_sequences = {0: 0, 1: 0, 2: 0}
 	_attack_until_usec = 0
 
 func _set_fallback_visible(visible: bool) -> void:
