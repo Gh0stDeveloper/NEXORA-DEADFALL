@@ -2,47 +2,59 @@ class_name DeadfallImportedAnimationDriver
 extends RefCounted
 
 const DEFAULT_KEYWORDS := ["idle", "stand", "breath", "walk", "run", "locomotion", "move", "attack"]
-const REJECTED_KEYWORDS := ["death", "die", "dead", "ragdoll", "hit", "hurt", "damage", "fall"]
+const SEMANTIC_KEYWORDS := {
+	&"idle": ["idle", "stand", "breath", "rest", "default"],
+	&"walk": ["walk", "walking", "locomotion", "move"],
+	&"run": ["run", "running", "sprint", "jog"],
+	&"crawl": ["crawl", "crawling", "prone", "downed"],
+	&"attack": ["attack", "attacking", "melee", "slash", "swing", "bite", "punch"],
+	&"hurt": ["hurt", "hit", "damage", "stagger", "react", "impact"],
+	&"death": ["death", "die", "dying", "dead", "fall"],
+	&"reload": ["reload", "reloading"],
+}
+const FALLBACK_SEMANTICS := {
+	&"walk": [&"idle"],
+	&"run": [&"walk", &"idle"],
+	&"crawl": [&"walk", &"idle"],
+	&"attack": [],
+	&"hurt": [],
+	&"death": [],
+	&"reload": [&"idle"],
+}
 
 static func play_best_pose(root: Node, preferred_keywords: Array = DEFAULT_KEYWORDS) -> Dictionary:
+	return _play_scored(root, preferred_keywords, &"idle", true, 0.0, 1.0)
+
+static func play_semantic(root: Node, semantic: StringName, blend_seconds: float = 0.12, speed: float = 1.0) -> Dictionary:
 	if root == null:
-		return {"ok": false, "reason": "missing_root"}
-	var players: Array[AnimationPlayer] = []
-	_collect_animation_players(root, players)
-	if players.is_empty():
-		return {"ok": false, "reason": "no_animation_player"}
+		return {"ok": false, "reason": "missing_root", "semantic": String(semantic)}
+	var requested := semantic if SEMANTIC_KEYWORDS.has(semantic) else &"idle"
+	var keywords: Array = Array(SEMANTIC_KEYWORDS.get(requested, SEMANTIC_KEYWORDS[&"idle"]))
+	var result := _play_scored(root, keywords, requested, false, blend_seconds, speed)
+	if bool(result.get("ok", false)):
+		return result
+	for fallback_value in Array(FALLBACK_SEMANTICS.get(requested, [])):
+		var fallback := StringName(fallback_value)
+		var fallback_result := _play_scored(
+			root,
+			Array(SEMANTIC_KEYWORDS.get(fallback, SEMANTIC_KEYWORDS[&"idle"])),
+			fallback,
+			false,
+			blend_seconds,
+			speed
+		)
+		if bool(fallback_result.get("ok", false)):
+			fallback_result["requested_semantic"] = String(requested)
+			fallback_result["fallback"] = true
+			return fallback_result
+	return result
 
-	var best_player: AnimationPlayer
-	var best_name := StringName()
-	var best_score := -100000
-	var clip_count := 0
-	for player in players:
-		for animation_name in player.get_animation_list():
-			var normalized := String(animation_name).strip_edges().to_lower()
-			if normalized.is_empty() or normalized == "reset" or normalized.ends_with("/reset"):
-				continue
-			clip_count += 1
-			var score := _score_animation_name(normalized, preferred_keywords)
-			if score > best_score:
-				best_score = score
-				best_player = player
-				best_name = animation_name
-
-	if best_player == null or best_name.is_empty():
-		return {"ok": false, "reason": "no_usable_animation", "clip_count": clip_count}
-
-	best_player.play(best_name)
-	# AnimationPlayer.play() applies the new animation on its next processing
-	# tick. Imported GLBs can otherwise be visible for one frame in bind/T-pose.
-	# advance(0) evaluates the selected clip immediately without advancing time.
-	best_player.advance(0.0)
-	return {
-		"ok": true,
-		"animation": String(best_name),
-		"score": best_score,
-		"clip_count": clip_count,
-		"player_path": String(best_player.get_path()),
-	}
+static func has_semantic_animation(root: Node, semantic: StringName) -> bool:
+	if root == null:
+		return false
+	var keywords: Array = Array(SEMANTIC_KEYWORDS.get(semantic, [String(semantic)]))
+	var candidate := _find_best_candidate(root, keywords, semantic, false)
+	return bool(candidate.get("ok", false))
 
 static func has_usable_animation(root: Node) -> bool:
 	if root == null:
@@ -67,16 +79,95 @@ static func animation_inventory(root: Node) -> Array[String]:
 			result.append("%s:%s" % [String(player.get_path()), String(animation_name)])
 	return result
 
-static func _score_animation_name(normalized: String, preferred_keywords: Array) -> int:
+static func semantic_inventory(root: Node) -> Dictionary:
+	var result := {}
+	for semantic in SEMANTIC_KEYWORDS.keys():
+		var candidate := _find_best_candidate(root, Array(SEMANTIC_KEYWORDS[semantic]), StringName(semantic), false)
+		if bool(candidate.get("ok", false)):
+			result[String(semantic)] = String(candidate.get("animation", ""))
+	return result
+
+static func _play_scored(root: Node, keywords: Array, semantic: StringName, allow_generic: bool, blend_seconds: float, speed: float) -> Dictionary:
+	var candidate := _find_best_candidate(root, keywords, semantic, allow_generic)
+	if not bool(candidate.get("ok", false)):
+		return candidate
+	var player := candidate.get("player") as AnimationPlayer
+	var animation_name := StringName(candidate.get("animation", ""))
+	if player == null or animation_name.is_empty():
+		return {"ok": false, "reason": "invalid_candidate", "semantic": String(semantic)}
+	player.play(animation_name, maxf(0.0, blend_seconds), maxf(0.05, speed))
+	# AnimationPlayer.play() applies the new animation on its next processing
+	# tick. Imported GLBs can otherwise be visible for one frame in bind/T-pose.
+	player.advance(0.0)
+	candidate.erase("player")
+	candidate["semantic"] = String(semantic)
+	candidate["player_path"] = String(player.get_path())
+	return candidate
+
+static func _find_best_candidate(root: Node, preferred_keywords: Array, semantic: StringName, allow_generic: bool) -> Dictionary:
+	if root == null:
+		return {"ok": false, "reason": "missing_root", "semantic": String(semantic)}
+	var players: Array[AnimationPlayer] = []
+	_collect_animation_players(root, players)
+	if players.is_empty():
+		return {"ok": false, "reason": "no_animation_player", "semantic": String(semantic)}
+
+	var best_player: AnimationPlayer
+	var best_name := StringName()
+	var best_score := -100000
+	var clip_count := 0
+	var semantic_match := false
+	for player in players:
+		for animation_name in player.get_animation_list():
+			var normalized := String(animation_name).strip_edges().to_lower()
+			if normalized.is_empty() or normalized == "reset" or normalized.ends_with("/reset"):
+				continue
+			clip_count += 1
+			var scored := _score_animation_name(normalized, preferred_keywords, semantic)
+			var score := int(scored.get("score", -100000))
+			var matched := bool(scored.get("matched", false))
+			if score > best_score:
+				best_score = score
+				best_player = player
+				best_name = animation_name
+				semantic_match = matched
+
+	if best_player == null or best_name.is_empty():
+		return {"ok": false, "reason": "no_usable_animation", "clip_count": clip_count, "semantic": String(semantic)}
+	if not semantic_match and not allow_generic:
+		return {
+			"ok": false,
+			"reason": "semantic_clip_missing",
+			"semantic": String(semantic),
+			"clip_count": clip_count,
+			"best_candidate": String(best_name),
+		}
+	return {
+		"ok": true,
+		"animation": String(best_name),
+		"score": best_score,
+		"clip_count": clip_count,
+		"matched": semantic_match,
+		"player": best_player,
+	}
+
+static func _score_animation_name(normalized: String, preferred_keywords: Array, semantic: StringName) -> Dictionary:
 	var score := 1
-	for rejected in REJECTED_KEYWORDS:
-		if normalized.contains(String(rejected)):
-			score -= 80
+	var matched := false
 	for index in range(preferred_keywords.size()):
 		var keyword := String(preferred_keywords[index]).to_lower()
 		if not keyword.is_empty() and normalized.contains(keyword):
-			score += 200 - index * 12
-	return score
+			score += 320 - index * 18
+			matched = true
+	if semantic not in [&"death", &"hurt"]:
+		for rejected in ["death", "die", "dead", "ragdoll", "hurt", "damage", "fall"]:
+			if normalized.contains(rejected):
+				score -= 120
+	if semantic != &"attack":
+		for attack_word in ["attack", "melee", "slash", "bite", "punch"]:
+			if normalized.contains(attack_word):
+				score -= 70
+	return {"score": score, "matched": matched}
 
 static func _collect_animation_players(node: Node, output: Array[AnimationPlayer]) -> void:
 	if node is AnimationPlayer:
