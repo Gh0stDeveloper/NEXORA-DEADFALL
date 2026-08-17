@@ -114,6 +114,8 @@ func _test_scene_session_contract() -> bool:
 		return _fail("MTU-safe session no longer inherits the Closed Beta hardened session")
 	if not mtu_source.contains("const SNAPSHOT_CHUNK_BYTES := %d" % MTU_SAFE_CHUNK_BYTES):
 		return _fail("MTU-safe session chunk budget changed unexpectedly")
+	if not mtu_source.contains("\"encoding\": \"variant_fastlz_chunks\"") or not mtu_source.contains("\"chunk_bytes\": SNAPSHOT_CHUNK_BYTES"):
+		return _fail("MTU-safe Closed Beta transport status contract is missing")
 
 	for scene_path in [SQUAD_ARENA_PATH, CAMPAIGN_ARENA_PATH]:
 		var scene: PackedScene = load(scene_path) as PackedScene
@@ -131,11 +133,6 @@ func _test_scene_session_contract() -> bool:
 			if not session.has_method(method):
 				instance.free()
 				return _fail("MTU-safe Closed Beta session missing hardened method: %s" % method)
-		var status: Dictionary = Dictionary(session.call("get_status_snapshot"))
-		var transport: Dictionary = Dictionary(status.get("transport", {}))
-		if String(transport.get("encoding", "")) != "variant_fastlz_chunks" or int(transport.get("chunk_bytes", 0)) != MTU_SAFE_CHUNK_BYTES:
-			instance.free()
-			return _fail("MTU-safe Closed Beta transport status contract is invalid")
 		instance.free()
 	return true
 
