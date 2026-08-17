@@ -3,6 +3,7 @@ extends Node3D
 
 const ExternalModels = preload("res://src/assets/ExternalModelCatalog.gd")
 const ModelNormalizer = preload("res://src/assets/ModelNormalizer.gd")
+const AnimationDriver = preload("res://src/assets/ImportedAnimationDriver.gd")
 const TARGET_VISUAL_HEIGHT := 1.95
 
 @export var prepared_rig_path := NodePath("../PreparedRig")
@@ -10,6 +11,7 @@ const TARGET_VISUAL_HEIGHT := 1.95
 
 var _prepared_rig: Node3D
 var _loaded_model: Node3D
+var _animation_status: Dictionary = {}
 
 func _ready() -> void:
 	_prepared_rig = get_node_or_null(prepared_rig_path) as Node3D
@@ -42,7 +44,9 @@ func load_external_model() -> bool:
 	if not bool(normalization.get("ok", false)):
 		push_warning("DEADFALL zombie model normalization failed: %s" % String(normalization.get("reason", "unknown")))
 	_set_prepared_rig_visible(false)
-	_play_idle_if_available(_loaded_model)
+	_animation_status = AnimationDriver.play_best_pose(_loaded_model, ["idle", "stand", "walk", "run", "locomotion", "attack"])
+	if bool(config.get("expects_animation", false)) and not bool(_animation_status.get("ok", false)):
+		push_warning("DEADFALL expected animated zombie model has no usable runtime clip: %s" % String(config.get("source_name", variant)))
 	return true
 
 func fallback_to_prepared_rig() -> void:
@@ -52,35 +56,15 @@ func fallback_to_prepared_rig() -> void:
 func has_external_model() -> bool:
 	return _loaded_model != null and is_instance_valid(_loaded_model)
 
+func get_animation_status() -> Dictionary:
+	return _animation_status.duplicate(true)
+
 func _clear_loaded_model() -> void:
 	if _loaded_model != null and is_instance_valid(_loaded_model):
 		_loaded_model.queue_free()
 	_loaded_model = null
+	_animation_status = {}
 
 func _set_prepared_rig_visible(visible: bool) -> void:
 	if _prepared_rig != null:
 		_prepared_rig.visible = visible
-
-func _play_idle_if_available(root: Node) -> void:
-	var animation_player := _find_animation_player(root)
-	if animation_player == null:
-		return
-	var animations := animation_player.get_animation_list()
-	for name in animations:
-		var lowered := String(name).to_lower()
-		if lowered.contains("idle") or lowered.contains("stand"):
-			animation_player.play(StringName(name))
-			return
-	for name in animations:
-		if String(name).to_lower() != "reset":
-			animation_player.play(StringName(name))
-			return
-
-func _find_animation_player(root: Node) -> AnimationPlayer:
-	if root is AnimationPlayer:
-		return root as AnimationPlayer
-	for child in root.get_children():
-		var found := _find_animation_player(child)
-		if found != null:
-			return found
-	return null
