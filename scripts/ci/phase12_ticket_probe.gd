@@ -1,6 +1,6 @@
 extends SceneTree
 
-const CampaignArenaScene = preload("res://src/maps/campaign/OutbreakDistrict.tscn")
+const CAMPAIGN_ARENA_PATH := "res://src/maps/campaign/OutbreakDistrict.tscn"
 const PROBE_TIMEOUT_SECONDS := 7.0
 
 var _session: Node
@@ -12,6 +12,11 @@ func _initialize() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
+	await process_frame
+	if root.get_node_or_null("Game") == null or root.get_node_or_null("Settings") == null:
+		_finish(2, "DEADFALL_PHASE12_PROBE_ERROR autoloads_missing")
+		return
+
 	var args := OS.get_cmdline_user_args()
 	var host := _arg_value(args, "--host=", "127.0.0.1")
 	var port := int(_arg_value(args, "--port=", "0"))
@@ -21,11 +26,16 @@ func _run() -> void:
 		_finish(2, "DEADFALL_PHASE12_PROBE_ERROR invalid_port")
 		return
 
-	_arena = CampaignArenaScene.instantiate()
+	var campaign_scene: PackedScene = load(CAMPAIGN_ARENA_PATH) as PackedScene
+	if campaign_scene == null or not campaign_scene.can_instantiate():
+		_finish(2, "DEADFALL_PHASE12_PROBE_ERROR arena_load_failed")
+		return
+	_arena = campaign_scene.instantiate()
 	if _arena == null:
 		_finish(2, "DEADFALL_PHASE12_PROBE_ERROR arena_instantiate_failed")
 		return
 	root.add_child(_arena)
+	await process_frame
 	_session = _arena.get_node_or_null("NetworkSession")
 	if _session == null or not _session.has_method("start_client"):
 		_finish(2, "DEADFALL_PHASE12_PROBE_ERROR session_missing")
@@ -78,8 +88,9 @@ func _graceful_close() -> void:
 		if client_peer != null:
 			client_peer.close()
 	root.multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
-	if Game.is_network_client():
-		Game.stop_session()
+	var game := root.get_node_or_null("Game")
+	if game != null and game.has_method("is_network_client") and bool(game.call("is_network_client")) and game.has_method("stop_session"):
+		game.call("stop_session")
 
 func _finish(code: int, marker: String) -> void:
 	if _finished:
