@@ -25,6 +25,7 @@ var _state = RuntimeStateScript.new()
 var _shot_sequence := 0
 var _last_server_fire_sequence := 0
 var _last_server_reload_sequence := 0
+var _last_presented_sequence := 0
 
 func _ready() -> void:
 	_input_source = get_node_or_null(input_path)
@@ -68,6 +69,7 @@ func _try_fire(now_usec: int) -> bool:
 		return false
 	ammo_changed.emit(_state.ammo_in_mag, _state.reserve_ammo)
 	_shot_sequence += 1
+	_last_presented_sequence = maxi(_last_presented_sequence, _shot_sequence)
 	var intent = _build_shot_intent(_shot_sequence, Engine.get_physics_frames())
 	if intent == null:
 		return false
@@ -87,6 +89,7 @@ func server_try_fire(request_sequence: int, client_tick: int = 0) -> bool:
 	var intent = _build_shot_intent(request_sequence, client_tick)
 	if intent == null:
 		return false
+	_last_presented_sequence = maxi(_last_presented_sequence, request_sequence)
 	ammo_changed.emit(_state.ammo_in_mag, _state.reserve_ammo)
 	shot_intent_created.emit(intent)
 	_resolve_authoritative_hitscan(intent)
@@ -106,9 +109,6 @@ func add_reserve_ammo(amount: int) -> int:
 		return 0
 	var configured_max: int = int(weapon_data.get("max_reserve_ammo")) if weapon_data.get("max_reserve_ammo") != null else int(weapon_data.get("starting_reserve_ammo")) * 3
 	var maximum: int = maxi(0, configured_max)
-	# _state comes from a dynamically loaded script. Godot 4.6 cannot infer a
-	# local static type from one of its properties, so keep pickup arithmetic
-	# explicitly typed to make this script compile consistently in headless CI.
 	var before: int = int(_state.reserve_ammo)
 	_state.reserve_ammo = mini(maximum, before + amount)
 	var added: int = int(_state.reserve_ammo) - before
@@ -171,6 +171,7 @@ func get_authoritative_state() -> Dictionary:
 		"reserve": _state.reserve_ammo,
 		"reloading": _state.reloading,
 		"reload_remaining_usec": maxi(0, _state.reload_end_usec - Time.get_ticks_usec()) if _state.reloading else 0,
+		"last_sequence": _last_presented_sequence,
 	}
 
 func apply_authoritative_state(snapshot: Dictionary) -> void:
@@ -180,6 +181,7 @@ func apply_authoritative_state(snapshot: Dictionary) -> void:
 	_state.reserve_ammo = maxi(0, int(snapshot.get("reserve", _state.reserve_ammo)))
 	_state.reloading = bool(snapshot.get("reloading", false))
 	_state.reload_end_usec = Time.get_ticks_usec() + maxi(0, int(snapshot.get("reload_remaining_usec", 0))) if _state.reloading else 0
+	_last_presented_sequence = maxi(_last_presented_sequence, int(snapshot.get("last_sequence", _last_presented_sequence)))
 	ammo_changed.emit(_state.ammo_in_mag, _state.reserve_ammo)
 
 func restore_authoritative_state(snapshot: Dictionary) -> void:
