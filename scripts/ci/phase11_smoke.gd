@@ -14,11 +14,13 @@ const REQUIRED_FILES := [
 	"res://src/server/MatchInstanceGuard.gd",
 	"res://src/network/NetworkTelemetry.gd",
 	"res://src/network/ClosedBetaNetworkSession.gd",
+	"res://src/network/MtuSafeClosedBetaNetworkSession.gd",
 	"res://src/assets/ExternalModelCatalog.gd",
 	"res://src/player/PlayerModelPresenter.gd",
 	"res://src/zombies/base/ZombieModelPresenter.gd",
 	"res://scripts/assets/sync_objetos3d.sh",
 	"res://scripts/build/build_android_vps.sh",
+	"res://scripts/ci/phase11_network_transport_smoke.gd",
 	"res://scripts/ci/phase11_external_models_smoke.gd",
 	"res://scripts/ci/phase11_social_matchmaking_smoke.gd",
 	"res://scripts/ci/phase11_orchestration_smoke.gd",
@@ -76,6 +78,7 @@ func _run() -> void:
 		"res://src/server/MatchInstanceGuard.gd",
 		"res://src/network/NetworkTelemetry.gd",
 		"res://src/network/ClosedBetaNetworkSession.gd",
+		"res://src/network/MtuSafeClosedBetaNetworkSession.gd",
 		"res://src/assets/ExternalModelCatalog.gd",
 		"res://src/player/PlayerModelPresenter.gd",
 		"res://src/zombies/base/ZombieModelPresenter.gd",
@@ -261,6 +264,12 @@ func _run() -> void:
 		_fail("Phase 11.3 ticketed matches still risk legacy resume-state mixing")
 		return
 
+	if not _run_child_smoke(
+		"res://scripts/ci/phase11_network_transport_smoke.gd",
+		"Phase 11.3 MTU-safe network transport smoke passed",
+		"MTU-safe network transport"
+	):
+		return
 	if not _run_child_smoke(
 		"res://scripts/ci/phase11_external_models_smoke.gd",
 		"Phase 11.3 external GLB import/runtime smoke passed",
