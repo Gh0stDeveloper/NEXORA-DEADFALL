@@ -43,6 +43,10 @@ func configure(
 func _process(delta: float) -> void:
 	if network_session == null or not is_instance_valid(network_session):
 		return
+	var status := _session_snapshot()
+	if _session_has_started(status):
+		_ever_had_player = true
+
 	_heartbeat_elapsed += delta
 	if _heartbeat_elapsed >= HEARTBEAT_INTERVAL_SECONDS:
 		_heartbeat_elapsed = 0.0
@@ -59,9 +63,8 @@ func _process(delta: float) -> void:
 		_finalize_result("ABORTED", "absolute_timeout")
 		return
 
-	var connected := _connected_players()
+	var connected := int(status.get("connected_players", 0))
 	if connected > 0:
-		_ever_had_player = true
 		_empty_since_usec = 0
 		return
 	if not _ever_had_player:
@@ -127,24 +130,33 @@ func _finalize_result(
 func _write_heartbeat(phase: String) -> void:
 	if heartbeat_path.is_empty():
 		return
+	var status := _session_snapshot()
+	if _session_has_started(status):
+		_ever_had_player = true
 	_heartbeat_sequence += 1
 	var payload := {
 		"match_id": match_id,
 		"pid": OS.get_process_id(),
 		"sequence": _heartbeat_sequence,
 		"phase": phase,
-		"connected_players": _connected_players(),
+		"connected_players": int(status.get("connected_players", 0)),
 		"ever_had_player": _ever_had_player,
 		"result_published": _result_published,
 		"monotonic_msec": Time.get_ticks_msec(),
 		"unix": int(Time.get_unix_time_from_system()),
 		"uptime_seconds": int(float(Time.get_ticks_usec() - _started_usec) / 1_000_000.0),
 	}
-	var status := _session_snapshot()
 	payload["reserved_slots"] = int(status.get("reserved_slots", 0))
 	payload["orchestrated_reconnects"] = int(Dictionary(status.get("match_lifecycle", {})).get("orchestrated_reconnects", 0))
 	if not _write_json_atomic(heartbeat_path, payload):
 		push_warning("Unable to write DEADFALL match heartbeat: %s" % heartbeat_path)
+
+func _session_has_started(status: Dictionary) -> bool:
+	if int(status.get("connected_players", 0)) > 0:
+		return true
+	if int(status.get("reserved_slots", 0)) > 0:
+		return true
+	return int(Dictionary(status.get("match_lifecycle", {})).get("orchestrated_reconnects", 0)) > 0
 
 func _connected_players() -> int:
 	return int(_session_snapshot().get("connected_players", 0))
