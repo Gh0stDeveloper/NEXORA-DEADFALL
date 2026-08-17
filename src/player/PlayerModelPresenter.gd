@@ -3,6 +3,7 @@ extends Node3D
 
 const ExternalModels = preload("res://src/assets/ExternalModelCatalog.gd")
 const ModelNormalizer = preload("res://src/assets/ModelNormalizer.gd")
+const AnimationDriver = preload("res://src/assets/ImportedAnimationDriver.gd")
 const TARGET_VISUAL_HEIGHT := 1.76
 
 @export var fallback_body_path := NodePath("../Body")
@@ -11,6 +12,7 @@ var _fallback_body: GeometryInstance3D
 var _loaded_model: Node3D
 var _character_id: StringName = &"operator_01"
 var _configured_once := false
+var _animation_status: Dictionary = {}
 
 func _ready() -> void:
 	_fallback_body = get_node_or_null(fallback_body_path) as GeometryInstance3D
@@ -48,7 +50,9 @@ func configure_character(character_id: StringName) -> bool:
 	if not bool(normalization.get("ok", false)):
 		push_warning("DEADFALL player model normalization failed: %s" % String(normalization.get("reason", "unknown")))
 	_set_fallback_visible(false)
-	_play_idle_if_available(_loaded_model)
+	_animation_status = AnimationDriver.play_best_pose(_loaded_model, ["idle", "stand", "breath", "walk", "run", "locomotion"])
+	if bool(config.get("expects_animation", false)) and not bool(_animation_status.get("ok", false)):
+		push_warning("DEADFALL expected animated player model has no usable runtime clip: %s" % String(config.get("source_name", _character_id)))
 	return true
 
 func current_character_id() -> StringName:
@@ -57,37 +61,15 @@ func current_character_id() -> StringName:
 func has_external_model() -> bool:
 	return _loaded_model != null and is_instance_valid(_loaded_model)
 
+func get_animation_status() -> Dictionary:
+	return _animation_status.duplicate(true)
+
 func _clear_loaded_model() -> void:
 	if _loaded_model != null and is_instance_valid(_loaded_model):
 		_loaded_model.queue_free()
 	_loaded_model = null
+	_animation_status = {}
 
 func _set_fallback_visible(visible: bool) -> void:
 	if _fallback_body != null:
 		_fallback_body.visible = visible
-
-func _play_idle_if_available(root: Node) -> void:
-	var player := _find_animation_player(root)
-	if player == null:
-		return
-	var names := player.get_animation_list()
-	for name in names:
-		var lowered := String(name).to_lower()
-		if lowered.contains("idle") or lowered.contains("stand") or lowered.contains("breath"):
-			player.play(StringName(name))
-			return
-	# Avoid leaving imported animated characters in T-pose when the source uses
-	# generic animation names. RESET is never selected as a presentation clip.
-	for name in names:
-		if String(name).to_lower() != "reset":
-			player.play(StringName(name))
-			return
-
-func _find_animation_player(root: Node) -> AnimationPlayer:
-	if root is AnimationPlayer:
-		return root as AnimationPlayer
-	for child in root.get_children():
-		var found := _find_animation_player(child)
-		if found != null:
-			return found
-	return null
