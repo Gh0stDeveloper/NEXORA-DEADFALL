@@ -23,6 +23,7 @@ const REQUIRED_FILES := [
 	"res://src/network/NetworkReplicaInterpolator.gd",
 	"res://src/network/DuoNetworkSession.gd",
 	"res://src/network/ClosedBetaNetworkSession.gd",
+	"res://src/network/MtuSafeClosedBetaNetworkSession.gd",
 	"res://src/network/NetworkAbuseGuard.gd",
 	"res://src/network/SquadHUD.gd",
 	"res://src/network/RoomCodeService.gd",
@@ -104,6 +105,10 @@ func _initialize() -> void:
 	if hardened_network_script == null or not hardened_network_script.can_instantiate():
 		_fail("Phase 9 hardened network session script could not compile")
 		return
+	var mtu_safe_network_script := load("res://src/network/MtuSafeClosedBetaNetworkSession.gd") as Script
+	if mtu_safe_network_script == null or not mtu_safe_network_script.can_instantiate():
+		_fail("Phase 11 MTU-safe hardened network session script could not compile")
+		return
 	var main_scene := load("res://src/main/Main.tscn") as PackedScene
 	if main_scene == null:
 		_fail("Main scene could not be loaded")
@@ -173,8 +178,8 @@ func _initialize() -> void:
 			return
 	var squad_network: Node = squad.get_node("NetworkSession")
 	var squad_network_script: Script = squad_network.get_script() as Script
-	if squad_network_script == null or String(squad_network_script.resource_path) != "res://src/network/ClosedBetaNetworkSession.gd":
-		_fail("Phase 9 hardened network session is not active in Squad arena")
+	if squad_network_script == null or String(squad_network_script.resource_path) != "res://src/network/MtuSafeClosedBetaNetworkSession.gd":
+		_fail("Phase 11 MTU-safe hardened network session is not active in Squad arena")
 		return
 	squad.free()
 	var campaign_scene := load("res://src/maps/campaign/OutbreakDistrict.tscn") as PackedScene
@@ -195,8 +200,8 @@ func _initialize() -> void:
 		return
 	var campaign_network: Node = campaign.get_node("NetworkSession")
 	var campaign_network_script: Script = campaign_network.get_script() as Script
-	if campaign_network_script == null or String(campaign_network_script.resource_path) != "res://src/network/ClosedBetaNetworkSession.gd":
-		_fail("Phase 9 hardened network session is not active in Campaign arena")
+	if campaign_network_script == null or String(campaign_network_script.resource_path) != "res://src/network/MtuSafeClosedBetaNetworkSession.gd":
+		_fail("Phase 11 MTU-safe hardened network session is not active in Campaign arena")
 		return
 	campaign.free()
 	for action in ["move_forward", "move_back", "move_left", "move_right", "jump", "sprint", "crouch", "prone", "camera_cycle", "fire", "reload", "interact"]:
