@@ -43,10 +43,11 @@ func _process(delta: float) -> void:
 
 func configure_character(character_id: StringName) -> bool:
 	var requested := character_id if not character_id.is_empty() else &"operator_01"
+	var unchanged := _configured_once and requested == _character_id and has_external_model()
 	_character_id = requested
 	if not _visuals_enabled:
 		return false
-	if _configured_once and requested == _character_id and has_external_model():
+	if unchanged:
 		return true
 	_configured_once = true
 	_clear_loaded_model()
