@@ -12,9 +12,6 @@ from pathlib import Path
 import re
 import sys
 
-ANDROID_NS = "http://schemas.android.com/apk/res/android"
-TOOLS_NS = "http://schemas.android.com/tools"
-
 TARGET_ANDROID_NAMES = {
     "android.hardware.vulkan.level",
     "android.hardware.vulkan.version",
@@ -44,12 +41,12 @@ def _set_gradle_property(path: Path, key: str, value: str) -> bool:
 
 def _remove_tools_replace_from_target_tag(tag_text: str) -> tuple[str, bool]:
     name_match = re.search(
-        r'\bandroid:name\s*=\s*(["\'])(?P<name>[^"\']+)\1', tag_text
+        r"\bandroid:name\s*=\s*([\"'])(?P<name>[^\"']+)\1", tag_text
     )
     if name_match is None or name_match.group("name") not in TARGET_ANDROID_NAMES:
         return tag_text, False
     updated, count = re.subn(
-        r'\s+tools:replace\s*=\s*(["\'])[^"\']*\1', "", tag_text, count=1
+        r"\s+tools:replace\s*=\s*([\"'])[^\"']*\1", "", tag_text, count=1
     )
     return updated, count > 0
 
@@ -72,7 +69,7 @@ def sanitize_manifest(path: Path, *, required: bool) -> int:
     # Only inspect the two element types that produced Android Manifest Merger
     # warnings. Never change activities, services, permissions or application
     # attributes.
-    updated = re.sub(r'<(?:uses-feature|meta-data)\b[^>]*?/?>', replace_tag, original)
+    updated = re.sub(r"<(?:uses-feature|meta-data)\b[^>]*?/?>", replace_tag, original)
     if updated != original:
         path.write_text(updated, encoding="utf-8")
     return changed
