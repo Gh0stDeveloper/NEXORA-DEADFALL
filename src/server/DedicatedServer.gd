@@ -142,18 +142,24 @@ func _boot_network_arena(campaign_mode: bool, mission_id: StringName) -> void:
 		session.call("configure_match_admission", _match_admission)
 
 func _configure_match_instance_guard() -> void:
-	if _arena == null:
+	if _arena == null or _match_admission == null:
 		return
 	var session := _arena.get_node_or_null("NetworkSession")
 	if session == null:
 		return
+	var admission_snapshot: Dictionary = Dictionary(_match_admission.call("snapshot"))
 	_match_guard = MatchInstanceGuardScript.new()
 	_match_guard.name = "MatchInstanceGuard"
 	add_child(_match_guard)
-	var match_id := ""
-	if _match_admission != null and _match_admission.has_method("snapshot"):
-		match_id = String(Dictionary(_match_admission.call("snapshot")).get("match_id", ""))
-	_match_guard.call("configure", session, match_id)
+	_match_guard.call(
+		"configure",
+		session,
+		String(admission_snapshot.get("match_id", "")),
+		String(admission_snapshot.get("heartbeat_path", "")),
+		String(admission_snapshot.get("result_path", "")),
+		_arena.get_node_or_null("CampaignDirector"),
+		_arena.get_node_or_null("HordeDirector")
+	)
 
 func _write_match_ready_marker(snapshot: Dictionary) -> bool:
 	var path := String(snapshot.get("ready_path", "")).strip_edges()
