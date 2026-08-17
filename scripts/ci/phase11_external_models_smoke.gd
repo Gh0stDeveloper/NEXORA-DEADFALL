@@ -1,6 +1,7 @@
 extends SceneTree
 
 const ExternalModels = preload("res://src/assets/ExternalModelCatalog.gd")
+const AnimationDriver = preload("res://src/assets/ImportedAnimationDriver.gd")
 const REQUIRED_MODELS := {
 	"operator_01": {
 		"canonical": "res://assets/external/objetos3d/operator_01.glb",
@@ -65,32 +66,26 @@ func _run() -> void:
 		if instance == null:
 			_fail("Imported GLB could not instantiate as Node3D: %s" % runtime_path)
 			return
-		if String(model_name) == "zombie_animated" and not _has_runtime_animation(instance):
-			instance.free()
-			_fail("Animated zombie imported without a runtime animation")
-			return
+		root.add_child(instance)
+		await process_frame
+		var expects_animation := bool(config.get("expects_animation", false))
+		if expects_animation:
+			var inventory := AnimationDriver.animation_inventory(instance)
+			if not AnimationDriver.has_usable_animation(instance):
+				instance.free()
+				_fail("Animated model imported without a usable runtime animation: %s inventory=%s" % [model_name, JSON.stringify(inventory)])
+				return
+			var pose_result := AnimationDriver.play_best_pose(instance)
+			if not bool(pose_result.get("ok", false)):
+				instance.free()
+				_fail("Animated model could not apply an initial non-bind pose: %s result=%s" % [model_name, JSON.stringify(pose_result)])
+				return
+			print("DEADFALL_MODEL_ANIMATION_READY model=%s clip=%s" % [model_name, String(pose_result.get("animation", ""))])
 		instance.free()
+		await process_frame
 
 	print("NEXORA: DEADFALL Phase 11.3 external GLB import/runtime smoke passed")
 	quit(0)
-
-func _has_runtime_animation(root_node: Node) -> bool:
-	var player := _find_animation_player(root_node)
-	if player == null:
-		return false
-	for animation_name in player.get_animation_list():
-		if String(animation_name).to_lower() != "reset":
-			return true
-	return false
-
-func _find_animation_player(root_node: Node) -> AnimationPlayer:
-	if root_node is AnimationPlayer:
-		return root_node as AnimationPlayer
-	for child in root_node.get_children():
-		var found := _find_animation_player(child)
-		if found != null:
-			return found
-	return null
 
 func _fail(message: String) -> void:
 	push_error(message)
