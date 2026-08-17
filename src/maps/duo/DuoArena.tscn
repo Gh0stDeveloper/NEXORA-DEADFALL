@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://src/maps/test_range/TestRange.gd" id="1_range"]
 [ext_resource type="Script" path="res://src/horde/HordeDirector.gd" id="2_horde"]
 [ext_resource type="Script" path="res://src/network/MtuSafeClosedBetaNetworkSession.gd" id="3_network"]
+[ext_resource type="Script" path="res://src/horde/AmmoDropDirector.gd" id="4_ammo"]
 
 [node name="DuoArena" type="Node3D"]
 script = ExtResource("1_range")
@@ -41,6 +42,7 @@ position = Vector3(-14, 0.05, 14)
 position = Vector3(-17, 0.05, 0)
 
 [node name="HordeZombies" type="Node3D" parent="."]
+[node name="WorldPickups" type="Node3D" parent="."]
 
 [node name="HordeDirector" type="Node" parent="."]
 script = ExtResource("2_horde")
@@ -49,9 +51,15 @@ player_path = NodePath("")
 spawn_points_path = NodePath("../HordeSpawnPoints")
 zombie_parent_path = NodePath("../HordeZombies")
 
+[node name="AmmoDropDirector" type="Node" parent="."]
+script = ExtResource("4_ammo")
+zombies_root_path = NodePath("../HordeZombies")
+pickups_root_path = NodePath("../WorldPickups")
+
 [node name="NetworkSession" type="Node" parent="."]
 script = ExtResource("3_network")
 players_root_path = NodePath("../NetworkPlayers")
 player_spawn_points_path = NodePath("../PlayerSpawnPoints")
 zombies_root_path = NodePath("../HordeZombies")
 horde_director_path = NodePath("../HordeDirector")
+pickups_root_path = NodePath("../WorldPickups")
