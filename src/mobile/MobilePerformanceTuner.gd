@@ -71,7 +71,7 @@ func _apply_current_profile() -> void:
 	# Keep MSAA disabled on low/mid tiers where memory bandwidth is the limiting
 	# factor. High tiers may spend that budget on 2x/4x edge antialiasing.
 	_applied_msaa = int(MSAA_BY_TIER.get(tier, Viewport.MSAA_DISABLED))
-	viewport.msaa_3d = _applied_msaa as Viewport.MSAA
+	viewport.msaa_3d = _applied_msaa
 	viewport.msaa_2d = Viewport.MSAA_DISABLED
 
 	var requested_fps := int(FPS_BY_TIER.get(tier, 60))
