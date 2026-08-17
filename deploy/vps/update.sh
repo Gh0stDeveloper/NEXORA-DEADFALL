@@ -87,8 +87,14 @@ prepare_validation_project(){
   run_deadfall_home godot --headless --editor --path "$DEADFALL_ROOT" --quit
 }
 
+run_strict_gameplay_compile_gate(){
+  log "Validando compilación estricta de gameplay/HUD/loadout/ciclo día-noche..."
+  run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/gameplay_compile_smoke.gd
+}
+
 if [[ "$NETWORK_ONLY" -eq 1 ]]; then
   prepare_validation_project
+  run_strict_gameplay_compile_gate
   log "Validando transporte MTU-safe y escena Campaign antes de los probes reales..."
   run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/phase11_network_transport_smoke.gd
   log "Ejecutando únicamente el smoke real de red/orquestación/tickets de Phase 11.3..."
@@ -101,6 +107,7 @@ fi
 if [[ "$TESTS_ONLY" -eq 1 ]]; then
   prepare_validation_project
   log "Ejecutando gates Godot/Closed Beta/Phase 11.3 sin compilar ni desplegar artefactos..."
+  run_strict_gameplay_compile_gate
   run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/smoke.gd
   run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/beta_hardening_smoke.gd
   run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/phase11_smoke.gd
@@ -148,6 +155,7 @@ if [[ "$APP" -eq 1 || "$SERVER" -eq 1 ]]; then
   rm -f "$DEADFALL_ROOT/.godot/global_script_class_cache.cfg"
   log "Importando y validando GDScript en contexto completo del proyecto..."
   run_deadfall_home godot --headless --editor --path "$DEADFALL_ROOT" --quit
+  run_strict_gameplay_compile_gate
   run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/smoke.gd
   run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/beta_hardening_smoke.gd
   run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/phase11_smoke.gd
