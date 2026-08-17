@@ -9,10 +9,6 @@ func _initialize() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
-	# Direct --script execution starts before all project autoload/global names are
-	# guaranteed to be available to dependencies reached through preload(). Wait
-	# one frame and load gameplay resources only after the SceneTree/autoload
-	# lifecycle is active. This mirrors the Phase 11 orchestration probe pattern.
 	await process_frame
 
 	var game: Node = root.get_node_or_null("Game")
