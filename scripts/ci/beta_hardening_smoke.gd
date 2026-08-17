@@ -7,6 +7,9 @@ const SaveStoreScript = preload("res://src/campaign/CampaignSaveStore.gd")
 const RoomCodeScript = preload("res://src/network/RoomCodeService.gd")
 const SQUAD_ARENA_PATH := "res://src/maps/duo/DuoArena.tscn"
 const CAMPAIGN_ARENA_PATH := "res://src/maps/campaign/OutbreakDistrict.tscn"
+const HARDENED_SESSION_PATH := "res://src/network/ClosedBetaNetworkSession.gd"
+const MTU_SAFE_SESSION_PATH := "res://src/network/MtuSafeClosedBetaNetworkSession.gd"
+const MTU_SAFE_CHUNK_BYTES := 900
 
 func _initialize() -> void:
 	if not _test_build_compatibility(): return
@@ -99,6 +102,19 @@ func _test_directory_build_contract() -> bool:
 	return true
 
 func _test_scene_session_contract() -> bool:
+	var hardened_script := load(HARDENED_SESSION_PATH) as Script
+	if hardened_script == null or not hardened_script.can_instantiate():
+		return _fail("Closed Beta hardened base session could not compile")
+	var mtu_script := load(MTU_SAFE_SESSION_PATH) as Script
+	if mtu_script == null or not mtu_script.can_instantiate():
+		return _fail("MTU-safe Closed Beta session could not compile")
+	var mtu_file := FileAccess.open(MTU_SAFE_SESSION_PATH, FileAccess.READ)
+	var mtu_source := mtu_file.get_as_text() if mtu_file != null else ""
+	if not mtu_source.contains("extends \"%s\"" % HARDENED_SESSION_PATH):
+		return _fail("MTU-safe session no longer inherits the Closed Beta hardened session")
+	if not mtu_source.contains("const SNAPSHOT_CHUNK_BYTES := %d" % MTU_SAFE_CHUNK_BYTES):
+		return _fail("MTU-safe session chunk budget changed unexpectedly")
+
 	for scene_path in [SQUAD_ARENA_PATH, CAMPAIGN_ARENA_PATH]:
 		var scene: PackedScene = load(scene_path) as PackedScene
 		if scene == null:
@@ -108,9 +124,18 @@ func _test_scene_session_contract() -> bool:
 			return _fail("Network arena could not be instantiated: %s" % scene_path)
 		root.add_child(instance)
 		var session: Node = instance.get_node_or_null("NetworkSession")
-		if session == null or session.get_script() == null or String(session.get_script().resource_path) != "res://src/network/ClosedBetaNetworkSession.gd":
+		if session == null or session.get_script() == null or String(session.get_script().resource_path) != MTU_SAFE_SESSION_PATH:
 			instance.free()
-			return _fail("Network arena is not using the Closed Beta hardened session")
+			return _fail("Network arena is not using the MTU-safe Closed Beta hardened session: %s" % scene_path)
+		for method in ["configure_server", "start_client", "get_status_snapshot"]:
+			if not session.has_method(method):
+				instance.free()
+				return _fail("MTU-safe Closed Beta session missing hardened method: %s" % method)
+		var status: Dictionary = Dictionary(session.call("get_status_snapshot"))
+		var transport: Dictionary = Dictionary(status.get("transport", {}))
+		if String(transport.get("encoding", "")) != "variant_fastlz_chunks" or int(transport.get("chunk_bytes", 0)) != MTU_SAFE_CHUNK_BYTES:
+			instance.free()
+			return _fail("MTU-safe Closed Beta transport status contract is invalid")
 		instance.free()
 	return true
 
