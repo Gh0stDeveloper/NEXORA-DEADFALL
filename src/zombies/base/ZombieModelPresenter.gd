@@ -23,6 +23,7 @@ var _semantic_state := StringName()
 var _animation_elapsed := 0.0
 var _visuals_enabled := true
 var _quality_tier := 1
+var _animation_overrides: Dictionary = {}
 
 func _ready() -> void:
 	_prepared_rig = get_node_or_null(prepared_rig_path) as Node3D
@@ -64,6 +65,7 @@ func load_external_model() -> bool:
 	var configured_scale: Vector3 = config.get("scale", Vector3.ONE)
 	var configured_rotation: Vector3 = config.get("rotation_degrees", Vector3.ZERO)
 	var configured_offset: Vector3 = config.get("offset", Vector3.ZERO)
+	_animation_overrides = Dictionary(config.get("animation_semantics", {})).duplicate(true)
 	_loaded_model.name = "ExternalZombieModel"
 	_loaded_model.scale = configured_scale
 	_loaded_model.rotation_degrees = configured_rotation
@@ -75,7 +77,7 @@ func load_external_model() -> bool:
 	_set_prepared_rig_visible(false)
 	_apply_quality_visibility()
 	_semantic_state = &"idle"
-	_animation_status = AnimationDriver.play_semantic(_loaded_model, _semantic_state, 0.0)
+	_animation_status = _play_semantic(_semantic_state, 0.0, 1.0)
 	if not bool(_animation_status.get("ok", false)):
 		_animation_status = AnimationDriver.play_best_pose(_loaded_model, ["idle", "stand", "walk", "run", "locomotion", "attack"])
 	if bool(config.get("expects_animation", false)) and not bool(_animation_status.get("ok", false)):
@@ -97,6 +99,9 @@ func get_semantic_state() -> StringName:
 
 func get_semantic_inventory() -> Dictionary:
 	return AnimationDriver.semantic_inventory(_loaded_model) if has_external_model() else {}
+
+func get_animation_overrides() -> Dictionary:
+	return _animation_overrides.duplicate(true)
 
 func _bind_quality_profile() -> void:
 	var settings := get_tree().root.get_node_or_null("Settings") if get_tree() != null else null
@@ -138,9 +143,18 @@ func _update_semantic_animation() -> void:
 		speed = 1.08
 	elif desired == &"walk" or desired == &"crawl":
 		speed = 0.92
-	var result := AnimationDriver.play_semantic(_loaded_model, desired, 0.10, speed)
+	var result := _play_semantic(desired, 0.10, speed)
 	if bool(result.get("ok", false)):
 		_animation_status = result
+
+func _play_semantic(semantic: StringName, blend_seconds: float, speed: float) -> Dictionary:
+	var mapped_name := StringName(String(_animation_overrides.get(String(semantic), "")))
+	if not mapped_name.is_empty():
+		var exact := AnimationDriver.play_named(_loaded_model, mapped_name, semantic, blend_seconds, speed)
+		if bool(exact.get("ok", false)):
+			return exact
+		push_warning("DEADFALL zombie exact animation mapping missing at runtime: %s -> %s" % [String(semantic), String(mapped_name)])
+	return AnimationDriver.play_semantic(_loaded_model, semantic, blend_seconds, speed)
 
 func _desired_semantic_state() -> StringName:
 	var zombie := get_parent() as CharacterBody3D
@@ -172,6 +186,7 @@ func _clear_loaded_model() -> void:
 	_loaded_model = null
 	_animation_status = {}
 	_semantic_state = StringName()
+	_animation_overrides = {}
 
 func _set_prepared_rig_visible(visible: bool) -> void:
 	if _prepared_rig != null:
