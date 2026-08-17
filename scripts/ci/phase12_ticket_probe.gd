@@ -2,9 +2,11 @@ extends SceneTree
 
 const CAMPAIGN_ARENA_PATH := "res://src/maps/campaign/OutbreakDistrict.tscn"
 const PROBE_TIMEOUT_SECONDS := 7.0
+const EXPECTED_SESSION_PATH := "/root/Main/CampaignArena/NetworkSession"
 
 var _session: Node
 var _arena: Node
+var _main_wrapper: Node
 var _finished := false
 var _closing_intentionally := false
 
@@ -30,16 +32,33 @@ func _run() -> void:
 	if campaign_scene == null or not campaign_scene.can_instantiate():
 		_finish(2, "DEADFALL_PHASE12_PROBE_ERROR arena_load_failed")
 		return
+
+	# RPC NodePaths must be identical on both peers. Production mounts the
+	# Campaign arena below the Main node (`/root/Main/CampaignArena`) on both the
+	# Android client and dedicated server. `--script` probes do not create Main,
+	# so reproduce that hierarchy explicitly instead of weakening RPC checks.
+	_main_wrapper = Node.new()
+	_main_wrapper.name = "Main"
+	root.add_child(_main_wrapper)
+
 	_arena = campaign_scene.instantiate()
 	if _arena == null:
 		_finish(2, "DEADFALL_PHASE12_PROBE_ERROR arena_instantiate_failed")
 		return
-	root.add_child(_arena)
+	_arena.name = "CampaignArena"
+	_main_wrapper.add_child(_arena)
 	await process_frame
+
 	_session = _arena.get_node_or_null("NetworkSession")
 	if _session == null or not _session.has_method("start_client"):
 		_finish(2, "DEADFALL_PHASE12_PROBE_ERROR session_missing")
 		return
+	var session_path := String(_session.get_path())
+	if session_path != EXPECTED_SESSION_PATH:
+		_finish(2, "DEADFALL_PHASE12_PROBE_ERROR rpc_path_mismatch:%s" % session_path)
+		return
+	print("DEADFALL_PHASE12_PROBE_RPC_PATH %s" % session_path)
+
 	for signal_name in ["joined", "join_failed", "disconnected"]:
 		if not _session.has_signal(signal_name):
 			_finish(2, "DEADFALL_PHASE12_PROBE_ERROR signal_missing:%s" % signal_name)
