@@ -1,24 +1,50 @@
-# Phase 10/11 — VPS production installer
+# NEXORA: DEADFALL — VPS production installer/runbook
 
-The VPS is the DEADFALL control/social server, match orchestrator, dedicated game-instance host and Android Closed Beta build host. Supported baseline: Ubuntu 24.04, x86_64 or ARM64.
+Last updated: 2026-08-17.
+
+The managed VPS is the DEADFALL control/social server, match orchestrator, dedicated game-instance host, Android Closed Beta build host and download-portal host.
+
+Supported baseline: Ubuntu 24.04, x86_64 or ARM64.
+
+## Current production baseline
+
+- Godot `4.6.3-stable` plus export templates.
+- JDK 17.
+- Android SDK API 35/36.
+- Current Android build automation baseline uses Build Tools `36.1.0` where required by the Godot 4.6.3 export flow.
+- NDK r28b/CMake support.
+- Node.js 24.
+- Nginx/Certbot.
+- GitHub CLI.
+- Current Closed Beta: `0.9.0-beta.5 / 900005`.
+
+Last confirmed full runtime deployment:
+
+```text
+f402f1696c0438447d76236122a5d82101a94cc0
+```
 
 ## First installation
 
-1. Create DNS `A` (or `AAAA`) for the public DEADFALL domain pointing to the VPS.
-2. Install GitHub CLI access for the private repositories when prompted. The `deadfall` service user needs read access to both `Gh0stDeveloper/NEXORA-DEADFALL` and the provisional model repository `Gh0stDeveloper/Objetos3D`.
-3. From a clone/copy of this repository run:
+1. Point the intended public domain to the VPS with DNS `A` and optional `AAAA` records.
+2. Ensure GitHub access to the private main repository and `Gh0stDeveloper/Objetos3D`.
+3. Run the installer from a clone/copy of the repository.
+
+Current development branch:
 
 ```bash
 sudo bash deploy/vps/install.sh \
   --domain beta.example.com \
   --email admin@example.com \
   --repo Gh0stDeveloper/NEXORA-DEADFALL \
-  --branch main
+  --branch agent/bootstrap-deadfall
 ```
 
-For the current development branch use `--branch agent/bootstrap-deadfall`.
+After an explicitly approved merge, `main` may be used instead. Do not assume PR #1 has been merged.
 
-If the VPS cannot use interactive device login, authenticate first as the service user after the base packages are installed, or provide `--github-token-file /root/github-token.txt`; delete that token file after use.
+### GitHub authentication
+
+The managed `deadfall` service user needs persistent repository read access for later automatic updates:
 
 ```bash
 sudo -Hu deadfall gh auth login --hostname github.com --git-protocol https
@@ -26,11 +52,15 @@ sudo -Hu deadfall gh auth setup-git --hostname github.com
 sudo -Hu deadfall gh auth status --hostname github.com
 ```
 
-The installer intentionally uses no `--skip-ssh-key` flag. HTTPS Git authentication does not need SSH key creation.
+For headless bootstrap, the installer may receive a temporary token file. Remove it after bootstrap.
+
+Do not store PATs/tokens in this repository.
 
 ## Interrupted/partial installation recovery
 
-The installer is designed to be rerun. If it stops after installing packages but before cloning `/opt/nexora-deadfall`, generating the keystore or creating services, do not delete the VPS and do not reinstall Godot/Android manually.
+The installer is intended to be rerunnable. Do not rebuild the VPS from scratch or manually install competing Godot/Android versions merely because one installer run was interrupted.
+
+Update the bootstrap clone and rerun:
 
 ```bash
 cd ~/NEXORA-DEADFALL
@@ -43,77 +73,78 @@ sudo bash deploy/vps/install.sh \
   --branch agent/bootstrap-deadfall
 ```
 
-If Ubuntu reports `/var/run/reboot-required`, finish/verify the installation first and then reboot the VPS to load the new kernel. The installer never reboots the machine automatically.
+If Ubuntu reports `/var/run/reboot-required`, finish/verify the managed installation first and reboot afterwards. The installer does not reboot automatically.
 
-## What the installer/update stack does
+## What the installer/update stack manages
 
-- Detects first install versus existing managed state.
-- Installs Godot 4.6.3 plus export templates.
-- Installs JDK 17 and Android SDK API 35/36, Build Tools 35.0.1/36.0.0, NDK r28b and CMake.
-- Installs Node.js 24 LTS, Nginx, Certbot and GitHub CLI.
-- Generates `/etc/nexora-deadfall/signing/deadfall-release.keystore` once; normal updates never replace it.
-- Synchronizes provisional runtime `.glb` models from `Gh0stDeveloper/Objetos3D` before Godot import/export. ZIP source packages are not copied.
-- Builds/verifies the signed APK and atomically publishes `/var/www/nexora-deadfall/downloads/NEXORA-DEADFALL-latest.apk`.
-- Builds the Next.js portal on `127.0.0.1:3100` behind Nginx.
-- Runs the control/social/match-orchestration API only on `127.0.0.1:24562`; Nginx publishes it under `/api/deadfall/`.
-- Keeps the legacy/base ENet server on UDP 24560 and room directory on TCP 24561.
-- Allocates isolated orchestrated match instances from UDP `24600–24749`. Each party receives one match instance; each member receives a private admission ticket.
+- first-install vs existing-install detection;
+- Godot/export templates;
+- Java/Android SDK/toolchain;
+- Node/Nginx/Certbot/GitHub CLI;
+- private Git authentication;
+- persistent Android signing identity;
+- staged external 3D models;
+- Godot import/validation gates;
+- signed APK build/verification/publication;
+- Next.js portal build;
+- systemd services;
+- Nginx/HTTPS;
+- base dedicated service;
+- control/social/match API;
+- dynamic party match child processes;
+- differential update classification.
 
-Back up `/etc/nexora-deadfall/signing/` securely. Losing this keystore means future APK updates cannot retain the same signing identity.
+A web-only change must not force an Android rebuild. Application/shared gameplay/build changes should rebuild/revalidate the corresponding runtime surfaces.
 
-## Daily commands
+## Android signing identity
 
-```bash
-nexora-deadfall status
-nexora-deadfall update
-nexora-deadfall build-app
-nexora-deadfall build-web
-nexora-deadfall build-all
-nexora-deadfall logs 200
-nexora-deadfall https
-```
-
-`nexora-deadfall update` fetches the configured private branch, synchronizes provisional models when game/server surfaces changed, runs Godot smokes, rebuilds affected artifacts, restarts services and verifies the localhost/public API before recording a successful deploy.
-
-## Match networking
-
-The public gameplay surface is UDP only:
-
-- `24560/udp` — legacy/base gameplay instance.
-- `24600:24749/udp` — orchestrated party match instances.
-- `24561/tcp` — legacy room directory.
-- `80/tcp` and `443/tcp` — portal and HTTPS control/social API.
-
-`24562/tcp` must **not** be opened publicly. It is intentionally bound to localhost and reached through Nginx HTTPS.
-
-The orchestrator writes a per-match admission file under Godot server state, launches a child Godot process on an unused UDP port, waits for the child to publish a real readiness marker, then returns the same `match_id`, host and port to all members. Join tickets are unique per member and are never included in another member's party snapshot.
-
-## Firewall
-
-UFW is configured for SSH, 80/tcp, 443/tcp, 24560/udp, 24561/tcp and the orchestrated range `24600:24749/udp`.
-
-Cloud-provider firewall/security-list rules must also allow:
+First installation creates persistent signing material under:
 
 ```text
-TCP 80
-TCP 443
-UDP 24560
-UDP 24600-24749
+/etc/nexora-deadfall/signing/
 ```
 
-Expose TCP 24561 only if the legacy directory path is still being used externally. Do not expose TCP 24562.
+The normal updater must never regenerate/replace it.
 
-For Oracle Cloud, update the VCN/subnet Security List or NSG as well as UFW; opening UFW alone does not make the dynamic match ports reachable from the Internet.
+Back it up securely. Losing the signing key prevents future APKs from retaining the same Android update identity.
 
-## Model synchronization
+During a build, only a temporary restricted copy is exposed to the build user and removed afterwards.
 
-Production/VPS updates use:
+## Generated Android template hardening
+
+Godot regenerates Android build files, so production fixes are implemented in source automation rather than manual edits under `/opt/nexora-deadfall/android/build`.
+
+Current build pipeline:
+
+- applies `android.suppressUnsupportedCompileSdk=36` reproducibly;
+- sanitizes only the four known redundant Godot Manifest `tools:replace` attributes;
+- runs the sanitizer immediately before the relevant Manifest merge through the managed Gradle init hook;
+- validates the patch with `scripts/ci/android_template_patch_smoke.sh`;
+- verifies the final APK with `apksigner`.
+
+Do not add ad-hoc edits directly to generated Android build output as the permanent fix.
+
+## External model synchronization
+
+Source repository:
+
+```text
+Gh0stDeveloper/Objetos3D
+```
+
+Pinned submodule commit for the current model baseline:
+
+```text
+28ea7a10a18fbe05a91fb3d920678991fff4afef
+```
+
+Production/VPS staging:
 
 ```bash
 sudo -Hu deadfall bash /opt/nexora-deadfall/scripts/assets/sync_objetos3d.sh /opt/nexora-deadfall
 ```
 
-Canonical runtime mappings are staged in:
+Canonical runtime mappings:
 
 ```text
 assets/external/objetos3d/operator_01.glb
@@ -122,13 +153,142 @@ assets/external/objetos3d/zombie_animated.glb
 assets/external/objetos3d/zombie_static.glb
 ```
 
-Those binaries are generated/staged and ignored by the main repository. If a model is unavailable, gameplay scenes keep their built-in fallback visual instead of failing to load.
+The staging script validates GLB inputs before Godot import. Do not bypass it with manual production copies.
 
-## Important paths
+## Network layout
 
-- Repository: `/opt/nexora-deadfall`
-- Persistent state/builds/match configs: `/var/lib/nexora-deadfall`
-- Config/secrets: `/etc/nexora-deadfall`
-- Public APK metadata: `/var/www/nexora-deadfall`
-- Logs: `/var/log/nexora-deadfall`
-- Service units: `nexora-deadfall.service`, `nexora-deadfall-download.service`
+Public gameplay/web:
+
+```text
+80/tcp
+443/tcp
+24560/udp
+24600-24749/udp
+```
+
+Additional services:
+
+```text
+24561/tcp  room directory when required
+24562/tcp  control/social/match API — localhost only
+```
+
+Never expose TCP 24562 directly. Nginx publishes the required API surface through HTTPS.
+
+### Dynamic MatchOrchestrator
+
+For an online party start:
+
+1. parent server snapshots the authoritative party;
+2. one `match_id` is created;
+3. one port is allocated from UDP `24600-24749`;
+4. one dedicated child Godot process is launched;
+5. each member gets a distinct 256-bit ticket;
+6. child loads MatchAdmission and publishes READY;
+7. parent distributes same host/port/match ID plus each member's own ticket;
+8. child heartbeat/result files let the parent supervise lifecycle.
+
+Beta.5 additionally provides:
+
+- same-ticket authoritative reconnect;
+- 2-second child heartbeat;
+- frozen-child watchdog;
+- startup/empty/absolute TTLs;
+- monotonic `IN_MATCH` state after first admission;
+- authoritative match result;
+- result process reaping.
+
+## Firewall
+
+UFW and the cloud provider firewall/NSG/Security List must both allow the required public ports.
+
+Oracle Cloud minimum external rules:
+
+```text
+TCP 80
+TCP 443
+UDP 24560
+UDP 24600-24749
+```
+
+Only expose TCP 24561 if the external legacy directory path is actually needed. Never expose TCP 24562.
+
+Opening UFW alone is insufficient if Oracle's VCN/subnet Security List/NSG blocks the same traffic.
+
+## Validation/update commands
+
+Validation without changing the last successful deploy state:
+
+```bash
+sudo /opt/nexora-deadfall/deploy/vps/update.sh --tests-only
+```
+
+Full rebuild/deploy:
+
+```bash
+sudo /opt/nexora-deadfall/deploy/vps/update.sh --force
+```
+
+Normal managed update:
+
+```bash
+nexora-deadfall update
+```
+
+Useful commands:
+
+```bash
+nexora-deadfall status
+nexora-deadfall build-app
+nexora-deadfall build-web
+nexora-deadfall build-all
+nexora-deadfall logs 200
+nexora-deadfall auth
+nexora-deadfall https
+nexora-deadfall test-models
+```
+
+## Expected non-blocking ADB message
+
+A server with no Android device attached may print:
+
+```text
+cannot connect to daemon at tcp:5037: Connection refused
+```
+
+This is not a failed gate by itself. Evaluate actual Godot/Gradle/export/signing/API markers.
+
+## Services
+
+```bash
+sudo systemctl status nexora-deadfall
+sudo systemctl status nexora-deadfall-download
+sudo systemctl status nginx
+```
+
+## Important managed paths
+
+```text
+/opt/nexora-deadfall                    repository checkout
+/var/lib/nexora-deadfall               persistent runtime/build/match state
+/etc/nexora-deadfall                   configuration + signing secrets
+/var/www/nexora-deadfall               public APK/release metadata
+/var/log/nexora-deadfall               logs
+/usr/local/bin/nexora-deadfall         administration command
+```
+
+## Portal deployment
+
+Current web source:
+
+```text
+web/download-site
+```
+
+The existing portal reads current `release.json`. The next web phase will add durable release history, hamburger navigation and version-detail pages. That work must remain independently deployable as a web-only update when no Android/server runtime changed.
+
+See `docs/DOWNLOAD_PORTAL_PLAN.md`.
+
+## Production rule
+
+Never claim a runtime version is deployed merely because source changed. A runtime release is considered deployed only after its intended validation/build/publication/health-check path completes. Documentation-only commits do not require `--force`.
