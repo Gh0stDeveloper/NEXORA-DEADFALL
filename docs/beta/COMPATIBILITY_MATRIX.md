@@ -20,7 +20,7 @@ Beta.3 intentionally rejects beta.2 gameplay clients/servers. It is the first ca
 - Runtime visual height is normalized independently from authoritative gameplay colliders/hitboxes.
 - Animated GLBs must expose at least one non-`RESET` runtime animation.
 - Semantic names (`idle`, `walk`, `run`, `attack`, `hurt`, `death`, etc.) are preferred and mapped automatically when present.
-- Generic-only animation names are accepted in `generic_fallback` mode to prevent bind/T-pose without falsely classifying the clip as a verified semantic.
+- Generic-only animation names are accepted in `generic_fallback` mode only when a single neutral-looking usable clip exists. This prevents bind/T-pose without guessing among multiple unlabeled or clearly action/death clips.
 - `operator_02` currently imports the usable generic clip `mixamo_com`; `zombie_animated` is inspected with `nexora-deadfall test-models` before pinning aliases.
 - Dedicated/headless server processes do not instantiate presentation GLBs.
 
