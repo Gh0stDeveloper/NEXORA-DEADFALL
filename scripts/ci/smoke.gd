@@ -27,6 +27,7 @@ const REQUIRED_FILES := [
 	"res://src/network/DuoNetworkSession.gd",
 	"res://src/network/ClosedBetaNetworkSession.gd",
 	"res://src/network/MtuSafeClosedBetaNetworkSession.gd",
+	"res://src/network/LifecycleMtuSafeNetworkSession.gd",
 	"res://src/network/NetworkAbuseGuard.gd",
 	"res://src/network/SquadHUD.gd",
 	"res://src/network/RoomCodeService.gd",
@@ -35,6 +36,7 @@ const REQUIRED_FILES := [
 	"res://src/release/BuildInfo.gd",
 	"res://src/diagnostics/BetaRuntime.gd",
 	"res://src/server/DedicatedServer.gd",
+	"res://src/server/MatchInstanceGuard.gd",
 	"res://src/player/Player.tscn",
 	"res://src/player/PlayerController.gd",
 	"res://src/player/PlayerInput.gd",
@@ -78,6 +80,7 @@ const REQUIRED_FILES := [
 	"res://src/lobby/LobbyVisualPolish.gd",
 	"res://src/assets/ModelNormalizer.gd",
 	"res://src/ui/MatchLoadingOverlay.gd",
+	"res://src/ui/MatchResultOverlay.gd",
 	"res://scripts/ci/gameplay_compile_smoke.gd",
 	"res://scripts/ci/android_runtime_smoke.sh",
 	"res://scripts/ci/combat_smoke.gd",
@@ -88,6 +91,7 @@ const REQUIRED_FILES := [
 	"res://scripts/ci/squad_smoke.gd",
 	"res://scripts/ci/campaign_smoke.gd",
 	"res://scripts/ci/beta_hardening_smoke.gd",
+	"res://scripts/ci/phase12_match_lifecycle_smoke.gd",
 	"res://scripts/ci/duo_integration.sh",
 	"res://scripts/ci/squad_integration.sh",
 	"res://scripts/ci/campaign_integration.sh",
@@ -111,7 +115,11 @@ const REQUIRED_COMPILE_SCRIPTS := [
 	"res://src/lobby/LobbyVisualPolish.gd",
 	"res://src/assets/ModelNormalizer.gd",
 	"res://src/ui/MatchLoadingOverlay.gd",
+	"res://src/ui/MatchResultOverlay.gd",
 ]
+
+const MTU_SAFE_SESSION_PATH := "res://src/network/MtuSafeClosedBetaNetworkSession.gd"
+const LIFECYCLE_SESSION_PATH := "res://src/network/LifecycleMtuSafeNetworkSession.gd"
 
 func _initialize() -> void:
 	for path in REQUIRED_FILES:
@@ -137,9 +145,16 @@ func _initialize() -> void:
 	if hardened_network_script == null or not hardened_network_script.can_instantiate():
 		_fail("Phase 9 hardened network session script could not compile")
 		return
-	var mtu_safe_network_script := load("res://src/network/MtuSafeClosedBetaNetworkSession.gd") as Script
+	var mtu_safe_network_script := load(MTU_SAFE_SESSION_PATH) as Script
 	if mtu_safe_network_script == null or not mtu_safe_network_script.can_instantiate():
 		_fail("Phase 11 MTU-safe hardened network session script could not compile")
+		return
+	var lifecycle_network_script := load(LIFECYCLE_SESSION_PATH) as Script
+	if lifecycle_network_script == null or not lifecycle_network_script.can_instantiate():
+		_fail("Phase 12 lifecycle MTU-safe network session script could not compile")
+		return
+	if not _script_inherits_path(lifecycle_network_script, MTU_SAFE_SESSION_PATH):
+		_fail("Phase 12 lifecycle session no longer inherits the MTU-safe transport")
 		return
 	var main_scene := load("res://src/main/Main.tscn") as PackedScene
 	if main_scene == null:
@@ -210,7 +225,7 @@ func _initialize() -> void:
 			return
 	var squad_network: Node = squad.get_node("NetworkSession")
 	var squad_network_script: Script = squad_network.get_script() as Script
-	if squad_network_script == null or String(squad_network_script.resource_path) != "res://src/network/MtuSafeClosedBetaNetworkSession.gd":
+	if squad_network_script == null or String(squad_network_script.resource_path) != MTU_SAFE_SESSION_PATH:
 		_fail("Phase 11 MTU-safe hardened network session is not active in Squad arena")
 		return
 	squad.free()
@@ -232,8 +247,11 @@ func _initialize() -> void:
 		return
 	var campaign_network: Node = campaign.get_node("NetworkSession")
 	var campaign_network_script: Script = campaign_network.get_script() as Script
-	if campaign_network_script == null or String(campaign_network_script.resource_path) != "res://src/network/MtuSafeClosedBetaNetworkSession.gd":
-		_fail("Phase 11 MTU-safe hardened network session is not active in Campaign arena")
+	if campaign_network_script == null or String(campaign_network_script.resource_path) != LIFECYCLE_SESSION_PATH:
+		_fail("Phase 12 lifecycle network session is not active in Campaign arena")
+		return
+	if not _script_inherits_path(campaign_network_script, MTU_SAFE_SESSION_PATH):
+		_fail("Phase 12 Campaign lifecycle session lost the Phase 11 MTU-safe transport base")
 		return
 	if DisplayServer.get_name() == "headless" and campaign.get_node("DayNightCycle").is_processing():
 		_fail("DayNightCycle must remain disabled on the headless Campaign server")
@@ -246,6 +264,14 @@ func _initialize() -> void:
 	range_instance.free()
 	print("NEXORA: DEADFALL smoke test passed")
 	quit(0)
+
+func _script_inherits_path(script: Script, expected_path: String) -> bool:
+	var current: Script = script
+	while current != null:
+		if String(current.resource_path) == expected_path:
+			return true
+		current = current.get_base_script()
+	return false
 
 func _fail(message: String) -> void:
 	push_error(message)
