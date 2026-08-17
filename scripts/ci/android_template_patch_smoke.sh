@@ -21,6 +21,7 @@ cat > "$TMP/src/release/AndroidManifest.xml" <<'EOF'
 </manifest>
 EOF
 
+python3 -m py_compile "$ROOT/scripts/build/patch_android_template.py"
 python3 "$ROOT/scripts/build/patch_android_template.py" "$TMP" --require-manifest
 python3 "$ROOT/scripts/build/patch_android_template.py" "$TMP" --require-manifest
 
@@ -52,7 +53,8 @@ PY
 
 grep -Fq 'processStandardReleaseMainManifest' "$ROOT/scripts/build/deadfall_android_init.gradle"
 grep -Fq 'deadfallSanitizeReleaseManifest' "$ROOT/scripts/build/deadfall_android_init.gradle"
-grep -Fq 'GRADLE_OPTS=' "$ROOT/scripts/build/build_android_vps.sh"
+grep -Fq '.gradle/init.d' "$ROOT/scripts/build/build_android_vps.sh"
+grep -Fq 'ACTIVE_GRADLE_INIT' "$ROOT/scripts/build/build_android_vps.sh"
 grep -Fq 'patch_android_template.py' "$ROOT/scripts/build/build_android_vps.sh"
 
 echo 'NEXORA: DEADFALL Android template patch smoke passed'
