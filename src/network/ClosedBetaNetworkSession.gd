@@ -11,6 +11,7 @@ const PING_OFFLINE_SECONDS := 4.0
 const EXCELLENT_PING_THRESHOLD_MS := 25
 const STALE_COMMAND_USEC := 350_000
 const REJECTION_DISCONNECT_DELAY_SECONDS := 0.20
+const ENET_UNRELIABLE_PAYLOAD_BUDGET_BYTES := 1200
 const MATCH_RESUME_PLACEHOLDER := "match_ticket_only"
 
 var _guard = AbuseGuardScript.new()
@@ -329,6 +330,7 @@ func get_status_snapshot() -> Dictionary:
 	snapshot["ping_ms"] = _display_ping_ms if role == Role.CLIENT else -1
 	snapshot["raw_ping_ms"] = _raw_ping_ms if role == Role.CLIENT else -1
 	snapshot["ping_quality"] = _ping_quality if role == Role.CLIENT else "SERVER"
+	snapshot["transport_unreliable_budget_bytes"] = ENET_UNRELIABLE_PAYLOAD_BUDGET_BYTES
 	snapshot["authoritative_state"] = {
 		"client_position_writes": false,
 		"client_health_writes": false,
@@ -345,6 +347,12 @@ func get_status_snapshot() -> Dictionary:
 
 func _is_verified_gameplay_peer(peer_id: int) -> bool:
 	return _build_verified_peers.has(peer_id) and _peers.has(peer_id)
+
+func _max_payload_bytes() -> int:
+	# Closed Beta gameplay snapshots travel through unreliable_ordered RPCs.
+	# Keep serialized payloads comfortably below the ~1392-byte ENet MTU seen
+	# on the production/VPS path so they do not fragment and amplify packet loss.
+	return ENET_UNRELIABLE_PAYLOAD_BUDGET_BYTES
 
 func _set_ping(raw_ms: int) -> void:
 	_raw_ping_ms = clampi(raw_ms, 0, 999)
@@ -394,8 +402,11 @@ func _enforce_guard(peer_id: int) -> void:
 		call_deferred("_disconnect_peer", peer_id)
 
 func _disconnect_peer(peer_id: int) -> void:
-	if multiplayer.multiplayer_peer != null and multiplayer.multiplayer_peer.has_method("disconnect_peer"):
-		multiplayer.multiplayer_peer.disconnect_peer(peer_id, false)
+	if multiplayer.multiplayer_peer == null or not multiplayer.multiplayer_peer.has_method("disconnect_peer"):
+		return
+	if not multiplayer.get_peers().has(peer_id):
+		return
+	multiplayer.multiplayer_peer.disconnect_peer(peer_id, false)
 
 func _record_security_event(peer_id: int, reason: String, strikes: int) -> void:
 	var runtime := get_node_or_null("/root/BetaRuntime")
