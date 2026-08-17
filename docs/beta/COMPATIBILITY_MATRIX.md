@@ -22,6 +22,7 @@ Beta.3 intentionally rejects beta.2 gameplay clients/servers. It is the first ca
 - Semantic names (`idle`, `walk`, `run`, `attack`, `hurt`, `death`, etc.) are preferred and mapped automatically when present.
 - Generic-only animation names are accepted in `generic_fallback` mode only when a single neutral-looking usable clip exists. This prevents bind/T-pose without guessing among multiple unlabeled or clearly action/death clips.
 - `operator_02` currently imports the usable generic clip `mixamo_com`; `zombie_animated` is inspected with `nexora-deadfall test-models` before pinning aliases.
+- Model validation prints `DEADFALL_MODEL_CAPABILITY` before acceptance so semantic-vs-generic behavior is visible even when a later model fails.
 - Dedicated/headless server processes do not instantiate presentation GLBs.
 
 | Date | Build | Manufacturer / model | SoC | GPU | RAM | Android / API | Resolution | Tier | FPS p50 | FPS 1% low | Peak RAM | Thermal after 20m | Wi-Fi | Mobile data | Campaign | 4-player Squad | Reconnect | Crash/ANR | Result |
