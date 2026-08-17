@@ -45,7 +45,7 @@ func _run() -> void:
 			return
 
 	var polish_source := _read_text("res://src/lobby/LobbyVisualPolish.gd")
-	for token in ["OUTBREAK RESPONSE // ACTIVE", "TealFill", "COLOR_CYAN", "custom_minimum_size"]:
+	for token in ["OUTBREAK RESPONSE  //  ACTIVE", "TealFill", "COLOR_CYAN", "custom_minimum_size"]:
 		if not polish_source.contains(token):
 			lobby.free()
 			_fail("Lobby 2.0 visual polish contract missing: %s" % token)
