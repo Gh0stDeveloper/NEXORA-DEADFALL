@@ -22,6 +22,11 @@ const CHARACTER_MODELS := {
 		"source_name": "Animated Character Base by J-Toastie - AZzoJo1FBm.glb",
 		"creator": "J-Toastie",
 		"expects_animation": true,
+		# The current GLB exposes a single generic Mixamo clip named
+		# `mixamo_com`. Keep it as an explicit neutral fallback so the runtime
+		# can leave bind/T-pose without pretending that one clip represents
+		# Idle/Walk/Run/Attack/Death independently.
+		"generic_animation_fallback": "mixamo_com",
 		"scale": Vector3.ONE,
 		"rotation_degrees": Vector3.ZERO,
 		"offset": Vector3.ZERO,
@@ -35,6 +40,14 @@ const ZOMBIE_MODELS := {
 		"source_name": "Animated Zombie by Quaternius - jkrEvQZb8J.glb",
 		"creator": "Quaternius",
 		"expects_animation": true,
+		# Verified on Godot 4.6.3 headless import in production VPS.
+		"animation_semantics": {
+			"idle": "Zombie|ZombieIdle",
+			"walk": "Zombie|ZombieWalk",
+			"run": "Zombie|ZombieRun",
+			"crawl": "Zombie|ZombieCrawl",
+			"attack": "Zombie|ZombieBite",
+		},
 		"scale": Vector3.ONE,
 		"rotation_degrees": Vector3.ZERO,
 		"offset": Vector3.ZERO,
