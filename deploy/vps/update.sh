@@ -92,6 +92,11 @@ run_strict_gameplay_compile_gate(){
   run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/gameplay_compile_smoke.gd
 }
 
+run_android_template_patch_gate(){
+  log "Validando sanitización reproducible del template Android/Manifest Merger..."
+  bash "$DEADFALL_ROOT/scripts/ci/android_template_patch_smoke.sh"
+}
+
 if [[ "$NETWORK_ONLY" -eq 1 ]]; then
   prepare_validation_project
   run_strict_gameplay_compile_gate
@@ -107,6 +112,7 @@ fi
 if [[ "$TESTS_ONLY" -eq 1 ]]; then
   prepare_validation_project
   log "Ejecutando gates Godot/Closed Beta/Phase 11.3 sin compilar ni desplegar artefactos..."
+  run_android_template_patch_gate
   run_strict_gameplay_compile_gate
   run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/smoke.gd
   run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/beta_hardening_smoke.gd
@@ -123,7 +129,7 @@ else
   grep -Eq '^(project\.godot|export_presets\.cfg|\.gitmodules$|vendor/Objetos3D($|/)|src/|assets/|android/|scripts/assets/)' <<<"$CHANGED" && { APP=1; SERVER=1; }
   grep -Eq '^(src/(server|network|core|horde|zombies|campaign|identity|lobby|social|login|assets|player)/|scripts/server/)' <<<"$CHANGED" && SERVER=1
   grep -Eq '^web/download-site/' <<<"$CHANGED" && WEB=1
-  grep -Eq '^(deploy/(systemd|vps|nginx)/|scripts/build/)' <<<"$CHANGED" && { DEPLOY=1; SERVER=1; WEB=1; }
+  grep -Eq '^(deploy/(systemd|vps|nginx)/|scripts/build/)' <<<"$CHANGED" && { DEPLOY=1; APP=1; SERVER=1; WEB=1; }
 fi
 log "Cambios detectados: app=$APP server=$SERVER web=$WEB deploy=$DEPLOY"
 
@@ -155,6 +161,9 @@ if [[ "$APP" -eq 1 || "$SERVER" -eq 1 ]]; then
   rm -f "$DEADFALL_ROOT/.godot/global_script_class_cache.cfg"
   log "Importando y validando GDScript en contexto completo del proyecto..."
   run_deadfall_home godot --headless --editor --path "$DEADFALL_ROOT" --quit
+  if [[ "$APP" -eq 1 ]]; then
+    run_android_template_patch_gate
+  fi
   run_strict_gameplay_compile_gate
   run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/smoke.gd
   run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/beta_hardening_smoke.gd
