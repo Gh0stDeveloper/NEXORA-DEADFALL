@@ -20,6 +20,7 @@ var _input_source: Node
 var _camera_rig: Node
 var _attack_sequence := 0
 var _last_server_sequence := 0
+var _last_presented_sequence := 0
 var _next_attack_usec := 0
 var _view_model: Node3D
 var _view_tween: Tween
@@ -51,6 +52,7 @@ func server_try_attack(request_sequence: int, simulation_tick: int = 0) -> bool:
 	_last_server_sequence = request_sequence
 	if not _consume_cooldown():
 		return false
+	_last_presented_sequence = maxi(_last_presented_sequence, request_sequence)
 	attack_started.emit()
 	_resolve_authoritative_melee(request_sequence, simulation_tick)
 	return true
@@ -59,7 +61,7 @@ func get_authoritative_state() -> Dictionary:
 	return {
 		"weapon_id": "machete",
 		"infinite": true,
-		"last_sequence": _last_server_sequence,
+		"last_sequence": _last_presented_sequence,
 		"cooldown_remaining_usec": maxi(0, _next_attack_usec - Time.get_ticks_usec()),
 	}
 
@@ -69,11 +71,13 @@ func apply_authoritative_state(snapshot: Dictionary) -> void:
 	var remaining := maxi(0, int(snapshot.get("cooldown_remaining_usec", 0)))
 	if remaining > 0:
 		_next_attack_usec = maxi(_next_attack_usec, Time.get_ticks_usec() + remaining)
+	_last_presented_sequence = maxi(_last_presented_sequence, int(snapshot.get("last_sequence", _last_presented_sequence)))
 
 func _try_attack(simulation_tick: int) -> bool:
 	if not _consume_cooldown():
 		return false
 	_attack_sequence += 1
+	_last_presented_sequence = maxi(_last_presented_sequence, _attack_sequence)
 	attack_started.emit()
 	_animate_swing()
 	attack_intent_created.emit(_attack_sequence, simulation_tick)
