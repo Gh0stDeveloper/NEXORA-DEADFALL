@@ -17,6 +17,20 @@ func _run() -> void:
 	if not transport_text.contains("const SNAPSHOT_CHUNK_BYTES := %d" % EXPECTED_CHUNK_BYTES):
 		_fail("MTU-safe transport chunk contract changed")
 		return
+	for required_token in [
+		"_build_server_snapshot_with_pickups",
+		"snapshot[\"pickups\"]",
+		"_sync_pickups(snapshot)",
+		"state[\"loadout\"]",
+		"apply_authoritative_state",
+		"_server_loadout_fire",
+		"_server_loadout_reload",
+		"_server_loadout_melee",
+		"_server_loadout_switch",
+	]:
+		if not transport_text.contains(required_token):
+			_fail("MTU-safe online weapon/pickup replication contract missing token: %s" % required_token)
+			return
 
 	var campaign_scene := load(CAMPAIGN_SCENE_PATH) as PackedScene
 	if campaign_scene == null:
@@ -27,6 +41,7 @@ func _run() -> void:
 		_fail("Campaign arena could not instantiate with MTU-safe transport")
 		return
 	root.add_child(arena)
+	await process_frame
 	var session := arena.get_node_or_null("NetworkSession")
 	if session == null:
 		_fail("Campaign arena NetworkSession missing")
@@ -39,13 +54,34 @@ func _run() -> void:
 		if not session.has_method(method):
 			_fail("MTU-safe transport missing method: %s" % method)
 			return
+	var status_value = session.call("get_status_snapshot")
+	var status: Dictionary = status_value if typeof(status_value) == TYPE_DICTIONARY else {}
+	var transport_status: Dictionary = Dictionary(status.get("transport", {}))
+	if String(transport_status.get("encoding", "")) != "variant_fastlz_chunks" or int(transport_status.get("chunk_bytes", 0)) != EXPECTED_CHUNK_BYTES:
+		_fail("MTU-safe transport runtime status mismatch")
+		return
+	if not bool(transport_status.get("pickup_replication", false)) or not bool(transport_status.get("weapon_loadout_authoritative", false)):
+		_fail("Online weapon/pickup replication flags are not active")
+		return
 
 	# Validate the exact serialization/compression/decompression primitive used
-	# by the wire path against the Godot runtime installed on the VPS.
+	# by the wire path against the Godot runtime installed on the VPS. Include
+	# representative loadout and pickup data so future changes cannot silently
+	# make those fields unserializable in the chunked snapshot.
 	var sample := {
 		"server_tick": 123,
-		"players": [{"entity_id": 101, "position": Vector3(1, 2, 3)}],
+		"players": [{
+			"entity_id": 101,
+			"position": Vector3(1, 2, 3),
+			"loadout": {
+				"active_slot": 1,
+				"primary": {"ammo": 24, "reserve": 96},
+				"secondary": {"ammo": 12, "reserve": 45},
+				"melee": {"weapon_id": "machete", "infinite": true},
+			},
+		}],
 		"zombies": [],
+		"pickups": [{"pickup_id": 700001, "kind": "ammo", "position": Vector3(4, 0.1, -2), "amount": 30}],
 	}
 	var raw := var_to_bytes(sample)
 	var compressed := raw.compress(FileAccess.COMPRESSION_FASTLZ)
@@ -54,8 +90,21 @@ func _run() -> void:
 		_fail("FastLZ snapshot round-trip failed")
 		return
 	var decoded: Variant = bytes_to_var(restored)
-	if typeof(decoded) != TYPE_DICTIONARY or int(Dictionary(decoded).get("server_tick", 0)) != 123:
+	if typeof(decoded) != TYPE_DICTIONARY:
 		_fail("Godot 4.6 snapshot bytes_to_var round-trip failed")
+		return
+	var decoded_snapshot: Dictionary = Dictionary(decoded)
+	if int(decoded_snapshot.get("server_tick", 0)) != 123 or Array(decoded_snapshot.get("pickups", [])).size() != 1:
+		_fail("Weapon/pickup snapshot fields were lost during MTU-safe round-trip")
+		return
+	var decoded_players: Array = Array(decoded_snapshot.get("players", []))
+	if decoded_players.is_empty() or typeof(decoded_players[0]) != TYPE_DICTIONARY:
+		_fail("Loadout snapshot player payload missing after round-trip")
+		return
+	var decoded_player: Dictionary = decoded_players[0]
+	var decoded_loadout: Dictionary = Dictionary(decoded_player.get("loadout", {}))
+	if int(decoded_loadout.get("active_slot", -1)) != 1:
+		_fail("Loadout active slot did not survive MTU-safe round-trip")
 		return
 
 	arena.free()
