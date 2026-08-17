@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://src/maps/test_range/TestRange.gd" id="1_range"]
 [ext_resource type="Script" path="res://src/horde/HordeDirector.gd" id="2_horde"]
-[ext_resource type="Script" path="res://src/network/ClosedBetaNetworkSession.gd" id="3_network"]
+[ext_resource type="Script" path="res://src/network/MtuSafeClosedBetaNetworkSession.gd" id="3_network"]
 
 [node name="DuoArena" type="Node3D"]
 script = ExtResource("1_range")
