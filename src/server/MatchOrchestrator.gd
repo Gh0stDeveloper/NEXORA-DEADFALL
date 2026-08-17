@@ -158,6 +158,8 @@ func start_party_match(token: String, requested_mission_id: String = "mission_01
 		"last_heartbeat_unix": 0,
 		"last_heartbeat_sequence": 0,
 		"connected_players": 0,
+		"reserved_slots": 0,
+		"ever_had_player": false,
 		"observed_reconnects": 0,
 		"result_seen_unix": 0,
 		"result": {},
@@ -204,6 +206,7 @@ func mark_party_match_in_progress(party_code: String, match_id: String) -> void:
 	if String(record.get("status", "")) == "IN_MATCH":
 		return
 	record["status"] = "IN_MATCH"
+	record["ever_had_player"] = true
 	_matches[match_id] = record
 	if social_service != null:
 		social_service.call("update_party_match_status", party_code, match_id, "IN_MATCH")
@@ -223,6 +226,8 @@ func get_status_snapshot() -> Dictionary:
 			"status": String(record.get("status", "")),
 			"members": int(record.get("member_count", 0)),
 			"connected_players": int(record.get("connected_players", 0)),
+			"reserved_slots": int(record.get("reserved_slots", 0)),
+			"ever_had_player": bool(record.get("ever_had_player", false)),
 			"reconnects": int(record.get("observed_reconnects", 0)),
 			"heartbeat_age_seconds": now - last_heartbeat if last_heartbeat > 0 else -1,
 		})
@@ -295,13 +300,20 @@ func _process(_delta: float) -> void:
 					record["last_heartbeat_sequence"] = heartbeat_sequence
 					record["last_heartbeat_unix"] = heartbeat_unix
 					record["connected_players"] = int(heartbeat.get("connected_players", 0))
+					record["reserved_slots"] = int(heartbeat.get("reserved_slots", 0))
 					var reconnects := int(heartbeat.get("orchestrated_reconnects", 0))
 					var previous_reconnects := int(record.get("observed_reconnects", 0))
 					if reconnects > previous_reconnects:
 						_metrics["reconnects_total"] = int(_metrics["reconnects_total"]) + reconnects - previous_reconnects
 					record["observed_reconnects"] = maxi(previous_reconnects, reconnects)
+					var admitted_once := bool(record.get("ever_had_player", false)) \
+						or bool(heartbeat.get("ever_had_player", false)) \
+						or int(record.get("connected_players", 0)) > 0 \
+						or int(record.get("reserved_slots", 0)) > 0 \
+						or reconnects > 0
+					record["ever_had_player"] = admitted_once
 					_matches[match_id] = record
-					if String(record.get("status", "")) == "READY" and int(record.get("connected_players", 0)) > 0:
+					if String(record.get("status", "")) == "READY" and admitted_once:
 						mark_party_match_in_progress(String(record.get("party_code", "")), match_id)
 						record = Dictionary(_matches.get(match_id, record))
 
