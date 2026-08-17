@@ -1,0 +1,33 @@
+// NEXORA: DEADFALL Gradle init hook for Godot-generated Android projects.
+//
+// Godot writes src/release/AndroidManifest.xml immediately before invoking
+// Gradle. Hooking the manifest merger task makes the sanitization resilient
+// even when that generated file is refreshed during every export.
+
+gradle.projectsEvaluated {
+    def root = gradle.rootProject
+    def deadfallRoot = System.getenv("DEADFALL_ROOT")
+    if (deadfallRoot == null || deadfallRoot.trim().isEmpty()) {
+        throw new GradleException("DEADFALL_ROOT is required by the DEADFALL Android init hook")
+    }
+
+    def patcher = new File(deadfallRoot, "scripts/build/patch_android_template.py")
+    if (!patcher.isFile()) {
+        throw new GradleException("DEADFALL Android template patcher missing: ${patcher}")
+    }
+
+    def sanitizeTask = root.tasks.register("deadfallSanitizeReleaseManifest", Exec) {
+        group = "deadfall"
+        description = "Remove redundant Godot release-manifest tools:replace markers before merge"
+        commandLine "python3", patcher.absolutePath, root.projectDir.absolutePath,
+            "--manifest-only", "--require-manifest"
+    }
+
+    root.allprojects { project ->
+        project.tasks.matching { task ->
+            task.name == "processStandardReleaseMainManifest"
+        }.configureEach { task ->
+            task.dependsOn(sanitizeTask)
+        }
+    }
+}
