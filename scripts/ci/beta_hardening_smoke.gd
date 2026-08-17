@@ -36,10 +36,10 @@ func _test_build_compatibility() -> bool:
 		return _fail("Wrong content version was accepted")
 	if BuildInfoScript.MIN_CLIENT_VERSION_CODE > 0 and bool(BuildInfoScript.validate_client(BuildInfoScript.NETWORK_PROTOCOL, BuildInfoScript.MIN_CLIENT_VERSION_CODE - 1, BuildInfoScript.CONTENT_VERSION).get("compatible", true)):
 		return _fail("Obsolete client version was accepted")
-	if BuildInfoScript.VERSION_CODE != 900003 or BuildInfoScript.APP_VERSION != "0.9.0-beta.3":
-		return _fail("Current feature candidate must remain 0.9.0-beta.3 / 900003")
+	if BuildInfoScript.VERSION_CODE != 900004 or BuildInfoScript.APP_VERSION != "0.9.0-beta.4":
+		return _fail("Current feature candidate must remain 0.9.0-beta.4 / 900004")
 	if BuildInfoScript.MIN_CLIENT_VERSION_CODE != BuildInfoScript.VERSION_CODE or BuildInfoScript.MIN_SERVER_VERSION_CODE != BuildInfoScript.VERSION_CODE:
-		return _fail("Beta.3 compatibility floor must reject older beta.2 gameplay clients/servers")
+		return _fail("Beta.4 compatibility floor must reject older beta.3 gameplay clients/servers")
 	return true
 
 func _test_abuse_guard() -> bool:
