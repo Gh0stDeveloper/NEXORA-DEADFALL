@@ -6,6 +6,7 @@ extends Resource
 @export_range(0.1, 1000.0, 0.1) var base_damage: float = 20.0
 @export_range(1, 300, 1) var magazine_size: int = 30
 @export_range(0, 999, 1) var starting_reserve_ammo: int = 120
+@export_range(0, 1999, 1) var max_reserve_ammo: int = 360
 @export_range(30.0, 1500.0, 1.0) var rounds_per_minute: float = 600.0
 @export_range(0.1, 10.0, 0.05) var reload_seconds: float = 2.0
 @export_range(1.0, 1000.0, 1.0) var max_distance: float = 150.0
