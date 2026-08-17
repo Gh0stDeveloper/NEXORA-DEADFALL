@@ -1,83 +1,153 @@
 # NEXORA: DEADFALL
 
-Android-first zombie survival shooter built with **Godot 4.6.3**, with offline Campaign/Horde and server-authoritative online co-op for up to four players.
+Android-first 3D zombie survival shooter built with **Godot 4.6.3**, with offline Campaign/Horde gameplay and server-authoritative online co-op for up to four players.
 
 ## Current status
 
-The repository now contains the gameplay vertical slice through **Phase 9 Closed Beta hardening**, **Phase 10 VPS production automation**, and the handoff plan for **Phase 11 mobile gameplay polish / lobby foundations**:
+Current Closed Beta:
 
-- Player movement, mobile controls and FPS/TPS cameras.
-- Authoritative weapons, damage and body hit zones.
-- Zombie AI, dismemberment/gore and Horde director.
-- 1–4 player ENet Squad with prediction/interpolation, DOWNED/revive and reconnect.
-- Campaign vertical slice with two missions and hardened checkpoints.
-- Closed Beta build/version handshake, abuse guards and diagnostics.
-- Ubuntu VPS installer/updater that hosts the dedicated server, compiles signed Android Release APKs and serves the beta download portal.
-- Production APK build, signing, HTTPS distribution and physical Android install/gameplay have been validated successfully.
-- Phase 11 begins from real-device feedback: HUD overlap, camera sensitivity, night readability/flashlight, mobile control polish, audio/settings, character integration and the guest-account/lobby system.
-
-For future development chats, read **[Persistent Project Context](docs/PROJECT_CONTEXT.md)** first, then **[Phase 11 Plan](docs/PHASE_11_PLAN.md)**.
-
-## Engine / production baseline
-
-- Godot: `4.6.3-stable`
-- Client: Android ARM64, Closed Beta `0.9.0-beta.1`
-- VPS: Ubuntu 24.04 LTS, x86_64 or ARM64
-- Game: `24560/udp`
-- Room directory: `24561/tcp`
-- Download portal: Next.js 16 / TypeScript behind Nginx
-- Web: `80/tcp` and `443/tcp`
-
-# Clean VPS — first installation
-
-The repository is private, so a brand-new VPS needs GitHub authentication once before it can obtain the installer.
-
-## 1. Install Git + GitHub CLI
-
-```bash
-sudo apt update
-sudo apt install -y git gh
+```text
+0.9.0-beta.5
+versionCode 900005
+protocol 2
+content version 1
+Android target API 36
 ```
 
-## 2. Log in to GitHub once
+Last confirmed full runtime deployment:
+
+```text
+f402f1696c0438447d76236122a5d82101a94cc0
+```
+
+Beta.5 completed its VPS `--force` deployment successfully:
+
+- Android Release APK exported successfully;
+- APK Signature Scheme v2 verified;
+- one signer verified;
+- stable APK published;
+- localhost control/social/match API validated;
+- HTTPS API validated.
+
+The **next acceptance gate is physical Android testing**, not another automatic version bump: Solo -> Duo with deliberate disconnect/reconnect -> 3 players -> 4 players.
+
+## Start here
+
+For development or a new ChatGPT/Codex session, read these in order:
+
+1. [Beta.5 handoff / new-chat prompt](docs/HANDOFF_BETA_5.md)
+2. [Current operational status](docs/CURRENT_STATUS.md)
+3. [Master roadmap](docs/ROADMAP.md)
+4. [Download portal/version-history plan](docs/DOWNLOAD_PORTAL_PLAN.md)
+5. [Closed Beta release history](docs/beta/RELEASE_HISTORY.md)
+6. [Persistent architecture/project context](docs/PROJECT_CONTEXT.md)
+
+Older handoff/Phase 11 planning files remain historical references and should not override the documents above.
+
+## Implemented gameplay
+
+- Android touch movement/look/action controls.
+- Walk, sprint, jump, crouch and prone.
+- First-person, rear third-person and front third-person cameras.
+- Persistent sensitivity and flashlight/night readability foundation.
+- HP/ammo/weapon HUD.
+- Rifle, pistol and machete loadout.
+- Finite magazines/reserves and reload.
+- Server-authoritative movement, damage, hits, health and ammunition online.
+- Walker, Runner, Crawler, Tank and Screamer zombies.
+- Horde waves, scoring, spawn/population budgets and Game Over/Restart.
+- Gore/dismemberment budgets and gameplay effects.
+- Campaign vertical slice with Mission 01/02 and checkpoint recovery.
+- Day/night cycle.
+
+## Multiplayer/social
+
+- 1-4 player Squad.
+- Guest account/login and unique server-side username.
+- Public player ID.
+- Friends/direct messaging foundation.
+- Solo/Duo/Squad lobby.
+- Party codes, join/leave, leader kick/start and squad chat.
+- Server-authoritative party/match state.
+- One dedicated Godot child process per orchestrated party.
+- Dynamic match UDP range `24600-24749`.
+- One private 256-bit admission ticket per party member.
+- Host/port knowledge without a valid ticket is insufficient for admission.
+- MTU-safe FastLZ snapshot transport using 900-byte chunks.
+- Prediction/reconciliation/interpolation.
+
+### Beta.5 lifecycle
+
+- ticket-scoped reconnect restores the same authoritative player entity/state;
+- Android recovery window: 42 seconds / max 10 attempts;
+- 2-second match child heartbeat;
+- frozen-child watchdog;
+- startup/empty/absolute runtime TTLs;
+- terminal child reaping;
+- monotonic `READY -> IN_MATCH` after first admission;
+- authoritative `VICTORY`, `DEFEAT` and `ABORTED` results;
+- result screen and return to refreshed/unlocked lobby;
+- privacy-safe aggregate lifecycle metrics.
+
+## Models/animation
+
+3D runtime assets are vendored from private repository `Gh0stDeveloper/Objetos3D`, pinned to:
+
+```text
+28ea7a10a18fbe05a91fb3d920678991fff4afef
+```
+
+Canonical runtime mappings:
+
+- `operator_01.glb`
+- `operator_02.glb`
+- `zombie_animated.glb`
+- `zombie_static.glb`
+
+Current animation facts:
+
+- `operator_02` exposes only generic `mixamo_com`; it is a safe neutral fallback, not fake separate locomotion states.
+- Quaternius zombie mappings: Idle/Walk/Run/Crawl/Attack are verified.
+- separate player semantic animation set and zombie Hurt/Death clips remain future work.
+
+## Android/VPS production baseline
+
+- Ubuntu 24.04 x86_64 or ARM64.
+- Godot 4.6.3 plus export templates.
+- OpenJDK 17.
+- Android API 35/36 tooling; current build automation uses Build Tools 36.1.0 baseline.
+- Node.js 24.
+- Nginx + Certbot.
+- persistent root-owned Android signing identity.
+- generated Android-template sanitizer for the known redundant Godot Manifest merger attributes.
+- Next.js download portal.
+
+Important ports:
+
+```text
+80/tcp              HTTP
+443/tcp             HTTPS portal/API
+24560/udp           base/legacy gameplay
+24561/tcp           room directory when used
+24562/tcp           localhost-only control/social/match API
+24600-24749/udp     orchestrated dedicated matches
+```
+
+Never expose TCP 24562 directly to the Internet.
+
+## Clean VPS installation
+
+The repository is private. Authenticate GitHub CLI first, then clone/check out the development branch.
 
 ```bash
 gh auth login --hostname github.com --git-protocol https
 gh auth setup-git --hostname github.com
-gh auth status --hostname github.com
-```
-
-Choose GitHub.com and HTTPS. GitHub CLI stores the credential and configures Git as a credential helper, so normal future fetch/pull operations do not require logging in again.
-
-## 3. Clone the private repository
-
-```bash
-cd ~
 gh repo clone Gh0stDeveloper/NEXORA-DEADFALL
 cd NEXORA-DEADFALL
-```
-
-Until the current draft PR is merged, install the active development branch:
-
-```bash
 git checkout agent/bootstrap-deadfall
 ```
 
-Once Phase 10 is merged, production should use `main`.
-
-## 4. Point a domain at the VPS
-
-Create a DNS `A` record (and `AAAA` if you use public IPv6) such as:
-
-```text
-beta.example.com -> VPS_PUBLIC_IP
-```
-
-The same domain is used for the mobile download page and the stable APK URL.
-
-## 5. Run the complete installer
-
-Current development branch:
+Install:
 
 ```bash
 sudo bash deploy/vps/install.sh \
@@ -87,87 +157,35 @@ sudo bash deploy/vps/install.sh \
   --branch agent/bootstrap-deadfall
 ```
 
-After merge:
+The managed `deadfall` service user also needs repository access for later automatic updates.
 
-```bash
-sudo bash deploy/vps/install.sh \
-  --domain beta.example.com \
-  --email admin@example.com \
-  --repo Gh0stDeveloper/NEXORA-DEADFALL \
-  --branch main
-```
+Full installer documentation: [docs/VPS_INSTALLER.md](docs/VPS_INSTALLER.md).
 
-The installer creates its own `deadfall` service user. If that account is not yet authenticated, the installer starts the GitHub device-login flow for it and then runs `gh auth setup-git` so future automatic updates can read the private repo.
+## Signing identity
 
-For headless/token bootstrap you may use:
-
-```bash
-sudo bash deploy/vps/install.sh --github-token-file /root/github-token.txt ...
-sudo rm -f /root/github-token.txt
-```
-
-Do not keep PAT/token files on disk after bootstrap.
-
-# What the installer configures
-
-On a clean Ubuntu VPS it installs and configures:
-
-- Godot 4.6.3 for x86_64 or ARM64, including export templates.
-- OpenJDK 17.
-- Android command-line tools, API 35 + 36, Build Tools 35.0.1, NDK r28b and CMake.
-- Node.js 24 LTS.
-- GitHub CLI and persistent private-repo Git credentials.
-- Nginx and Certbot.
-- Dedicated game service.
-- Next.js beta download service.
-- Stable public APK directory.
-- Persistent install/build state and logs.
-- Firewall rules for SSH, HTTP/HTTPS and DEADFALL multiplayer ports.
-
-It detects an existing installation and preserves persistent state.
-
-# Android signing keystore
-
-On the **first** installation only, the installer generates:
+First installation creates persistent signing material under:
 
 ```text
-/etc/nexora-deadfall/signing/deadfall-release.keystore
-/etc/nexora-deadfall/signing/keystore.env
+/etc/nexora-deadfall/signing/
 ```
 
-The updater never regenerates or replaces that keystore automatically.
+**Back it up securely.** Normal updates must never regenerate or replace this signing identity.
 
-**Back up `/etc/nexora-deadfall/signing/` somewhere secure.** Losing the signing key means future APK updates cannot keep the same Android signing identity.
+## Validation / update commands
 
-The persistent key remains root-only. During a build, a temporary `0600` copy is exposed only to the `deadfall` build user, then deleted after signing/verification.
-
-# One-command future updates
+Tests without changing the last successful deployment:
 
 ```bash
-nexora-deadfall update
+sudo /opt/nexora-deadfall/deploy/vps/update.sh --tests-only
 ```
 
-The updater:
-
-1. validates stored GitHub auth;
-2. fetches the configured private branch;
-3. compares old and new commits;
-4. classifies changed files;
-5. runs Godot import/smoke gates for gameplay/server changes;
-6. rebuilds the signed APK only when app/shared gameplay changed;
-7. rebuilds the Next.js portal only when needed;
-8. restarts only affected services;
-9. atomically publishes the new APK and metadata.
-
-Shared files under `src/` affect both client and dedicated server and therefore rebuild/restart both sides. A web-only change does not rebuild the game. Documentation-only changes cause no runtime rebuild.
-
-Force a complete rebuild when required:
+Full rebuild/deploy:
 
 ```bash
 sudo /opt/nexora-deadfall/deploy/vps/update.sh --force
 ```
 
-# VPS administration
+Administration:
 
 ```bash
 nexora-deadfall status
@@ -178,55 +196,49 @@ nexora-deadfall build-all
 nexora-deadfall logs 200
 nexora-deadfall auth
 nexora-deadfall https
+nexora-deadfall test-models
 ```
 
-Services:
-
-```bash
-sudo systemctl status nexora-deadfall
-sudo systemctl status nexora-deadfall-download
-sudo systemctl status nginx
-```
-
-# APK download
-
-A successful application build publishes:
+The message below is non-blocking on a VPS with no attached Android device:
 
 ```text
-https://YOUR_DOMAIN/downloads/NEXORA-DEADFALL-latest.apk
+cannot connect to daemon at tcp:5037: Connection refused
 ```
 
-The Next.js home page reads `/var/www/nexora-deadfall/release.json` at request time and shows current version, APK size and SHA-256 before presenting the download button.
+## APK distribution
 
-# Important VPS paths
+A successful application deployment publishes the stable current APK at:
 
 ```text
-/opt/nexora-deadfall                  private Git checkout
-/var/lib/nexora-deadfall             persistent runtime/build state
-/etc/nexora-deadfall                 configuration + signing secrets
-/var/www/nexora-deadfall             public release metadata/APK
-/var/log/nexora-deadfall             service/build logs
-/usr/local/bin/nexora-deadfall       administration command
+/downloads/NEXORA-DEADFALL-latest.apk
 ```
 
-Full VPS documentation: [docs/VPS_INSTALLER.md](docs/VPS_INSTALLER.md).
+The Next.js portal currently reads `/var/www/nexora-deadfall/release.json` dynamically and shows version, size, SHA-256 and download action.
 
-## Documentation
+The planned portal upgrade adds a hamburger menu, durable version history, version-detail pages, fixes/features/known issues and compatibility information. See [docs/DOWNLOAD_PORTAL_PLAN.md](docs/DOWNLOAD_PORTAL_PLAN.md).
 
-- [Persistent project context / chat handoff](docs/PROJECT_CONTEXT.md)
-- [Phase 11 gameplay polish and lobby plan](docs/PHASE_11_PLAN.md)
-- [Game Design Document](docs/GDD.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Networking](docs/NETWORKING.md)
-- [Campaign](docs/CAMPAIGN.md)
-- [Closed Beta hardening](docs/BETA_HARDENING.md)
-- [VPS installer](docs/VPS_INSTALLER.md)
-- [Roadmap](docs/ROADMAP.md)
+## Important managed paths
 
-## Development rule
+```text
+/opt/nexora-deadfall                  Git checkout
+/var/lib/nexora-deadfall             runtime/build/match state
+/etc/nexora-deadfall                 config + signing secrets
+/var/www/nexora-deadfall             APK/release metadata
+/var/log/nexora-deadfall             logs
+/usr/local/bin/nexora-deadfall       admin command
+```
 
-Gameplay systems must not branch into separate online/offline implementations. Offline uses local authority; online uses network authority backed by the dedicated server. Deployment automation must not create a second gameplay implementation.
+## Next development order
 
-## License
+1. Physical beta.5 Solo acceptance.
+2. Physical Duo over public Internet.
+3. Deliberate disconnect/reconnect and same-state recovery.
+4. Authoritative result -> both clients return to lobby.
+5. Three-player test.
+6. Four-player test.
+7. Fix any blocker discovered by real devices.
+8. Record compatibility/performance/thermal results.
+9. If beta.5 is usable, implement the download portal/version-history upgrade.
+10. Continue settings/HUD editor/audio, animation/art/content and deeper multiplayer soak according to the master roadmap.
 
-Proprietary software. Copyright © Ghost Developer / Nexora. All rights reserved. See [LICENSE.md](LICENSE.md).
+Voice chat remains deferred until core co-op and Android performance are stable.
