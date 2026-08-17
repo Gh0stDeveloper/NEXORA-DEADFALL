@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://src/maps/campaign/OutbreakDistrict.gd" id="1_map"]
 [ext_resource type="Script" path="res://src/horde/HordeDirector.gd" id="2_horde"]
-[ext_resource type="Script" path="res://src/network/MtuSafeClosedBetaNetworkSession.gd" id="3_network"]
+[ext_resource type="Script" path="res://src/network/LifecycleMtuSafeNetworkSession.gd" id="3_network"]
 [ext_resource type="Script" path="res://src/campaign/CampaignDirector.gd" id="4_campaign"]
 [ext_resource type="Script" path="res://src/campaign/CampaignNetworkBridge.gd" id="5_bridge"]
 [ext_resource type="Script" path="res://src/campaign/CampaignHUD.gd" id="6_hud"]
