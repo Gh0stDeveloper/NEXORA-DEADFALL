@@ -9,6 +9,9 @@ VERSION="$(grep -oP 'const APP_VERSION := "\K[^"]+' "$DEADFALL_ROOT/src/release/
 OUT="$DEADFALL_BUILD_DIR/NEXORA-DEADFALL-${VERSION}.apk"
 TMP="$DEADFALL_BUILD_DIR/.NEXORA-DEADFALL-${VERSION}.tmp.apk"
 BUILD_KEYSTORE="$DEADFALL_HOME/.deadfall-build.keystore"
+ANDROID_BUILD_DIR="$DEADFALL_ROOT/android/build"
+ANDROID_PATCHER="$DEADFALL_ROOT/scripts/build/patch_android_template.py"
+ANDROID_GRADLE_INIT="$DEADFALL_ROOT/scripts/build/deadfall_android_init.gradle"
 cleanup(){ rm -f "$BUILD_KEYSTORE" "$TMP"; }
 trap cleanup EXIT
 
@@ -24,19 +27,32 @@ if [[ ! -d "$ANDROID_HOME/build-tools/36.0.0" ]]; then
   chown -R "$DEADFALL_USER:$DEADFALL_GROUP" "$ANDROID_HOME/build-tools/36.0.0"
 fi
 
-if [[ ! -f "$DEADFALL_ROOT/android/build/build.gradle" ]]; then
-  rm -rf "$DEADFALL_ROOT/android/build"
+if [[ ! -f "$ANDROID_BUILD_DIR/build.gradle" ]]; then
+  rm -rf "$ANDROID_BUILD_DIR"
   log "Android Gradle build template ausente; instalándolo antes de exportar Release..."
   run_deadfall_home env \
     ANDROID_HOME="$ANDROID_HOME" \
     JAVA_HOME="$JAVA_HOME" \
     godot --headless --path "$DEADFALL_ROOT" --install-android-build-template --quit
-  test -f "$DEADFALL_ROOT/android/build/build.gradle"
+  test -f "$ANDROID_BUILD_DIR/build.gradle"
 fi
 
+test -f "$ANDROID_PATCHER"
+test -f "$ANDROID_GRADLE_INIT"
+log "Aplicando compatibilidad reproducible al template Android generado..."
+python3 "$ANDROID_PATCHER" "$ANDROID_BUILD_DIR"
+chown -R "$DEADFALL_USER:$DEADFALL_GROUP" "$ANDROID_BUILD_DIR"
+
+# Godot may refresh src/release/AndroidManifest.xml immediately before invoking
+# Gradle. GRADLE_OPTS installs our init hook into that child Gradle invocation,
+# so the four redundant tools:replace markers are removed immediately before
+# processStandardReleaseMainManifest rather than relying on a stale generated
+# file from a previous build.
 run_deadfall_home env \
   ANDROID_HOME="$ANDROID_HOME" \
   JAVA_HOME="$JAVA_HOME" \
+  DEADFALL_ROOT="$DEADFALL_ROOT" \
+  GRADLE_OPTS="${GRADLE_OPTS:-} -I $ANDROID_GRADLE_INIT" \
   GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$BUILD_KEYSTORE" \
   GODOT_ANDROID_KEYSTORE_RELEASE_USER="$DEADFALL_KEYSTORE_ALIAS" \
   GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="$DEADFALL_KEYSTORE_PASSWORD" \
