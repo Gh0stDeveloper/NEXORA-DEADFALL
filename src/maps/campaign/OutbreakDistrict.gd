@@ -118,11 +118,14 @@ func _build_navigation() -> void:
 	nav_mesh.geometry_source_geometry_mode = NavigationMesh.SOURCE_GEOMETRY_GROUPS_EXPLICIT
 	nav_mesh.geometry_source_group_name = NAV_SOURCE_GROUP
 	nav_mesh.geometry_collision_mask = 1
-	nav_mesh.agent_radius = 0.45
+	# Keep agent dimensions aligned to the default 0.25 m navigation voxel grid.
+	# This avoids runtime rounding/mismatch warnings on the dedicated server while
+	# preserving the intended human-sized navigation clearance.
+	nav_mesh.agent_radius = 0.50
 	nav_mesh.agent_height = 1.75
-	nav_mesh.agent_max_climb = 0.35
+	nav_mesh.agent_max_climb = 0.25
 	nav_mesh.cell_size = 0.25
-	nav_mesh.cell_height = 0.20
+	nav_mesh.cell_height = 0.25
 	nav_mesh.filter_walkable_low_height_spans = true
 	_navigation_region.navigation_mesh = nav_mesh
 	add_child(_navigation_region)
