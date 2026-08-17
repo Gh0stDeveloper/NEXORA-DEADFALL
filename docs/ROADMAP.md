@@ -1,157 +1,444 @@
-# Roadmap
+# NEXORA: DEADFALL — Master Roadmap
+
+Last updated: 2026-08-17.
+
+Legend:
+
+- [x] implemented/closed at source level;
+- [~] implemented but still needs a stated physical/production acceptance gate;
+- [ ] pending.
+
+Current runtime deployment: `0.9.0-beta.5 / 900005` at `f402f1696c0438447d76236122a5d82101a94cc0`.
 
 ## Phase 0 — Foundation
-- [x] Repository initialization.
-- [x] Godot project bootstrap.
-- [x] Shared authority boundary.
-- [x] Initial damage event model.
+
+- [x] Repository bootstrap.
+- [x] Godot project foundation.
+- [x] Shared local/network authority model.
+- [x] Damage/health foundations.
 - [x] Dedicated ENet server bootstrap.
-- [x] CI/server deployment scaffolding.
-- [x] Living GDD and technical docs.
-- [x] Bootstrap CI validated on Ubuntu/Godot/Android.
+- [x] CI/VPS deployment scaffolding.
+- [x] Living GDD/architecture documentation.
 
 ## Phase 1 — Player vertical slice
+
 - [x] CharacterBody3D controller.
-- [x] Walk/run/jump/crouch/prone.
-- [x] Touch joystick and look region.
+- [x] Walk/sprint/jump/crouch/prone.
+- [x] Touch joystick/look.
 - [x] FPS/rear TPS/front TPS cameras.
-- [x] Mobile HUD safe areas and desktop controls.
-- [x] Android diagnostics/emulator workflow and ARM64 test APK pipeline.
-- [ ] Validate controls/HUD ergonomics on a physical Android phone.
+- [x] Mobile HUD/safe area.
+- [x] Android diagnostics/export workflow.
+- [x] Persistent sensitivity foundation.
+- [x] Flashlight/night-readability foundation.
+- [~] Continue ergonomics validation on multiple real Android form factors.
 
 ## Phase 2 — Weapons and damage
-- [x] Weapon resources and NXR-4 hitscan rifle.
-- [x] Cadence, ammunition, timed reload and ShotIntent.
-- [x] Seven body hitboxes, HealthComponent and authority registry.
-- [x] Damage resolver/body multipliers/critical hits.
-- [x] Combat smoke coverage.
-- [ ] Re-run gates after Actions billing/spending is unblocked.
 
-## Phase 3 — First zombie
-- [x] Data-driven ZombieBase/Walker.
-- [x] Navigation, perception and IDLE/SEARCH/CHASE/ATTACK/STAGGER/DEAD.
-- [x] Authoritative melee and dedicated simulation authority.
-- [x] Zombie combat smoke tests.
-- [ ] Re-run gates after Actions billing/spending is unblocked.
+- [x] Weapon data/runtime resources.
+- [x] Rifle hitscan/cadence/ammo/reload.
+- [x] Pistol.
+- [x] Machete authoritative melee.
+- [x] Weapon selector/loadout.
+- [x] Body hitboxes/multipliers/critical hits.
+- [x] Server-authoritative damage/ammo/hit result.
+- [x] Replicated weapon action sequence presentation.
+- [x] Combat smoke gates.
+- [~] Physical feel/balance tuning remains ongoing.
+
+## Phase 3 — Zombie vertical slice
+
+- [x] Data-driven zombie base.
+- [x] Walker.
+- [x] Navigation/perception.
+- [x] IDLE/SEARCH/CHASE/ATTACK/STAGGER/DEAD behavior foundation.
+- [x] Authoritative melee.
+- [x] Zombie smoke coverage.
 
 ## Phase 4 — Gore vertical slice
-- [x] Prepared detachable rig/wounds and thresholds.
-- [x] Pooled limbs/corpse/blood/decals and quality budgets.
-- [x] Leg→crawler, arm penalties, head critical death.
-- [x] Gore tests and Android telemetry.
-- [ ] Physical Android profiling.
-- [ ] Re-run gates after Actions billing/spending is unblocked.
 
-## Phase 5 — Offline horde
-- [x] HordeDirector lifecycle and quality population budgets.
-- [x] Safe spawn points, wave progression and scoring.
-- [x] Walker, Runner, Crawler, Tank and Screamer.
-- [x] GAME_OVER/restart, Horde HUD, smoke tests and Android telemetry.
-- [ ] Physical Android Horde/FPS profiling.
-- [ ] Re-run gates after Actions billing/spending is unblocked.
+- [x] Prepared wound/detachment model.
+- [x] Pooled limbs/corpse/blood/decal budgets.
+- [x] Leg -> crawler behavior.
+- [x] Arm penalties.
+- [x] Head critical/death handling.
+- [x] Quality-tier gore budgets.
+- [~] Continue physical Android performance/thermal profiling.
 
-## Phase 6 — Multiplayer duo
-- [x] NetworkAuthority that rejects client-side authoritative damage.
-- [x] Dedicated two-peer ENet room and dynamic network player entities.
-- [x] Sequenced input command replication with server sanitation.
-- [x] Server-authoritative CharacterBody3D movement simulation.
-- [x] Local prediction and authoritative reconciliation.
-- [x] Remote-player and zombie snapshot interpolation.
-- [x] Server-authoritative fire cadence/ammo/reload/hitscan/damage.
-- [x] Player/weapon/zombie/Horde snapshots.
-- [x] HordeDirector generalized for multiplayer/server ownership.
-- [x] Six-character room code plus lightweight directory service contract.
-- [x] Resume token/reconnect groundwork.
-- [x] Network authority/command/room smoke tests.
-- [x] Real headless two-client ENet integration harness committed to CI.
-- [x] Android network diagnostics hooks.
-- [ ] Execute two-peer CI/Docker/Android validation after Actions billing/spending is unblocked.
-- [ ] Physical two-phone Android soak/profile test.
+## Phase 5 — Offline Horde
 
-## Phase 7 — Four-player squad
-- [x] Four-player ENet capacity and four stable player spawn slots.
-- [x] Protocol v2 room/session contract and directory `max_players=4` metadata.
-- [x] ALIVE → DOWNED → DEAD authoritative player life state.
-- [x] 30-second bleedout and authoritative final death.
-- [x] Server-selected, range-validated, three-second revive hold.
-- [x] DOWNED movement restriction and weapon/reload lock.
-- [x] Squad HUD with HP/downed/bleedout/revive/dead presentation.
-- [x] Android REVIVE/INTERACT control and Squad telemetry.
-- [x] 45-second reconnect reservations that preserve entity ID and player slot.
-- [x] Reserved reconnect slots count against four-player room capacity.
-- [x] Rejected peers release their client ENet connection.
-- [x] Four-player Horde wave and population scaling.
-- [x] Recoverable-player-aware Horde GAME_OVER and spawn safety.
-- [x] Per-quality snapshot frequency, zombie-detail and payload budgets.
-- [x] Per-client zombie relevance prioritization by distance.
-- [x] `network_smoke.gd` upgraded for Squad protocol/capacity.
-- [x] `squad_smoke.gd` for downed/revive/bleedout/Horde/weapon/reconnect/budget restrictions.
-- [x] Two-peer regression integration remains in CI.
-- [x] Real four-client ENet Squad integration harness committed to CI.
-- [x] Phase 7 technical documentation.
-- [ ] Execute Phase 7 Godot/network/Docker/Android gates after Actions billing/spending is unblocked.
-- [ ] Physical four-phone Android soak, revive, latency/reconciliation and FPS profiling.
+- [x] HordeDirector lifecycle.
+- [x] Spawn safety/population budgets.
+- [x] Wave progression/scoring.
+- [x] Walker/Runner/Crawler/Tank/Screamer.
+- [x] Game Over/Restart.
+- [x] Horde HUD.
+- [x] Multiplayer/downed-aware Game Over semantics.
+- [~] Physical Horde stress/thermal acceptance remains part of beta testing.
+
+## Phase 6 — Multiplayer Duo
+
+- [x] NetworkAuthority rejects client-authoritative state.
+- [x] Dedicated ENet room.
+- [x] Sequenced/sanitized input commands.
+- [x] Server-authoritative movement.
+- [x] Prediction/reconciliation.
+- [x] Remote player/zombie interpolation.
+- [x] Authoritative weapons/damage/ammo/reload.
+- [x] Room code/directory foundations.
+- [x] Reconnect reservation foundation.
+- [x] Headless two-peer integration tooling.
+- [~] Real two-phone beta.5 acceptance is now the next primary physical gate.
+
+## Phase 7 — Four-player Squad
+
+- [x] Four-player capacity/spawn slots.
+- [x] Protocol v2.
+- [x] ALIVE -> DOWNED -> DEAD.
+- [x] Bleedout.
+- [x] Server-selected/range-validated revive.
+- [x] DOWNED movement/weapon restriction.
+- [x] Squad HUD.
+- [x] Reconnect slot reservation/capacity accounting.
+- [x] Four-player Horde scaling.
+- [x] Per-quality snapshot/zombie/payload budgets.
+- [x] Distance-based zombie relevance.
+- [x] Squad and integration smokes.
+- [~] Physical 3/4-player latency/revive/FPS soak pending.
 
 ## Phase 8 — Campaign vertical slice
-- [x] `OutbreakDistrict` first production-style environment shell.
-- [x] Data-driven campaign/mission/objective resources.
-- [x] Shared sequential REACH/KILL/SURVIVE/INTERACT/EXTRACT objective framework.
+
+- [x] OutbreakDistrict.
+- [x] Data-driven missions/objectives.
+- [x] REACH/KILL/SURVIVE/INTERACT/EXTRACT framework.
 - [x] Mission 01 — First Signal.
 - [x] Mission 02 — Last Broadcast.
-- [x] Local checkpoint persistence with schema/version guard and checkpoint spawn restore.
-- [x] Dedicated-server campaign authority; network clients are presentation replicas only.
-- [x] Separate lightweight campaign replication channel for 1–4 player sessions.
-- [x] Campaign HUD and Android campaign diagnostics.
-- [x] Campaign smoke test and four-peer Campaign integration harness committed to CI.
-- [x] Voice-chat architecture investigation documented; implementation intentionally deferred.
-- [ ] Execute Phase 8 Godot/Campaign/Docker/Android gates after Actions billing/spending is unblocked.
-- [ ] Physical Android campaign playthrough and four-phone Campaign soak/profile test.
+- [x] Checkpoint persistence/recovery.
+- [x] Dedicated campaign authority.
+- [x] Campaign replication/HUD.
+- [x] Day/night cycle.
+- [x] Campaign smoke/integration harness.
+- [~] Full physical campaign playthrough/performance validation remains ongoing.
 
-## Future multiplayer enhancement — Squad voice chat
-- [x] Global squad voice architecture researched and documented.
-- [ ] Microphone capture/runtime permission integration.
-- [ ] Native Opus codec bridge.
-- [ ] Dedicated unreliable voice transport/relay.
-- [ ] Jitter buffer and generated-audio playback.
-- [ ] Echo cancellation/noise suppression/device routing.
-- [ ] Mute/block/push-to-talk/open-mic UX and abuse controls.
+## Phase 9 — Closed Beta hardening
 
-## Phase 9 — Closed beta hardening
-- [x] Closed-beta build identity, content version and client/server compatibility handshake.
-- [x] Room-directory build metadata and update-required rejection path.
-- [x] Network abuse guard with payload validation, action rate limits, strikes and disconnect escalation.
-- [x] Hardened `PlayerCommand` Variant/type/sequence validation.
-- [x] Privacy-safe local runtime diagnostics and previous-unclean-session crash breadcrumb report.
-- [x] Android device/GPU/memory capability snapshot and non-destructive quality recommendation.
-- [x] Campaign save v2 with SHA-256 integrity, temporary write, backup recovery and v1 migration.
-- [x] Persistent-signing Android AAB/APK Closed Beta release workflow using GitHub Secrets.
-- [x] Release checksum and machine-readable build manifest generation.
-- [x] Closed-beta tester guide, release checklist and physical-device compatibility matrix template.
-- [x] Privacy notice, beta terms and code of conduct.
-- [x] Store listing, Data Safety preparation and content-rating questionnaire notes.
-- [x] ADB diagnostic bundle collection helper.
-- [x] Closed Beta hardening smoke test integrated with all prior regression gates.
-- [ ] Execute Phase 9 current-head CI/release gates after Actions billing/spending is unblocked.
-- [ ] Complete representative physical-device compatibility matrix and closed-beta soak.
+- [x] Build/version/content/protocol compatibility.
+- [x] Update-required rejection paths.
+- [x] Network abuse/rate-limit/strike foundation.
+- [x] Hardened PlayerCommand validation.
+- [x] Runtime diagnostics/crash breadcrumb.
+- [x] Android device/capability quality recommendation.
+- [x] Hardened Campaign saves with integrity/backup recovery.
+- [x] APK/AAB signing workflow foundations.
+- [x] Release manifest/checksum.
+- [x] Tester/release/legal/store preparation docs.
+- [x] Compatibility matrix template.
+- [~] Representative physical-device matrix remains incomplete.
 
-## Phase 10 — VPS production installer and beta distribution
-- [x] First-install vs existing-install detection and persistent VPS state.
-- [x] Ubuntu 24.04 x86_64/ARM64 bootstrap for Godot 4.6.3 and export templates.
-- [x] OpenJDK 17 and Android SDK/API 35+36/NDK/CMake compiler setup.
-- [x] Node.js 24 LTS, Nginx, Certbot and GitHub CLI setup.
-- [x] Private repository GitHub login/setup-git flow for persistent updates.
-- [x] Persistent Android release keystore generated only on first install.
-- [x] Root-only signing storage with temporary build-user keystore exposure.
-- [x] Signed ARM64 Closed Beta APK export and `apksigner` verification on VPS.
-- [x] Atomic stable APK publication plus version/size/SHA-256 release metadata.
-- [x] Self-hosted Next.js 16/TypeScript mobile download portal.
-- [x] Nginx reverse proxy and direct APK delivery.
-- [x] Optional Certbot/Let's Encrypt HTTPS bootstrap for supplied domain.
-- [x] systemd game-server and download-portal services enabled across reboots.
-- [x] One-command updater with app/server/web/deploy change classification.
-- [x] Production server defaults to Campaign while retaining env-configurable mode.
-- [x] Phase 10 shell/installer contract smoke and real Next.js build gate added to CI.
-- [x] README/runbook with private GitHub bootstrap, DNS, first install, updates and troubleshooting commands.
-- [ ] Execute clean-VPS installation on a real Ubuntu host after Actions/billing is unblocked or a VPS is supplied.
-- [ ] Point the real beta domain at the VPS and issue the production TLS certificate.
-- [ ] Build/install the first APK on a physical phone and complete the Closed Beta matrix.
+## Phase 10 — VPS production and distribution
+
+- [x] Ubuntu 24.04 x86_64/ARM64 installer/updater.
+- [x] Godot 4.6.3/export templates.
+- [x] JDK 17 and Android SDK/API 35/36 tooling.
+- [x] Build Tools 36.1.0 current baseline.
+- [x] Node.js/Nginx/Certbot/GitHub CLI.
+- [x] Private repository auth/update flow.
+- [x] Persistent Android release keystore generated once.
+- [x] Root-only signing storage.
+- [x] Signed Release APK build and apksigner verification.
+- [x] Stable APK publication and release metadata.
+- [x] Next.js download portal.
+- [x] HTTPS/Nginx.
+- [x] systemd game/download services.
+- [x] Differential one-command updater.
+- [x] Real production `--force` deployments completed through beta.5.
+- [x] Android generated-template sanitizer for redundant Manifest merger directives.
+- [x] Closed Beta release workflow derives version from `BuildInfo.gd`.
+- [~] Continue clean-install regression testing when installer/toolchain changes.
+
+## Phase 11.1 — Mobile polish/settings/lobby foundation
+
+- [x] Persistent settings schema.
+- [x] Touch sensitivity.
+- [x] In-match sensitivity panel.
+- [x] HUD overlap correction.
+- [x] Circular icon-based mobile controls.
+- [x] Flashlight.
+- [x] Night readability pass.
+- [x] HUD-layout persistence data model.
+- [x] Guest identity/account foundation.
+- [x] Initial lobby shell.
+- [x] Character catalog.
+
+Still pending from the original Phase 11 plan:
+
+- [ ] Full main-menu settings screen.
+- [ ] Visual HUD editor: drag/scale/opacity/visibility/reset.
+- [ ] Production audio buses/controls.
+- [ ] Complete weapon/zombie/ambience/music/UI audio content.
+
+## Phase 11.2 — Guest/social layer
+
+- [x] Login gate.
+- [x] Persistent guest account.
+- [x] Generated authentication secret.
+- [x] Server-side username uniqueness.
+- [x] Challenge/proof authentication foundation.
+- [x] Server-generated public player ID.
+- [x] Friends/direct messaging foundation.
+- [x] Server-authoritative squad social object.
+
+## Phase 11.3 — Matchmaking, authority, models and presentation
+
+### Squad matchmaking
+
+- [x] Solo/Duo/Squad selection.
+- [x] Server-generated six-character squad code.
+- [x] Join/leave.
+- [x] Leader kick/start.
+- [x] Squad chat.
+- [x] Character/member/ping display.
+- [x] Same squad -> same match_id/host/port/process.
+- [x] Unique private ticket per member.
+- [x] Party lock during matchmaking/match.
+
+### Dedicated MatchOrchestrator
+
+- [x] UDP allocation from production `24600-24749`.
+- [x] Child Godot process per orchestrated party.
+- [x] MatchAdmission config.
+- [x] Readiness marker before assignment is treated as ready.
+- [x] Ticket required for gameplay entity admission.
+- [x] Validation port range isolated from production range in smoke tests.
+
+### Transport/authority
+
+- [x] MTU-safe FastLZ snapshot transport.
+- [x] 900-byte unreliable chunks.
+- [x] Server-authoritative movement/HP/ammo/damage/hits/zombies/progression.
+- [x] Stale-input neutralization.
+- [x] Prediction/reconciliation/interpolation.
+- [x] Ping scoring/presentation.
+
+### Loading and gameplay blockers
+
+- [x] Lobby -> matchmaking -> dedicated -> loading -> spawn path.
+- [x] Loading timeout/failure/reentry handling.
+- [x] Game Over/Restart input hardening.
+- [x] Mobile sprint toggle/haptics.
+- [x] HP/ammo/weapon HUD.
+- [x] Rifle/pistol/machete.
+- [x] Limited ammo/reserves.
+- [x] Ammo drops/pickups replicated authoritatively.
+- [x] Loadout replication.
+
+### Models/animation
+
+- [x] Vendored `Objetos3D` submodule pinned.
+- [x] Canonical operator/zombie staging.
+- [x] GLB validation/import smoke.
+- [x] Automatic visual scale/floor/center normalization.
+- [x] Player/zombie/lobby shared animation driver.
+- [x] `operator_02` generic `mixamo_com` fallback.
+- [x] Quaternius Idle/Walk/Run/Crawl/Attack mappings.
+- [ ] Add/retarget separate player Idle/Walk/Run/Attack/Hurt/Death clips.
+- [ ] Add/verify Quaternius Hurt/Death clips.
+
+### Presentation/performance
+
+- [x] Lobby 2.0 atmosphere/operator stage/turntable.
+- [x] Day/night.
+- [x] Render scale by quality.
+- [x] Mesh LOD by quality.
+- [x] MSAA by quality.
+- [x] FPS targets by quality.
+- [x] Zombie visual-distance culling.
+- [x] Headless presentation models disabled.
+- [~] Tune values from physical-device measurements.
+
+## Phase 12 — beta.5 dedicated-match lifecycle
+
+Version: `0.9.0-beta.5 / 900005`.
+
+### Reconnect/recovery
+
+- [x] Ticket-scoped reconnect.
+- [x] Same authoritative entity restored.
+- [x] Slot/state preserved server-side.
+- [x] Android reconnect window 42 seconds / 10 attempts.
+- [x] Client never uploads trusted recovery state.
+- [x] Real ENet disconnect/reconnect regression probe.
+
+### Child lifecycle
+
+- [x] Heartbeat every 2 seconds.
+- [x] Parent stale-heartbeat watchdog.
+- [x] Frozen-process detection/reap.
+- [x] Startup timeout.
+- [x] Empty-match timeout after a previously admitted player.
+- [x] Absolute runtime TTL.
+- [x] Terminal result reaping.
+- [x] Monotonic first-admission state: READY -> IN_MATCH does not revert during reconnect gaps.
+
+### Result/return flow
+
+- [x] Server-authoritative VICTORY/DEFEAT/ABORTED.
+- [x] Score/kills/wave/reason result payload.
+- [x] Client result overlay.
+- [x] Manual/automatic return to refreshed lobby.
+- [x] Squad unlock/refresh.
+
+### Lifecycle telemetry
+
+- [x] Started/completed/defeated/aborted/failed/frozen/crashed/reaped/reconnect counters.
+- [x] Safe aggregate `/v1/health` output.
+- [x] No public ticket/guest/match/PID/path leakage from lifecycle health payload.
+
+### Automated acceptance
+
+- [x] `--tests-only` gates reached beta.5 lifecycle/real orchestration success before production cut.
+- [x] Full production `--force` completed at `f402f169...`.
+- [x] APK Release signed/published.
+- [x] localhost + HTTPS API checks passed.
+- [~] Physical beta.5 lifecycle acceptance remains the current blocker to calling this phase fully accepted.
+
+## Phase 12-D — Immediate physical beta.5 acceptance
+
+This is the current priority.
+
+### Solo
+
+- [ ] Install/update beta.5 on physical Android.
+- [ ] Login/lobby/operator preview.
+- [ ] Start/load/spawn Campaign.
+- [ ] Validate movement/cameras/mobile actions.
+- [ ] Validate rifle/pistol/machete and ammo UI.
+- [ ] Validate ammo drops/pickups.
+- [ ] Validate zombies/animations/gore.
+- [ ] Validate day/night/flashlight.
+- [ ] Validate Game Over/Restart.
+- [ ] Record crashes/ANRs/performance issues.
+
+### Duo public Internet
+
+- [ ] Same squad, same match instance.
+- [ ] Both spawn.
+- [ ] Movement/combat/zombies/pickups replicate.
+- [ ] Deliberately disconnect one client.
+- [ ] Reconnect inside 42 seconds.
+- [ ] Same identity/entity/state restored.
+- [ ] Authoritative result delivered.
+- [ ] Both return to unlocked/refreshed lobby.
+- [ ] Test Wi-Fi and mobile data paths where practical.
+
+### Three/four players
+
+- [ ] 3-player run.
+- [ ] 4-player run.
+- [ ] DOWNED/revive/death.
+- [ ] Multi-player ammo pickup contention.
+- [ ] Zombie/Horde load.
+- [ ] Process cleanup after result/disconnect.
+
+### Performance matrix
+
+- [ ] Lower-memory device.
+- [ ] Mid-range device.
+- [ ] High-end device where available.
+- [ ] FPS/1% low observations.
+- [ ] RAM/thermal observations.
+- [ ] Smooth/Standard/Ultra comparison where practical.
+
+## Phase 13 — Download portal / release history upgrade
+
+Do this after physical blockers are addressed. If beta.5 physical testing is clean, this can be the next contained implementation block.
+
+- [ ] Durable structured release-history source.
+- [ ] Preserve/merge history during deployments.
+- [ ] Hamburger mobile menu.
+- [ ] Inicio/current release.
+- [ ] Version history page/timeline.
+- [ ] Version detail route.
+- [ ] Added/changed/fixed/known-issues sections.
+- [ ] Compatibility information.
+- [ ] Integrity/SHA-256 presentation.
+- [ ] Current/superseded/withdrawn states.
+- [ ] Reconstruct exact beta.2/beta.3 notes from Git history before public detailed display.
+- [ ] Next.js production/build/schema gates.
+- [ ] HTTPS/mobile-browser validation.
+
+Detailed design: `docs/DOWNLOAD_PORTAL_PLAN.md`.
+
+## Phase 14 — Settings, HUD customization and audio
+
+- [ ] Full main-menu settings UI.
+- [ ] Master/music/SFX/UI/ambience buses.
+- [ ] Persistent volume controls.
+- [ ] HUD editor.
+- [ ] Drag controls.
+- [ ] Scale controls.
+- [ ] Opacity.
+- [ ] Visibility.
+- [ ] Individual/all reset.
+- [ ] Bounds/safe-area recovery.
+- [ ] Gunshot audio.
+- [ ] Zombie vocals.
+- [ ] Environment ambience.
+- [ ] Music.
+- [ ] UI feedback audio.
+
+## Phase 15 — Art/animation/content pass
+
+- [ ] Full player semantic animation set/retargeting.
+- [ ] Zombie Hurt/Death animation coverage.
+- [ ] Environment structures/houses/walls.
+- [ ] Abandoned vehicles/debris.
+- [ ] Fire/FX presentation.
+- [ ] Map detail and navigation pass.
+- [ ] Additional missions/objectives.
+- [ ] Additional weapons/loot/progression.
+- [ ] Additional zombie variants/encounters.
+
+## Phase 16 — Multiplayer soak and wider beta
+
+- [ ] Long-duration 4-player soak.
+- [ ] Latency/jitter/loss scenarios.
+- [ ] Reconnect abuse/edge cases.
+- [ ] Invalid RPC/input fuzz expansion.
+- [ ] Server memory/CPU monitoring under concurrent matches.
+- [ ] Dynamic-port exhaustion/capacity behavior.
+- [ ] Frozen child watchdog fault-injection test.
+- [ ] Wider tester compatibility matrix.
+- [ ] Crash/ANR aggregation process.
+
+## Future — Squad voice chat
+
+Architecture has been researched/documented but remains intentionally deferred.
+
+- [ ] Runtime microphone permission/capture.
+- [ ] Native Opus bridge.
+- [ ] Unreliable voice relay.
+- [ ] Jitter buffer/playback.
+- [ ] Echo/noise/device handling.
+- [ ] Mute/block/PTT/open-mic UX.
+- [ ] Abuse/moderation controls.
+
+Do not prioritize voice chat ahead of stable core co-op, physical performance and lifecycle reliability.
+
+## Release/version policy
+
+- Do not bump a beta version just for docs-only changes.
+- Fix physical beta.5 blockers on beta.5 unless compatibility/wire/runtime changes require a new cut.
+- When cutting a new Android/server beta, update `BuildInfo.gd`, export presets, compatibility docs and release notes together.
+- Run `--tests-only` first, then full `--force`, then physical acceptance.
+- GitHub Actions red runs with `steps=null` due billing/spending are not source-test failures.
+
+## Working order from here
+
+1. Physical beta.5 Solo.
+2. Physical beta.5 Duo + deliberate reconnect + result/lobby.
+3. 3-player.
+4. 4-player.
+5. Fix any blocker first.
+6. Record compatibility/performance.
+7. Implement Phase 13 portal/history if no critical blocker remains.
+8. Continue Phase 14/15 according to physical feedback.
