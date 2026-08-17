@@ -160,7 +160,7 @@ func _run() -> void:
 	var fake_orchestrator := FakeLifecycleOrchestrator.new()
 	var control_api = LifecycleControlApiScript.new()
 	control_api.configure(null, null, fake_orchestrator)
-	var health: Dictionary = control_api.call("_route", HTTPClient.METHOD_GET, "/v1/health", "", {})
+	var health: Dictionary = control_api.call("_route", "GET", "/v1/health", "", {})
 	var public_lifecycle: Dictionary = Dictionary(health.get("match_lifecycle", {}))
 	if not bool(health.get("ok", false)) or int(public_lifecycle.get("active_count", -1)) != 2:
 		_fail("Lifecycle health endpoint did not expose aggregate state")
