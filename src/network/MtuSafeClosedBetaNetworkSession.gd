@@ -48,7 +48,10 @@ func _send_snapshot_chunks(peer_id: int) -> void:
 		var chunk := compressed.slice(begin, end)
 		rpc_id(peer_id, "_client_receive_snapshot_chunk", tick, raw.size(), total_chunks, chunk_index, chunk)
 
-@rpc("authority", "call_remote", "unreliable_ordered", 1)
+# Chunks deliberately use unordered unreliable delivery. Reassembly is keyed by
+# server_tick/chunk_index, so accepting out-of-order delivery avoids dropping a
+# valid fragment merely because a later fragment arrived first.
+@rpc("authority", "call_remote", "unreliable", 1)
 func _client_receive_snapshot_chunk(server_tick: int, raw_size: int, total_chunks: int, chunk_index: int, chunk: PackedByteArray) -> void:
 	if role != Role.CLIENT:
 		return
