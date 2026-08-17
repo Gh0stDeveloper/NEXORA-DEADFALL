@@ -105,12 +105,31 @@ func _run() -> void:
 		day_night.queue_free()
 		await process_frame
 
+	if not _run_child_smoke(
+		"res://scripts/ci/gameplay_features_smoke.gd",
+		"NEXORA: DEADFALL gameplay features smoke passed",
+		"Gameplay feature regression"
+	):
+		return
+	if not _run_child_smoke(
+		"res://scripts/ci/presentation_mobile_smoke.gd",
+		"NEXORA: DEADFALL beta.4 lobby/mobile presentation smoke passed",
+		"Beta.4 lobby/mobile presentation"
+	):
+		return
+
+	print("NEXORA: DEADFALL strict gameplay compile smoke passed")
+	print("NEXORA: DEADFALL gameplay features smoke passed")
+	print("NEXORA: DEADFALL beta.4 lobby/mobile presentation smoke passed")
+	quit(0)
+
+func _run_child_smoke(script_path: String, success_marker: String, label: String) -> bool:
 	var child_output: Array = []
 	var project_root: String = ProjectSettings.globalize_path("res://")
-	var feature_script: String = ProjectSettings.globalize_path("res://scripts/ci/gameplay_features_smoke.gd")
+	var child_script: String = ProjectSettings.globalize_path(script_path)
 	var child_exit: int = OS.execute(
 		OS.get_executable_path(),
-		PackedStringArray(["--headless", "--path", project_root, "--script", feature_script]),
+		PackedStringArray(["--headless", "--path", project_root, "--script", child_script]),
 		child_output,
 		true,
 		false
@@ -119,19 +138,16 @@ func _run() -> void:
 	for value in child_output:
 		child_text += String(value)
 	if child_exit != 0:
-		_fail("Gameplay feature regression smoke failed (exit=%d): %s" % [child_exit, child_text])
-		return
+		_fail("%s smoke failed (exit=%d): %s" % [label, child_exit, child_text])
+		return false
 	for fatal_marker in ["SCRIPT ERROR:", "ERROR: Failed to load script", "Compile Error:", "Parse Error:"]:
 		if child_text.contains(fatal_marker):
-			_fail("Gameplay feature regression smoke emitted a script/load error: %s" % child_text)
-			return
-	if not child_text.contains("NEXORA: DEADFALL gameplay features smoke passed"):
-		_fail("Gameplay feature regression smoke did not emit its success marker: %s" % child_text)
-		return
-
-	print("NEXORA: DEADFALL strict gameplay compile smoke passed")
-	print("NEXORA: DEADFALL gameplay features smoke passed")
-	quit(0)
+			_fail("%s smoke emitted a script/load error: %s" % [label, child_text])
+			return false
+	if not child_text.contains(success_marker):
+		_fail("%s smoke did not emit its success marker: %s" % [label, child_text])
+		return false
+	return true
 
 func _fail(message: String) -> void:
 	push_error(message)
