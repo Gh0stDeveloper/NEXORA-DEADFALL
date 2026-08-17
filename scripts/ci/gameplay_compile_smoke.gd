@@ -10,8 +10,10 @@ const REQUIRED_SCRIPTS := [
 	"res://src/horde/AmmoDropDirector.gd",
 	"res://src/mobile/TouchActionButton.gd",
 	"res://src/mobile/MobileHUD.gd",
+	"res://src/mobile/MobilePerformanceTuner.gd",
 	"res://src/lobby/LobbyVisualPolish.gd",
 	"res://src/assets/ModelNormalizer.gd",
+	"res://src/assets/ImportedAnimationDriver.gd",
 	"res://src/ui/MatchLoadingOverlay.gd",
 	"res://src/maps/campaign/DayNightCycle.gd",
 ]
@@ -39,7 +41,16 @@ func _run() -> void:
 		_fail("OutbreakDistrict.tscn cannot be instantiated after gameplay changes")
 		return
 
+	var performance_tuner := root.get_node_or_null("PerformanceTuner")
+	if performance_tuner == null or not performance_tuner.has_method("get_status_snapshot"):
+		_fail("Mobile performance tuner autoload is missing")
+		return
+
 	if DisplayServer.get_name() == "headless":
+		var performance_status: Dictionary = performance_tuner.call("get_status_snapshot")
+		if bool(performance_status.get("active", true)):
+			_fail("Mobile performance tuner must remain dormant on headless/dedicated server")
+			return
 		var day_night_script := load("res://src/maps/campaign/DayNightCycle.gd") as Script
 		var day_night := day_night_script.new() as Node
 		root.add_child(day_night)
