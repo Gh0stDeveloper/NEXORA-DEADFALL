@@ -47,7 +47,6 @@ func _run() -> void:
 		_fail("Primary weapon did not initialize with magazine/reserve ammo")
 		return
 
-	# Empty magazines must never create a shot intent or consume hidden ammo.
 	primary.call("apply_authoritative_state", {"ammo": 0, "reserve": 0, "reloading": false, "reload_remaining_usec": 0})
 	if bool(primary.call("_try_fire", Time.get_ticks_usec())):
 		_fail("Primary weapon fired with an empty magazine")
@@ -56,7 +55,6 @@ func _run() -> void:
 		_fail("Empty-magazine dry fire mutated ammo")
 		return
 
-	# Authoritative ammo pickups must replenish reserve ammo through WeaponLoadout.
 	primary.call("apply_authoritative_state", {"ammo": 30, "reserve": 100, "reloading": false, "reload_remaining_usec": 0})
 	loadout.call("force_active_slot", 0)
 	var reserve_before: int = int(primary.call("get_reserve_ammo"))
@@ -106,7 +104,6 @@ func _run() -> void:
 		return
 	sprint_button.call("set_latched", false)
 
-	# Game Over must cover mobile controls and restart the authoritative Horde run.
 	var director: Node = arena.get_node_or_null("HordeDirector")
 	var horde_hud: Node = arena.get_node_or_null("HordeHUD")
 	if director == null or horde_hud == null:
@@ -132,7 +129,6 @@ func _run() -> void:
 		_fail("Mobile controls were not restored after Horde restart")
 		return
 
-	# Match loading must expose a real error/return path instead of infinite loading.
 	var loading: CanvasLayer = LoadingOverlayScript.new() as CanvasLayer
 	root.add_child(loading)
 	await process_frame
