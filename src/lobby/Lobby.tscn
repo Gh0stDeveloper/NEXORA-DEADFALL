@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://src/lobby/LobbyController.gd" id="1_lobby"]
 [ext_resource type="Script" path="res://src/lobby/LobbySocialOverlay.gd" id="2_social"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://src/lobby/LobbyCharacterSync.gd" id="4_character_sync"]
 [ext_resource type="Script" path="res://src/lobby/LobbyMatchBridge.gd" id="5_match_bridge"]
 [ext_resource type="Script" path="res://src/lobby/LobbyCharacterPreviewBridge.gd" id="6_character_preview"]
+[ext_resource type="Script" path="res://src/lobby/LobbyVisualPolish.gd" id="7_visual_polish"]
 
 [node name="Lobby" type="Control"]
 layout_mode = 3
@@ -44,3 +45,6 @@ script = ExtResource("5_match_bridge")
 
 [node name="CharacterPreviewBridge" type="Node" parent="."]
 script = ExtResource("6_character_preview")
+
+[node name="VisualPolish" type="Node" parent="."]
+script = ExtResource("7_visual_polish")
