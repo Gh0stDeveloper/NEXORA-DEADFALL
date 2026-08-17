@@ -2,6 +2,8 @@ class_name DeadfallPlayerModelPresenter
 extends Node3D
 
 const ExternalModels = preload("res://src/assets/ExternalModelCatalog.gd")
+const ModelNormalizer = preload("res://src/assets/ModelNormalizer.gd")
+const TARGET_VISUAL_HEIGHT := 1.76
 
 @export var fallback_body_path := NodePath("../Body")
 
@@ -42,6 +44,9 @@ func configure_character(character_id: StringName) -> bool:
 	_loaded_model.rotation_degrees = configured_rotation
 	_loaded_model.position = configured_offset
 	add_child(_loaded_model)
+	var normalization := ModelNormalizer.normalize_visual(_loaded_model, self, TARGET_VISUAL_HEIGHT)
+	if not bool(normalization.get("ok", false)):
+		push_warning("DEADFALL player model normalization failed: %s" % String(normalization.get("reason", "unknown")))
 	_set_fallback_visible(false)
 	_play_idle_if_available(_loaded_model)
 	return true
@@ -66,14 +71,17 @@ func _play_idle_if_available(root: Node) -> void:
 	if player == null:
 		return
 	var names := player.get_animation_list()
-	for candidate in ["Idle", "idle", "IDLE"]:
-		if candidate in names:
-			player.play(candidate)
+	for name in names:
+		var lowered := String(name).to_lower()
+		if lowered.contains("idle") or lowered.contains("stand") or lowered.contains("breath"):
+			player.play(StringName(name))
 			return
-	if not names.is_empty():
-		var first := StringName(names[0])
-		if String(first).to_lower().contains("idle"):
-			player.play(first)
+	# Avoid leaving imported animated characters in T-pose when the source uses
+	# generic animation names. RESET is never selected as a presentation clip.
+	for name in names:
+		if String(name).to_lower() != "reset":
+			player.play(StringName(name))
+			return
 
 func _find_animation_player(root: Node) -> AnimationPlayer:
 	if root is AnimationPlayer:
