@@ -19,8 +19,12 @@ var _restart_handler: Node
 var _last_population_cost := -1
 var _last_population_budget := -1
 var _last_enemies_remaining := -1
+var _restart_pending := false
 
 func _ready() -> void:
+	# MobileHUD lives at layer 20. Game Over must sit above touch controls or its
+	# button is visible but the look/action controls can consume the touch first.
+	layer = 40
 	_director = get_node_or_null(director_path)
 	_restart_handler = get_node_or_null(restart_handler_path) if not String(restart_handler_path).is_empty() else null
 	if _director == null:
@@ -31,6 +35,8 @@ func _ready() -> void:
 			_director.connect(signal_name, Callable(self, "_on_horde_updated"))
 	if _director.has_signal("population_changed"):
 		_director.connect("population_changed", Callable(self, "_on_population_changed"))
+	restart_button.text = "REINICIAR"
+	restart_button.focus_mode = Control.FOCUS_NONE
 	restart_button.pressed.connect(_on_restart_pressed)
 	_refresh()
 
@@ -44,10 +50,34 @@ func _on_population_changed(_active_count: int, active_cost: int, budget: int, e
 	_refresh()
 
 func _on_restart_pressed() -> void:
+	if _restart_pending:
+		return
+	_restart_pending = true
+	restart_button.disabled = true
+	restart_button.text = "REINICIANDO…"
+	if OS.has_feature("mobile"):
+		Input.vibrate_handheld(32)
 	if _restart_handler != null and _restart_handler.has_method("request_restart"):
 		_restart_handler.call("request_restart")
 	elif _director != null and _director.has_method("restart_run"):
 		_director.call("restart_run")
+	else:
+		_restart_pending = false
+		restart_button.disabled = false
+		restart_button.text = "REINICIAR"
+	if _restart_pending:
+		_reenable_restart_after_timeout()
+
+func _reenable_restart_after_timeout() -> void:
+	await get_tree().create_timer(6.0).timeout
+	if not _restart_pending or _director == null:
+		return
+	var snapshot_value = _director.call("get_status_snapshot")
+	var snapshot: Dictionary = snapshot_value if typeof(snapshot_value) == TYPE_DICTIONARY else {}
+	if int(snapshot.get("state", HordeDirectorScript.State.DISABLED)) == HordeDirectorScript.State.GAME_OVER:
+		_restart_pending = false
+		restart_button.disabled = false
+		restart_button.text = "REINTENTAR"
 
 func _refresh() -> void:
 	if _director == null:
@@ -68,6 +98,20 @@ func _refresh() -> void:
 	countdown_label.visible = show_countdown
 	if show_countdown:
 		countdown_label.text = "WAVE %d IN %d" % [1 if state == HordeDirectorScript.State.COUNTDOWN else wave + 1, int(snapshot.get("countdown", 0))]
-	game_over_panel.visible = state == HordeDirectorScript.State.GAME_OVER
-	if game_over_panel.visible:
-		game_over_summary.text = "WAVE %d\nSCORE %d\nKILLS %d" % [wave, int(snapshot.get("score", 0)), int(snapshot.get("kills", 0))]
+	var game_over := state == HordeDirectorScript.State.GAME_OVER
+	game_over_panel.visible = game_over
+	_set_mobile_controls_enabled(not game_over)
+	if game_over:
+		game_over_summary.text = "OLEADA %d\nPUNTUACIÓN %d\nBAJAS %d" % [wave, int(snapshot.get("score", 0)), int(snapshot.get("kills", 0))]
+	elif _restart_pending:
+		_restart_pending = false
+		restart_button.disabled = false
+		restart_button.text = "REINICIAR"
+
+func _set_mobile_controls_enabled(enabled: bool) -> void:
+	var arena := get_parent()
+	if arena == null:
+		return
+	var mobile := arena.get_node_or_null("MobileHUD")
+	if mobile != null and mobile.has_method("set_gameplay_controls_enabled"):
+		mobile.call("set_gameplay_controls_enabled", enabled)
