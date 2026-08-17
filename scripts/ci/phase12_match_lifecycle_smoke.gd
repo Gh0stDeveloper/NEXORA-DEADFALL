@@ -1,12 +1,14 @@
 extends SceneTree
 
-const BuildInfoScript = preload("res://src/release/BuildInfo.gd")
-const MatchAdmissionScript = preload("res://src/server/MatchAdmission.gd")
-const MatchGuardScript = preload("res://src/server/MatchInstanceGuard.gd")
-const MatchOrchestratorScript = preload("res://src/server/MatchOrchestrator.gd")
-const LifecycleSessionScript = preload("res://src/network/LifecycleMtuSafeNetworkSession.gd")
-const LifecycleControlApiScript = preload("res://src/server/LifecycleControlApiServer.gd")
-const ResultOverlayScript = preload("res://src/ui/MatchResultOverlay.gd")
+const BUILD_INFO_PATH := "res://src/release/BuildInfo.gd"
+const MATCH_ADMISSION_PATH := "res://src/server/MatchAdmission.gd"
+const MATCH_GUARD_PATH := "res://src/server/MatchInstanceGuard.gd"
+const MATCH_ORCHESTRATOR_PATH := "res://src/server/MatchOrchestrator.gd"
+const LIFECYCLE_SESSION_PATH := "res://src/network/LifecycleMtuSafeNetworkSession.gd"
+const LIFECYCLE_CONTROL_API_PATH := "res://src/server/LifecycleControlApiServer.gd"
+const RESULT_OVERLAY_PATH := "res://src/ui/MatchResultOverlay.gd"
+const CAMPAIGN_SCENE_PATH := "res://src/maps/campaign/OutbreakDistrict.tscn"
+const MAIN_PATH := "res://src/main/Main.gd"
 
 class FakeLifecycleSession:
 	extends Node
@@ -50,30 +52,51 @@ func _initialize() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
-	if BuildInfoScript.APP_VERSION != "0.9.0-beta.5" or BuildInfoScript.VERSION_CODE != 900005:
+	# Direct --script execution loads this file before project autoload identifiers
+	# are guaranteed to be registered. Do not preload gameplay/network scripts at
+	# file scope. Wait for the SceneTree/autoload lifecycle, then resolve them.
+	await process_frame
+	if root.get_node_or_null("Game") == null or root.get_node_or_null("Settings") == null:
+		_fail("Phase 12 autoloads Game/Settings were not initialized before dependency loading")
+		return
+
+	var build_info_script: Script = _load_script(BUILD_INFO_PATH)
+	var admission_script: Script = _load_script(MATCH_ADMISSION_PATH)
+	var guard_script: Script = _load_script(MATCH_GUARD_PATH)
+	var orchestrator_script: Script = _load_script(MATCH_ORCHESTRATOR_PATH)
+	var lifecycle_script: Script = _load_script(LIFECYCLE_SESSION_PATH)
+	var control_api_script: Script = _load_script(LIFECYCLE_CONTROL_API_PATH)
+	var result_overlay_script: Script = _load_script(RESULT_OVERLAY_PATH)
+	for entry in [
+		{"label": "BuildInfo", "script": build_info_script},
+		{"label": "MatchAdmission", "script": admission_script},
+		{"label": "MatchInstanceGuard", "script": guard_script},
+		{"label": "MatchOrchestrator", "script": orchestrator_script},
+		{"label": "LifecycleMtuSafeNetworkSession", "script": lifecycle_script},
+		{"label": "LifecycleControlApiServer", "script": control_api_script},
+		{"label": "MatchResultOverlay", "script": result_overlay_script},
+	]:
+		var script_value: Script = entry.get("script") as Script
+		if script_value == null or not script_value.can_instantiate():
+			_fail("Phase 12 dependency cannot instantiate: %s" % String(entry.get("label", "unknown")))
+			return
+
+	var build_constants: Dictionary = build_info_script.get_script_constant_map()
+	if String(build_constants.get("APP_VERSION", "")) != "0.9.0-beta.5" or int(build_constants.get("VERSION_CODE", 0)) != 900005:
 		_fail("Phase 12 requires beta.5 / 900005")
 		return
-	if BuildInfoScript.MIN_CLIENT_VERSION_CODE != 900005 or BuildInfoScript.MIN_SERVER_VERSION_CODE != 900005:
+	if int(build_constants.get("MIN_CLIENT_VERSION_CODE", 0)) != 900005 or int(build_constants.get("MIN_SERVER_VERSION_CODE", 0)) != 900005:
 		_fail("Phase 12 compatibility floor must reject beta.4")
 		return
 
-	var lifecycle_script: Script = LifecycleSessionScript as Script
-	if lifecycle_script == null or not lifecycle_script.can_instantiate():
-		_fail("Lifecycle MTU-safe session cannot be instantiated")
-		return
-	var lifecycle_session: Node = lifecycle_script.new() as Node
-	if lifecycle_session == null:
-		_fail("Lifecycle MTU-safe session instance is not a Node")
-		return
-	if not lifecycle_session.has_signal("match_finished") or not lifecycle_session.has_method("publish_match_result"):
-		_fail("Lifecycle session lost authoritative result signal/method")
-		return
-	var lifecycle_status: Dictionary = Dictionary(lifecycle_session.call("get_status_snapshot"))
-	var lifecycle_contract: Dictionary = Dictionary(lifecycle_status.get("match_lifecycle", {}))
-	if not bool(lifecycle_contract.get("authoritative_result_rpc", false)):
-		_fail("Lifecycle session does not advertise authoritative result RPC")
-		return
-	lifecycle_session.free()
+	# The lifecycle session inherits the full gameplay transport and cannot be
+	# instantiated naked: DuoNetworkSession._ready() expects arena nodes. Validate
+	# its public contract here, then validate runtime status inside CampaignArena.
+	var lifecycle_source: String = _read_text(LIFECYCLE_SESSION_PATH)
+	for token in ["signal match_finished", "func publish_match_result", "authoritative_result_rpc", "ticket_scoped_reconnect"]:
+		if not lifecycle_source.contains(token):
+			_fail("Lifecycle network contract missing: %s" % token)
+			return
 
 	var temp_dir: String = ProjectSettings.globalize_path("user://ci_phase12")
 	DirAccess.make_dir_recursive_absolute(temp_dir)
@@ -110,7 +133,7 @@ func _run() -> void:
 	config_file.store_string(JSON.stringify(config, "\t"))
 	config_file.close()
 
-	var admission: RefCounted = MatchAdmissionScript.new() as RefCounted
+	var admission: RefCounted = admission_script.new() as RefCounted
 	if admission == null or not admission.has_method("load_from_file") or not bool(admission.call("load_from_file", config_path)):
 		_fail("MatchAdmission rejected schema v2 lifecycle config")
 		return
@@ -125,7 +148,7 @@ func _run() -> void:
 
 	var fake: FakeLifecycleSession = FakeLifecycleSession.new()
 	root.add_child(fake)
-	var guard: Node = MatchGuardScript.new() as Node
+	var guard: Node = guard_script.new() as Node
 	if guard == null:
 		_fail("Match guard could not instantiate")
 		return
@@ -151,7 +174,7 @@ func _run() -> void:
 	fake.queue_free()
 	await process_frame
 
-	var orchestrator: Node = MatchOrchestratorScript.new() as Node
+	var orchestrator: Node = orchestrator_script.new() as Node
 	if orchestrator == null:
 		_fail("Match orchestrator could not instantiate")
 		return
@@ -167,7 +190,7 @@ func _run() -> void:
 	orchestrator.free()
 
 	var fake_orchestrator: FakeLifecycleOrchestrator = FakeLifecycleOrchestrator.new()
-	var control_api: Node = LifecycleControlApiScript.new() as Node
+	var control_api: Node = control_api_script.new() as Node
 	if control_api == null:
 		_fail("Lifecycle control API could not instantiate")
 		return
@@ -187,29 +210,33 @@ func _run() -> void:
 	control_api.free()
 	fake_orchestrator.free()
 
-	var result_overlay_script: Script = ResultOverlayScript as Script
-	if result_overlay_script == null or not result_overlay_script.can_instantiate():
-		_fail("Match result overlay cannot compile")
-		return
-	var campaign_scene: PackedScene = load("res://src/maps/campaign/OutbreakDistrict.tscn") as PackedScene
-	if campaign_scene == null:
+	var campaign_scene: PackedScene = load(CAMPAIGN_SCENE_PATH) as PackedScene
+	if campaign_scene == null or not campaign_scene.can_instantiate():
 		_fail("Campaign scene missing for lifecycle smoke")
 		return
 	var campaign: Node = campaign_scene.instantiate()
 	root.add_child(campaign)
+	await process_frame
 	var campaign_session: Node = campaign.get_node_or_null("NetworkSession")
 	if campaign_session == null:
+		campaign.free()
 		_fail("Campaign NetworkSession is missing")
 		return
 	var campaign_session_script: Script = campaign_session.get_script() as Script
-	if campaign_session_script == null or String(campaign_session_script.resource_path) != "res://src/network/LifecycleMtuSafeNetworkSession.gd":
+	if campaign_session_script == null or String(campaign_session_script.resource_path) != LIFECYCLE_SESSION_PATH:
+		campaign.free()
 		_fail("Campaign is not bound to lifecycle network session")
+		return
+	var lifecycle_status: Dictionary = Dictionary(campaign_session.call("get_status_snapshot"))
+	var lifecycle_contract: Dictionary = Dictionary(lifecycle_status.get("match_lifecycle", {}))
+	if not bool(lifecycle_contract.get("authoritative_result_rpc", false)):
+		campaign.free()
+		_fail("Lifecycle session does not advertise authoritative result RPC at runtime")
 		return
 	campaign.queue_free()
 	await process_frame
 
-	var main_file: FileAccess = FileAccess.open("res://src/main/Main.gd", FileAccess.READ)
-	var main_source: String = main_file.get_as_text() if main_file != null else ""
+	var main_source: String = _read_text(MAIN_PATH)
 	for contract in ["MATCH_RECONNECT_WINDOW_SECONDS := 42.0", "MATCH_RECONNECT_MAX_ATTEMPTS := 10", "_on_authoritative_match_finished", "_finish_reconnect_failure", "_refresh_returned_lobby"]:
 		if not main_source.contains(contract):
 			_fail("Client lifecycle contract missing: %s" % contract)
@@ -218,6 +245,14 @@ func _run() -> void:
 	_cleanup([config_path, ready_path, heartbeat_path, result_path, heartbeat_path + ".tmp", result_path + ".tmp"])
 	print("NEXORA: DEADFALL beta.5 match lifecycle smoke passed")
 	quit(0)
+
+func _load_script(path: String) -> Script:
+	var resource: Resource = load(path)
+	return resource as Script
+
+func _read_text(path: String) -> String:
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	return file.get_as_text() if file != null else ""
 
 func _read_json(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
