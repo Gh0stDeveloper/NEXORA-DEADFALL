@@ -1,7 +1,7 @@
 [gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://src/lobby/LobbyController.gd" id="1_lobby"]
-[ext_resource type="Script" path="res://src/lobby/LobbySocialOverlay.gd" id="2_social"]
+[ext_resource type="Script" path="res://src/lobby/LobbySocialOverlayRuntime.gd" id="2_social"]
 [ext_resource type="Script" path="res://src/lobby/PublicPlayerIdBadge.gd" id="3_player_id"]
 [ext_resource type="Script" path="res://src/lobby/LobbyCharacterSync.gd" id="4_character_sync"]
 [ext_resource type="Script" path="res://src/lobby/LobbyMatchBridge.gd" id="5_match_bridge"]
