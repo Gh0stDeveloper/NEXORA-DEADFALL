@@ -34,7 +34,7 @@ func _run() -> void:
 	var viewport := lobby.get_node_or_null("SafeArea/OperatorStage/CharacterViewportContainer/CharacterViewport") as SubViewport
 	if viewport == null or viewport.size.x < 640 or viewport.size.y < 720:
 		lobby.free()
-		_fail("Lobby character viewport is below the beta.4 presentation budget")
+		_fail("Lobby character viewport is below the presentation budget")
 		return
 
 	var preview_source := _read_text("res://src/lobby/LobbyCharacterPreviewBridge.gd")
@@ -93,7 +93,7 @@ func _run() -> void:
 
 	lobby.free()
 	await process_frame
-	print("NEXORA: DEADFALL beta.4 lobby/mobile presentation smoke passed")
+	print("NEXORA: DEADFALL lobby/mobile presentation smoke passed")
 	quit(0)
 
 func _read_text(path: String) -> String:
