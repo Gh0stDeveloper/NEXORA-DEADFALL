@@ -1,0 +1,17 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/weapons/base/WeaponData.gd" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+weapon_id = &"nxr_pistol_01"
+display_name = "NXR-9 Sidearm"
+base_damage = 22.0
+magazine_size = 15
+starting_reserve_ammo = 45
+max_reserve_ammo = 180
+rounds_per_minute = 320.0
+reload_seconds = 1.55
+max_distance = 90.0
+penetration = 0.02
+automatic = false
