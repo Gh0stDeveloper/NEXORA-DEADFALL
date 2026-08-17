@@ -12,7 +12,9 @@ func _run() -> void:
 	if transport_script == null or not transport_script.can_instantiate():
 		_fail("MTU-safe Closed Beta transport could not compile/instantiate")
 		return
-	if int(transport_script.get("SNAPSHOT_CHUNK_BYTES")) != EXPECTED_CHUNK_BYTES:
+	var transport_file := FileAccess.open(TRANSPORT_PATH, FileAccess.READ)
+	var transport_text := transport_file.get_as_text() if transport_file != null else ""
+	if not transport_text.contains("const SNAPSHOT_CHUNK_BYTES := %d" % EXPECTED_CHUNK_BYTES):
 		_fail("MTU-safe transport chunk contract changed")
 		return
 
