@@ -6,7 +6,12 @@ ROOT="${DEADFALL_ROOT:-/opt/nexora-deadfall}"
 run_godot_smoke(){
   local script="$1"
   [[ -f "$ROOT/$script" ]] || { echo "Smoke no encontrado: $ROOT/$script" >&2; exit 1; }
-  sudo -Hu deadfall godot --headless --path "$ROOT" --script "$ROOT/$script"
+  # Always start Godot from the managed project directory. `sudo -Hu deadfall`
+  # otherwise inherits root's current working directory (commonly /root), which
+  # the deadfall service account cannot traverse. Godot changes CWD internally
+  # while resolving --path and used to emit "Couldn't return to previous working
+  # directory" on shutdown even after a successful smoke.
+  sudo -Hu deadfall bash -c 'cd "$1" && exec godot --headless --path "$1" --script "$1/$2"' bash "$ROOT" "$script"
 }
 case "${1:-status}" in
   update) exec sudo "$ROOT/deploy/vps/update.sh" "${@:2}";;
