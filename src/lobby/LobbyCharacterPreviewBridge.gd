@@ -3,17 +3,30 @@ extends Node
 
 const ExternalModels = preload("res://src/assets/ExternalModelCatalog.gd")
 const ModelNormalizer = preload("res://src/assets/ModelNormalizer.gd")
+const AnimationDriver = preload("res://src/assets/ImportedAnimationDriver.gd")
 const PREVIEW_HEIGHT := 1.76
+
+@export_range(0.0, 1.0, 0.01) var turntable_radians_per_second := 0.10
 
 var _viewport: SubViewport
 var _preview_root: Node3D
+var _turntable: Node3D
 var _placeholder: MeshInstance3D
 var _model: Node3D
 var _current_character: StringName = &""
+var _animation_status: Dictionary = {}
 
 func _ready() -> void:
+	if DisplayServer.get_name() == "headless" or OS.has_feature("dedicated_server"):
+		set_process(false)
+		return
 	GuestIdentity.selected_character_changed.connect(_on_character_changed)
+	set_process(true)
 	call_deferred("_initialize_preview")
+
+func _process(delta: float) -> void:
+	if _turntable != null and is_instance_valid(_turntable) and _model != null and is_instance_valid(_model):
+		_turntable.rotation.y = fposmod(_turntable.rotation.y + turntable_radians_per_second * delta, TAU)
 
 func _initialize_preview() -> void:
 	var lobby := get_parent()
@@ -26,13 +39,18 @@ func _initialize_preview() -> void:
 	if _preview_root == null:
 		return
 	_placeholder = _preview_root.get_node_or_null("OperatorPlaceholder") as MeshInstance3D
+	_turntable = _preview_root.get_node_or_null("LobbyCharacterTurntable") as Node3D
+	if _turntable == null:
+		_turntable = Node3D.new()
+		_turntable.name = "LobbyCharacterTurntable"
+		_preview_root.add_child(_turntable)
 	_show_character(GuestIdentity.selected_character)
 
 func _on_character_changed(character_id: StringName) -> void:
 	_show_character(character_id)
 
 func _show_character(character_id: StringName) -> void:
-	if _preview_root == null:
+	if _preview_root == null or _turntable == null:
 		return
 	var requested := character_id if not character_id.is_empty() else &"operator_01"
 	if requested == _current_character and _model != null and is_instance_valid(_model):
@@ -59,42 +77,27 @@ func _show_character(character_id: StringName) -> void:
 	_model.scale = configured_scale
 	_model.rotation_degrees = configured_rotation
 	_model.position = configured_offset
-	_preview_root.add_child(_model)
+	_turntable.rotation = Vector3.ZERO
+	_turntable.add_child(_model)
 	var normalization := ModelNormalizer.normalize_visual(_model, _preview_root, PREVIEW_HEIGHT)
 	if not bool(normalization.get("ok", false)):
 		push_warning("DEADFALL lobby preview normalization failed: %s" % String(normalization.get("reason", "unknown")))
 	_set_placeholder_visible(false)
-	_play_idle_if_available(_model)
+	_animation_status = AnimationDriver.play_semantic(_model, &"idle", 0.0)
+	if not bool(_animation_status.get("ok", false)):
+		_animation_status = AnimationDriver.play_best_pose(_model, ["idle", "stand", "breath", "walk", "run"])
+	if bool(config.get("expects_animation", false)) and not bool(_animation_status.get("ok", false)):
+		push_warning("DEADFALL lobby animated character has no usable runtime pose: %s" % String(config.get("source_name", requested)))
+
+func get_animation_status() -> Dictionary:
+	return _animation_status.duplicate(true)
 
 func _clear_model() -> void:
 	if _model != null and is_instance_valid(_model):
 		_model.queue_free()
 	_model = null
+	_animation_status = {}
 
 func _set_placeholder_visible(visible: bool) -> void:
 	if _placeholder != null:
 		_placeholder.visible = visible
-
-func _play_idle_if_available(root: Node) -> void:
-	var player := _find_animation_player(root)
-	if player == null:
-		return
-	var animations := player.get_animation_list()
-	for name in animations:
-		var lowered := String(name).to_lower()
-		if lowered.contains("idle") or lowered.contains("stand") or lowered.contains("breath"):
-			player.play(StringName(name))
-			return
-	for name in animations:
-		if String(name).to_lower() != "reset":
-			player.play(StringName(name))
-			return
-
-func _find_animation_player(root: Node) -> AnimationPlayer:
-	if root is AnimationPlayer:
-		return root as AnimationPlayer
-	for child in root.get_children():
-		var found := _find_animation_player(child)
-		if found != null:
-			return found
-	return null
