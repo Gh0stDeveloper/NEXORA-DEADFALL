@@ -15,9 +15,12 @@ var _player: Node
 var _input_target: Node
 var _health: Node
 var _weapon: Node
+var _loadout: Node
 var _health_bar: ProgressBar
 var _health_label: Label
 var _ammo_label: Label
+var _weapon_name_label: Label
+var _weapon_buttons: Dictionary = {}
 var _quick_settings_panel: PanelContainer
 var _sensitivity_value_label: Label
 var _gameplay_controls_enabled := true
@@ -35,7 +38,8 @@ func bind_player(player: Node) -> bool:
 		push_warning("MobileHUD could not resolve PlayerInput")
 		return false
 	_health = player.get_node_or_null("Health")
-	_weapon = player.get_node_or_null("PrimaryWeapon")
+	_loadout = player.get_node_or_null("WeaponLoadout")
+	_weapon = _loadout.call("get_active_weapon") if _loadout != null and _loadout.has_method("get_active_weapon") else player.get_node_or_null("PrimaryWeapon")
 	if _safe_root != null and is_instance_valid(_safe_root):
 		_safe_root.queue_free()
 	_build_hud()
@@ -57,7 +61,7 @@ func bind_weapon(weapon: Node) -> void:
 		var reserve := int(_weapon.call("get_reserve_ammo")) if _weapon.has_method("get_reserve_ammo") else 0
 		_on_ammo_changed(in_mag, reserve)
 	else:
-		_on_ammo_changed(0, 0)
+		_set_infinite_ammo_display()
 
 func set_gameplay_controls_enabled(enabled: bool) -> void:
 	_gameplay_controls_enabled = enabled
@@ -105,7 +109,6 @@ func _build_hud() -> void:
 	joystick.offset_bottom = -42.0
 	_controls_root.add_child(joystick)
 
-	# Sprint is deliberately latched on mobile. One tap enables it; the next tap disables it.
 	_add_action_button(&"sprint", &"sprint", Rect2(326, -154, 92, 92), Vector2(0, 1), &"sprint", Color(0.08, 0.60, 0.66, 1.0), true)
 	_add_action_button(&"interact", &"interact", Rect2(-492, -244, 88, 88), Vector2(1, 1), &"interact")
 	_add_action_button(&"flashlight", &"flashlight", Rect2(-492, -344, 82, 82), Vector2(1, 1), &"flashlight")
@@ -117,6 +120,7 @@ func _build_hud() -> void:
 	_add_action_button(&"fire", &"fire", Rect2(-178, -178, 140, 140), Vector2(1, 1), &"fire", Color(0.82, 0.07, 0.09, 1.0))
 
 	_build_player_status()
+	_build_weapon_selector()
 	_build_quick_settings()
 	set_gameplay_controls_enabled(_gameplay_controls_enabled)
 
@@ -125,8 +129,8 @@ func _build_player_status() -> void:
 	panel.name = "PlayerStatus"
 	panel.anchor_left = 0.34
 	panel.anchor_top = 0.018
-	panel.anchor_right = 0.64
-	panel.anchor_bottom = 0.145
+	panel.anchor_right = 0.66
+	panel.anchor_bottom = 0.155
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_theme_stylebox_override("panel", _status_panel_style())
 	_safe_root.add_child(panel)
@@ -134,12 +138,12 @@ func _build_player_status() -> void:
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 18)
 	margin.add_theme_constant_override("margin_right", 18)
-	margin.add_theme_constant_override("margin_top", 10)
-	margin.add_theme_constant_override("margin_bottom", 10)
+	margin.add_theme_constant_override("margin_top", 8)
+	margin.add_theme_constant_override("margin_bottom", 8)
 	panel.add_child(margin)
 
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 4)
+	vbox.add_theme_constant_override("separation", 3)
 	margin.add_child(vbox)
 
 	var row := HBoxContainer.new()
@@ -166,11 +170,51 @@ func _build_player_status() -> void:
 	_health_bar.add_theme_stylebox_override("fill", _bar_style(Color(0.09, 0.78, 0.55, 1.0), Color(0.35, 1.0, 0.72, 0.94)))
 	vbox.add_child(_health_bar)
 
-	var hint := Label.new()
-	hint.text = "VIDA                                    MUNICIÓN"
-	hint.add_theme_font_size_override("font_size", 10)
-	hint.add_theme_color_override("font_color", Color(0.54, 0.68, 0.72))
-	vbox.add_child(hint)
+	_weapon_name_label = Label.new()
+	_weapon_name_label.text = "NXR-4 CARBINE"
+	_weapon_name_label.add_theme_font_size_override("font_size", 11)
+	_weapon_name_label.add_theme_color_override("font_color", Color(0.54, 0.83, 0.86))
+	_weapon_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	vbox.add_child(_weapon_name_label)
+
+func _build_weapon_selector() -> void:
+	if _loadout == null:
+		return
+	var panel := PanelContainer.new()
+	panel.name = "WeaponSelector"
+	panel.anchor_left = 0.5
+	panel.anchor_top = 1.0
+	panel.anchor_right = 0.5
+	panel.anchor_bottom = 1.0
+	panel.offset_left = -188.0
+	panel.offset_top = -102.0
+	panel.offset_right = 188.0
+	panel.offset_bottom = -38.0
+	panel.add_theme_stylebox_override("panel", _selector_panel_style())
+	_controls_root.add_child(panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 7)
+	margin.add_theme_constant_override("margin_right", 7)
+	margin.add_theme_constant_override("margin_top", 7)
+	margin.add_theme_constant_override("margin_bottom", 7)
+	panel.add_child(margin)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	margin.add_child(row)
+	_weapon_buttons.clear()
+	var labels := {0: "RIFLE", 1: "PISTOLA", 2: "MACHETE"}
+	for slot in range(3):
+		var button := Button.new()
+		button.name = "WeaponSlot%d" % slot
+		button.text = String(labels[slot])
+		button.focus_mode = Control.FOCUS_NONE
+		button.custom_minimum_size = Vector2(114, 48)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.pressed.connect(_on_weapon_button_pressed.bind(slot))
+		row.add_child(button)
+		_weapon_buttons[slot] = button
+	_refresh_weapon_buttons(int(_loadout.get("active_slot")))
 
 func _bind_status_sources() -> void:
 	if _health != null and _health.has_signal("health_changed"):
@@ -178,7 +222,14 @@ func _bind_status_sources() -> void:
 		if not _health.is_connected("health_changed", health_callable):
 			_health.connect("health_changed", health_callable)
 		_on_health_changed(float(_health.get("current_health")), float(_health.get("max_health")), null)
-	bind_weapon(_weapon)
+	if _loadout != null and _loadout.has_signal("active_weapon_changed"):
+		var loadout_callable := Callable(self, "_on_active_weapon_changed")
+		if not _loadout.is_connected("active_weapon_changed", loadout_callable):
+			_loadout.connect("active_weapon_changed", loadout_callable)
+		var active_slot := int(_loadout.get("active_slot"))
+		_on_active_weapon_changed(active_slot, StringName(_loadout.call("get_active_weapon_id")), String(_loadout.call("get_active_display_name")), _loadout.call("get_active_weapon"))
+	else:
+		bind_weapon(_weapon)
 
 func _on_health_changed(current: float, maximum: float, _event = null) -> void:
 	var safe_max := maxf(1.0, maximum)
@@ -208,6 +259,37 @@ func _on_ammo_changed(in_mag: int, reserve: int) -> void:
 		_ammo_label.add_theme_color_override("font_color", Color(1.0, 0.52, 0.18))
 	else:
 		_ammo_label.add_theme_color_override("font_color", Color(1.0, 0.79, 0.34))
+
+func _set_infinite_ammo_display() -> void:
+	if _ammo_label != null:
+		_ammo_label.text = "∞"
+		_ammo_label.add_theme_color_override("font_color", Color(0.65, 0.94, 0.96))
+
+func _on_active_weapon_changed(slot: int, _weapon_id: StringName, display_name: String, weapon: Node) -> void:
+	bind_weapon(weapon)
+	if _weapon_name_label != null:
+		_weapon_name_label.text = display_name.to_upper()
+	_refresh_weapon_buttons(slot)
+
+func _on_weapon_button_pressed(slot: int) -> void:
+	if _loadout == null or not _gameplay_controls_enabled:
+		return
+	if _loadout.has_method("request_slot"):
+		_loadout.call("request_slot", slot)
+	if OS.has_feature("mobile"):
+		Input.vibrate_handheld(22)
+
+func _refresh_weapon_buttons(active_slot: int) -> void:
+	for slot_value in _weapon_buttons.keys():
+		var slot := int(slot_value)
+		var button := _weapon_buttons[slot] as Button
+		if button == null:
+			continue
+		var active := slot == active_slot
+		button.add_theme_stylebox_override("normal", _weapon_button_style(active, false))
+		button.add_theme_stylebox_override("hover", _weapon_button_style(active, true))
+		button.add_theme_stylebox_override("pressed", _weapon_button_style(true, true))
+		button.add_theme_color_override("font_color", Color.WHITE if active else Color(0.72, 0.80, 0.82))
 
 func _add_action_button(
 	control_id: StringName,
@@ -354,6 +436,30 @@ func _status_panel_style() -> StyleBoxFlat:
 	style.corner_radius_top_right = 14
 	style.corner_radius_bottom_left = 14
 	style.corner_radius_bottom_right = 14
+	return style
+
+func _selector_panel_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.006, 0.018, 0.024, 0.86)
+	style.border_color = Color(0.12, 0.52, 0.58, 0.52)
+	style.set_border_width_all(1)
+	style.corner_radius_top_left = 14
+	style.corner_radius_top_right = 14
+	style.corner_radius_bottom_left = 14
+	style.corner_radius_bottom_right = 14
+	return style
+
+func _weapon_button_style(active: bool, emphasized: bool) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.67, 0.035, 0.05, 0.96) if active else Color(0.018, 0.055, 0.066, 0.90)
+	if emphasized:
+		style.bg_color = Color(0.86, 0.045, 0.06, 1.0) if active else Color(0.025, 0.11, 0.13, 0.98)
+	style.border_color = Color(1.0, 0.22, 0.18, 0.92) if active else Color(0.20, 0.68, 0.72, 0.50)
+	style.set_border_width_all(2 if active else 1)
+	style.corner_radius_top_left = 10
+	style.corner_radius_top_right = 10
+	style.corner_radius_bottom_left = 10
+	style.corner_radius_bottom_right = 10
 	return style
 
 func _bar_style(background: Color, border: Color) -> StyleBoxFlat:
