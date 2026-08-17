@@ -6,7 +6,7 @@ ROOT="${DEADFALL_ROOT:-/opt/nexora-deadfall}"
 run_godot_smoke(){
   local script="$1"
   [[ -f "$ROOT/$script" ]] || { echo "Smoke no encontrado: $ROOT/$script" >&2; exit 1; }
-  exec sudo -Hu deadfall godot --headless --path "$ROOT" --script "$ROOT/$script"
+  sudo -Hu deadfall godot --headless --path "$ROOT" --script "$ROOT/$script"
 }
 case "${1:-status}" in
   update) exec sudo "$ROOT/deploy/vps/update.sh" "${@:2}";;
@@ -18,6 +18,7 @@ case "${1:-status}" in
     sudo systemctl restart nexora-deadfall nexora-deadfall-download
     ;;
   test-network)
+    run_godot_smoke "scripts/ci/phase11_network_transport_smoke.gd"
     run_godot_smoke "scripts/ci/phase11_orchestration_smoke.gd"
     ;;
   test-social)
