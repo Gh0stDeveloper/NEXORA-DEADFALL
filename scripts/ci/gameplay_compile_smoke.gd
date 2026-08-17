@@ -39,9 +39,6 @@ func _run() -> void:
 		_fail("OutbreakDistrict.tscn cannot be instantiated after gameplay changes")
 		return
 
-	# Rendering must stay completely dormant on dedicated/headless processes.
-	# This specifically guards against deferred self-retry loops in visual-only
-	# systems such as DayNightCycle that can otherwise fill Godot's MessageQueue.
 	if DisplayServer.get_name() == "headless":
 		var day_night_script := load("res://src/maps/campaign/DayNightCycle.gd") as Script
 		var day_night := day_night_script.new() as Node
@@ -53,9 +50,6 @@ func _run() -> void:
 		day_night.queue_free()
 		await process_frame
 
-	# Run behavior regressions in an isolated Godot process. Keeping this child
-	# separate prevents the local-authority/TestRange lifecycle from contaminating
-	# the later Closed Beta/network smokes that run in their own processes.
 	var child_output: Array = []
 	var project_root: String = ProjectSettings.globalize_path("res://")
 	var feature_script: String = ProjectSettings.globalize_path("res://scripts/ci/gameplay_features_smoke.gd")
