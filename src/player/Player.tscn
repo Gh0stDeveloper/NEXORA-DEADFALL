@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="Script" path="res://src/player/PlayerController.gd" id="1_controller"]
 [ext_resource type="Script" path="res://src/player/PlayerInput.gd" id="2_input"]
@@ -9,6 +9,9 @@
 [ext_resource type="Script" path="res://src/player/PlayerLifeState.gd" id="7_life"]
 [ext_resource type="Script" path="res://src/player/FlashlightController.gd" id="8_flashlight"]
 [ext_resource type="Script" path="res://src/player/PlayerModelPresenter.gd" id="9_model"]
+[ext_resource type="Resource" path="res://src/weapons/data/nxr_pistol_01.tres" id="10_pistol"]
+[ext_resource type="Script" path="res://src/weapons/melee/MacheteWeapon.gd" id="11_machete"]
+[ext_resource type="Script" path="res://src/weapons/WeaponLoadout.gd" id="12_loadout"]
 
 [sub_resource type="CapsuleShape3D" id="Capsule_player"]
 radius = 0.4
@@ -48,6 +51,30 @@ shooter_entity_id = 1
 input_path = NodePath("../PlayerInput")
 camera_rig_path = NodePath("../CameraRig")
 hitscan_mask = 5
+
+[node name="SecondaryWeapon" type="Node3D" parent="."]
+script = ExtResource("5_weapon")
+weapon_data = ExtResource("10_pistol")
+shooter_entity_id = 1
+input_path = NodePath("../PlayerInput")
+camera_rig_path = NodePath("../CameraRig")
+hitscan_mask = 5
+input_enabled = false
+
+[node name="MacheteWeapon" type="Node3D" parent="."]
+script = ExtResource("11_machete")
+shooter_entity_id = 1
+input_path = NodePath("../PlayerInput")
+camera_rig_path = NodePath("../CameraRig")
+input_enabled = false
+
+[node name="WeaponLoadout" type="Node" parent="."]
+script = ExtResource("12_loadout")
+primary_path = NodePath("../PrimaryWeapon")
+secondary_path = NodePath("../SecondaryWeapon")
+melee_path = NodePath("../MacheteWeapon")
+input_path = NodePath("../PlayerInput")
+active_slot = 0
 
 [node name="FlashlightController" type="Node" parent="."]
 script = ExtResource("8_flashlight")
