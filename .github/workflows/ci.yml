@@ -36,6 +36,8 @@ jobs:
           godot --version
       - name: Import project and parse scripts
         run: godot --headless --editor --path . --quit
+      - name: Run strict gameplay compile gate
+        run: godot --headless --path . --script scripts/ci/gameplay_compile_smoke.gd
       - name: Run project smoke test
         run: godot --headless --path . --script scripts/ci/smoke.gd
       - name: Run combat authority tests
