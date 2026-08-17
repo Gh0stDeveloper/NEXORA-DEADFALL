@@ -1,21 +1,50 @@
 extends SceneTree
 
-const TestRangeScene := preload("res://src/maps/test_range/TestRange.tscn")
-const AmmoPickupScene := preload("res://src/horde/AmmoPickup.tscn")
-const LoadingOverlayScript := preload("res://src/ui/MatchLoadingOverlay.gd")
-const HordeDirectorScript := preload("res://src/horde/HordeDirector.gd")
+const TEST_RANGE_PATH := "res://src/maps/test_range/TestRange.tscn"
+const AMMO_PICKUP_PATH := "res://src/horde/AmmoPickup.tscn"
+const LOADING_OVERLAY_PATH := "res://src/ui/MatchLoadingOverlay.gd"
+const HORDE_DIRECTOR_PATH := "res://src/horde/HordeDirector.gd"
 
 func _initialize() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
+	# Direct --script execution starts before all project autoload/global names are
+	# guaranteed to be available to dependencies reached through preload(). Wait
+	# one frame and load gameplay resources only after the SceneTree/autoload
+	# lifecycle is active. This mirrors the Phase 11 orchestration probe pattern.
+	await process_frame
+
 	var game: Node = root.get_node_or_null("Game")
 	if game == null or not game.has_method("start_local_session"):
 		_fail("Game autoload/local authority missing")
 		return
 	game.call("start_local_session")
 
-	var arena: Node = TestRangeScene.instantiate()
+	var test_range_scene := load(TEST_RANGE_PATH) as PackedScene
+	if test_range_scene == null or not test_range_scene.can_instantiate():
+		_fail("TestRange could not be loaded after autoload initialization")
+		return
+	var ammo_pickup_scene := load(AMMO_PICKUP_PATH) as PackedScene
+	if ammo_pickup_scene == null or not ammo_pickup_scene.can_instantiate():
+		_fail("AmmoPickup could not be loaded after autoload initialization")
+		return
+	var loading_overlay_script := load(LOADING_OVERLAY_PATH) as Script
+	if loading_overlay_script == null or not loading_overlay_script.can_instantiate():
+		_fail("MatchLoadingOverlay script could not compile")
+		return
+	var horde_director_script := load(HORDE_DIRECTOR_PATH) as Script
+	if horde_director_script == null or not horde_director_script.can_instantiate():
+		_fail("HordeDirector script could not compile")
+		return
+	var horde_constants: Dictionary = horde_director_script.get_script_constant_map()
+	var horde_states: Dictionary = Dictionary(horde_constants.get("State", {}))
+	var game_over_state: int = int(horde_states.get("GAME_OVER", -1))
+	if game_over_state < 0:
+		_fail("HordeDirector GAME_OVER state constant is missing")
+		return
+
+	var arena: Node = test_range_scene.instantiate()
 	if arena == null:
 		_fail("TestRange could not be instantiated")
 		return
@@ -47,6 +76,7 @@ func _run() -> void:
 		_fail("Primary weapon did not initialize with magazine/reserve ammo")
 		return
 
+	# Empty magazines must never create a shot intent or consume hidden ammo.
 	primary.call("apply_authoritative_state", {"ammo": 0, "reserve": 0, "reloading": false, "reload_remaining_usec": 0})
 	if bool(primary.call("_try_fire", Time.get_ticks_usec())):
 		_fail("Primary weapon fired with an empty magazine")
@@ -55,10 +85,11 @@ func _run() -> void:
 		_fail("Empty-magazine dry fire mutated ammo")
 		return
 
+	# Authoritative ammo pickups must replenish reserve ammo through WeaponLoadout.
 	primary.call("apply_authoritative_state", {"ammo": 30, "reserve": 100, "reloading": false, "reload_remaining_usec": 0})
 	loadout.call("force_active_slot", 0)
 	var reserve_before: int = int(primary.call("get_reserve_ammo"))
-	var pickup: Area3D = AmmoPickupScene.instantiate() as Area3D
+	var pickup: Area3D = ammo_pickup_scene.instantiate() as Area3D
 	if pickup == null:
 		_fail("AmmoPickup could not be instantiated")
 		return
@@ -104,12 +135,13 @@ func _run() -> void:
 		return
 	sprint_button.call("set_latched", false)
 
+	# Game Over must cover mobile controls and restart the authoritative Horde run.
 	var director: Node = arena.get_node_or_null("HordeDirector")
 	var horde_hud: Node = arena.get_node_or_null("HordeHUD")
 	if director == null or horde_hud == null:
 		_fail("Horde director/HUD missing for restart regression")
 		return
-	director.set("state", HordeDirectorScript.State.GAME_OVER)
+	director.set("state", game_over_state)
 	horde_hud.call("_refresh")
 	await process_frame
 	if bool(mobile_hud.call("are_gameplay_controls_enabled")):
@@ -122,14 +154,18 @@ func _run() -> void:
 	horde_hud.call("_on_restart_pressed")
 	await process_frame
 	await process_frame
-	if int(director.get("state")) == HordeDirectorScript.State.GAME_OVER:
+	if int(director.get("state")) == game_over_state:
 		_fail("Game Over restart button did not restart the Horde run")
 		return
 	if not bool(mobile_hud.call("are_gameplay_controls_enabled")):
 		_fail("Mobile controls were not restored after Horde restart")
 		return
 
-	var loading: CanvasLayer = LoadingOverlayScript.new() as CanvasLayer
+	# Match loading must expose a real error/return path instead of infinite loading.
+	var loading: CanvasLayer = loading_overlay_script.new() as CanvasLayer
+	if loading == null:
+		_fail("MatchLoadingOverlay could not be instantiated")
+		return
 	root.add_child(loading)
 	await process_frame
 	loading.call("begin", "203.0.113.10:24600")
