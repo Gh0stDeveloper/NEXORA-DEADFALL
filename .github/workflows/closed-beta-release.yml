@@ -14,8 +14,6 @@ permissions:
 
 env:
   GODOT_VERSION: "4.6.3"
-  DEADFALL_VERSION: "0.9.0-beta.1"
-  DEADFALL_VERSION_CODE: "900001"
 
 jobs:
   android-closed-beta:
@@ -23,6 +21,23 @@ jobs:
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v6
+
+      - name: Resolve release identity from BuildInfo
+        id: release_identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(grep -oP 'const APP_VERSION := "\K[^"]+' src/release/BuildInfo.gd)"
+          VERSION_CODE="$(grep -oP 'const VERSION_CODE := \K[0-9]+' src/release/BuildInfo.gd)"
+          test -n "$VERSION"
+          test -n "$VERSION_CODE"
+          grep -Fq "version/code=$VERSION_CODE" export_presets.cfg
+          grep -Fq "version/name=\"$VERSION\"" export_presets.cfg
+          echo "DEADFALL_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "DEADFALL_VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          echo "Closed Beta identity: $VERSION / $VERSION_CODE"
 
       - name: Sync and validate required 3D models
         shell: bash
@@ -46,7 +61,7 @@ jobs:
           "$SDKMANAGER" \
             "platform-tools" \
             "platforms;android-36" \
-            "build-tools;35.0.1" \
+            "build-tools;36.0.0" \
             "ndk;28.1.13356709" \
             "cmake;3.10.2.4988404"
 
@@ -100,10 +115,15 @@ jobs:
           godot --headless --editor --path . --quit
           godot --headless --path . --install-android-build-template --quit
           test -d android/build
+          bash scripts/ci/android_template_patch_smoke.sh
+          python3 scripts/build/patch_android_template.py android/build
+          mkdir -p "$HOME/.gradle/init.d"
+          cp scripts/build/deadfall_android_init.gradle "$HOME/.gradle/init.d/nexora-deadfall.gradle"
 
       - name: Export signed AAB and APK
         shell: bash
         env:
+          DEADFALL_ROOT: ${{ github.workspace }}
           GODOT_ANDROID_KEYSTORE_RELEASE_PATH: /tmp/deadfall-upload.keystore
           GODOT_ANDROID_KEYSTORE_RELEASE_USER: ${{ secrets.DEADFALL_ANDROID_KEYSTORE_ALIAS }}
           GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: ${{ secrets.DEADFALL_ANDROID_KEYSTORE_PASSWORD }}
@@ -152,10 +172,10 @@ jobs:
       - name: Upload closed beta artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: NEXORA-DEADFALL-${{ env.DEADFALL_VERSION }}
+          name: NEXORA-DEADFALL-${{ steps.release_identity.outputs.version }}
           path: |
-            build/android/NEXORA-DEADFALL-${{ env.DEADFALL_VERSION }}.aab
-            build/android/NEXORA-DEADFALL-${{ env.DEADFALL_VERSION }}.apk
+            build/android/NEXORA-DEADFALL-${{ steps.release_identity.outputs.version }}.aab
+            build/android/NEXORA-DEADFALL-${{ steps.release_identity.outputs.version }}.apk
             build/android/SHA256SUMS.txt
             build/android/release-manifest.json
           if-no-files-found: error
@@ -168,6 +188,8 @@ jobs:
         run: |
           set -euo pipefail
           TAG="closed-beta-v${DEADFALL_VERSION}"
+          NOTES="docs/beta/RELEASE_NOTES_${DEADFALL_VERSION}.md"
+          test -f "$NOTES" || { echo "Missing release notes: $NOTES" >&2; exit 1; }
           gh release create "$TAG" \
             "build/android/NEXORA-DEADFALL-${DEADFALL_VERSION}.aab" \
             "build/android/NEXORA-DEADFALL-${DEADFALL_VERSION}.apk" \
@@ -176,5 +198,5 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "NEXORA: DEADFALL ${DEADFALL_VERSION}" \
-            --notes-file docs/beta/RELEASE_NOTES_0.9.0-beta.1.md \
+            --notes-file "$NOTES" \
             --prerelease
