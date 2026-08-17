@@ -2,66 +2,106 @@
 
 Use one row per physical device/build combination. Do not mark physical compatibility complete until representative low/mid/high devices have actual measurements.
 
-## Current closed-beta candidate
+## Current Closed Beta
 
 - App version: `0.9.0-beta.5`
 - Version code: `900005`
 - Network protocol: `2`
 - Content version: `1`
-- Accepted client range: `900005–900999`
-- Accepted server range: `900005–900999`
+- Accepted client range: `900005-900999`
+- Accepted server range: `900005-900999`
 - Target Android API: `36`
 - Maximum players: `4`
 
-Beta.5 intentionally rejects beta.4 and older clients/servers because the dedicated-match lifecycle contract changed even though the wire protocol remains `2`. The candidate retains the beta.4 presentation/performance work and adds ticket-scoped authoritative reconnect, child-process heartbeat supervision, frozen-process detection, match TTL/reaping, authoritative match outcomes, coordinated return to lobby and lifecycle metrics exposed through the safe health endpoint.
+Beta.5 intentionally rejects beta.4 and older clients/servers because the dedicated-match lifecycle contract changed even though the wire protocol remains `2`.
 
-### Beta.5 lifecycle acceptance contract
+## Automated/production status
 
-- A private 256-bit admission ticket remains scoped to exactly one match and one guest identity.
-- If that client loses ENet connectivity, the server reserves its authoritative entity/slot/state for the reconnect grace window; the client never uploads trusted HP, position, ammo or hit state during recovery.
-- The Android client retries reconnect for up to 42 seconds with bounded attempts. A successful reconnect must restore the same server-owned entity state rather than spawning an unrelated player.
-- Every isolated match process writes a local heartbeat every 2 seconds. The parent orchestrator treats a live PID with a stale heartbeat as frozen and reaps it.
-- Match children have startup/empty/runtime TTLs, and terminal children are reaped if they do not exit after result delivery.
-- `VICTORY`, `DEFEAT` and `ABORTED` outcomes are produced by the authoritative child process, sent to connected peers and mirrored through local IPC for the parent orchestrator.
-- On terminal result, the parent unlocks the squad and every connected Android client returns to a refreshed lobby after the result screen or its automatic timeout.
-- Public `/v1/health` may expose aggregate lifecycle counters and watchdog settings, but never private tickets, per-player identities, child PIDs or match configuration paths.
+The beta.5 VPS validation and production deployment are complete at runtime anchor:
+
+```text
+f402f1696c0438447d76236122a5d82101a94cc0
+```
+
+Confirmed:
+
+- current beta.5 automated gates passed;
+- full VPS `--force` completed;
+- Android Release APK exported;
+- APK Signature Scheme v2 verified;
+- one signer verified;
+- APK published through the stable download path;
+- localhost control/social/match API validated;
+- HTTPS API validated.
+
+What remains in this matrix is **physical-device acceptance and measured behavior**.
+
+## Beta.5 lifecycle acceptance contract
+
+- A private 256-bit admission ticket is scoped to one match/member identity.
+- If ENet connectivity is lost, the server reserves the authoritative entity/slot/state for reconnect rather than accepting client-provided recovery state.
+- Android retries reconnect for up to 42 seconds with at most 10 attempts.
+- A successful reconnect must restore the same server-owned entity/state.
+- Every isolated match process writes a local heartbeat every 2 seconds.
+- The parent treats a live PID with stale heartbeat as frozen and reaps it.
+- Match children have startup/empty/runtime TTLs and terminal reaping.
+- After the first authoritative player admission the lifecycle is monotonic `READY -> IN_MATCH`; a temporary zero-connected-player reconnect gap does not make the match conceptually READY again.
+- `VICTORY`, `DEFEAT` and `ABORTED` are produced by the authoritative match process.
+- On terminal result, clients display the result and return to a refreshed/unlocked squad lobby.
+- Public `/v1/health` may expose aggregate lifecycle counters/watchdog settings, never private tickets, identities, match IDs, child PIDs or private config paths.
 
 ## Imported 3D animation capability
 
-- Runtime visual height is normalized independently from authoritative gameplay colliders/hitboxes.
+- Runtime visual height is normalized independently from authoritative colliders/hitboxes.
 - Animated GLBs must expose at least one non-`RESET` runtime animation.
-- Semantic names (`idle`, `walk`, `run`, `attack`, `hurt`, `death`, etc.) are preferred and mapped automatically when present.
-- Generic-only animation names are accepted in `generic_fallback` mode only when one neutral-looking usable clip exists; multiple unlabeled or clearly action/death clips are never guessed.
-- `operator_02` currently exposes only the usable generic clip `mixamo_com`; it is used as a safe animated fallback to avoid bind/T-pose but is not falsely labeled as separate locomotion/combat clips.
-- `zombie_animated` (Quaternius) is pinned to the verified runtime clips: `Zombie|ZombieIdle`, `Zombie|ZombieWalk`, `Zombie|ZombieRun`, `Zombie|ZombieCrawl` and `Zombie|ZombieBite`.
-- Quaternius currently has no separately verified `hurt` or `death` clip in this GLB; those states retain the existing fallback presentation until compatible clips are added.
-- Model validation prints `DEADFALL_MODEL_CAPABILITY`, `DEADFALL_MODEL_ANIMATION_READY` and `DEADFALL_MODEL_SEMANTICS` before acceptance.
-- Dedicated/headless server processes do not instantiate presentation GLBs.
+- Semantic names are preferred and mapped when present.
+- Generic-only names are accepted as `generic_fallback` only when a safe neutral usable clip exists.
+- `operator_02` currently exposes only `mixamo_com`; it prevents bind/T-pose but is not treated as separate locomotion/combat clips.
+- Quaternius mappings are pinned to:
+  - `Zombie|ZombieIdle`
+  - `Zombie|ZombieWalk`
+  - `Zombie|ZombieRun`
+  - `Zombie|ZombieCrawl`
+  - `Zombie|ZombieBite`
+- Quaternius has no separately verified Hurt/Death clip in the current asset.
+- Dedicated/headless processes do not instantiate presentation GLBs.
 
 ## Mobile presentation budgets
 
-- `SMOOTH`: render scale 0.65, 30 FPS target, aggressive mesh LOD, MSAA off, zombie visuals roughly 52 m.
-- `STANDARD`: render scale 0.90, 45 FPS target, medium mesh LOD, MSAA off, zombie visuals roughly 72 m.
-- `ULTRA`: render scale 1.00, 60 FPS target, normal mesh LOD, MSAA 2x, zombie visuals roughly 96 m.
-- `ULTRA_HD`: render scale 1.00, 60 FPS target, high-detail mesh LOD, MSAA 4x, zombie visuals roughly 128 m.
-- These are runtime budgets, not claimed measured performance. Physical-device FPS/thermal acceptance still has to be recorded below.
+These are configured runtime targets, not measured claims:
 
-| Date | Build | Manufacturer / model | SoC | GPU | RAM | Android / API | Resolution | Tier | FPS p50 | FPS 1% low | Peak RAM | Thermal after 20m | Wi-Fi | Mobile data | Campaign | 4-player Squad | Ticket reconnect | Result → lobby | Crash/ANR | Result |
-|---|---|---|---|---|---:|---|---|---|---:|---:|---:|---|---|---|---|---|---|---|---|---|
-| | 0.9.0-beta.5 | | | | | | | | | | | | | | | | | | | |
+- `SMOOTH`: render scale 0.65, target 30 FPS, aggressive mesh LOD, MSAA off, zombie visuals ~52 m.
+- `STANDARD`: render scale 0.90, target 45 FPS, medium mesh LOD, MSAA off, zombie visuals ~72 m.
+- `ULTRA`: render scale 1.00, target 60 FPS, normal mesh LOD, MSAA 2x, zombie visuals ~96 m.
+- `ULTRA_HD`: render scale 1.00, target 60 FPS, high-detail mesh LOD, MSAA 4x, zombie visuals ~128 m.
 
-## Minimum test set
+Tune only after collecting physical measurements.
+
+## Physical test matrix
+
+| Date | Build | Manufacturer / model | SoC | GPU | RAM | Android / API | Resolution | Tier | FPS p50 | FPS 1% low | Peak RAM | Thermal after 20m | Wi-Fi | Mobile data | Solo Campaign | Duo | 3-player | 4-player | Ticket reconnect | Result -> lobby | Crash/ANR | Result / notes |
+|---|---|---|---|---|---:|---|---|---|---:|---:|---:|---|---|---|---|---|---|---|---|---|---|---|
+| | 0.9.0-beta.5 | | | | | | | | | | | | | | | | | | | | | |
+
+## Minimum physical test set
 
 - At least one lower-memory Android device.
 - At least one current mid-range Android device.
-- At least one high-end Android device.
-- Both major mobile GPU families where available (Adreno and Mali).
+- At least one high-end Android device where available.
+- Both Adreno and Mali where practical.
 - Wi-Fi and mobile-data sessions.
-- Solo Campaign and a four-player Squad/Horde session.
-- A deliberate disconnect/reconnect during an active match, including at least one Wi-Fi↔mobile-data transition where practical.
-- One authoritative victory/defeat result with all connected squad members returning to the same unlocked lobby.
-- Background/foreground and 20+ minute thermal soak.
+- Solo Campaign gameplay.
+- Duo public-Internet session.
+- Three-player session.
+- Four-player Squad/Horde session.
+- Deliberate disconnect/reconnect during an active match.
+- Prefer one Wi-Fi <-> mobile-data transition where practical.
+- One authoritative victory/defeat result with all connected squad members returning to the unlocked lobby.
+- Background/foreground behavior.
+- 20+ minute thermal soak.
 
 ## Pass notes
 
-Record observed behavior; do not infer performance from specifications alone. A device is not considered compatible merely because the APK installs. Beta.5 lifecycle acceptance remains pending until the VPS gates, signed APK deployment and physical multi-device tests are complete.
+Record observed behavior rather than inferring from device specifications. APK installation alone is not a compatibility pass.
+
+Beta.5's automated/VPS deployment gate is complete. The current blocker to marking beta.5 fully accepted is the physical matrix above.
