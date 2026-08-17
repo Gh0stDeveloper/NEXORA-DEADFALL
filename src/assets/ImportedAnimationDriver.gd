@@ -47,6 +47,19 @@ static func play_semantic(root: Node, semantic: StringName, blend_seconds: float
 			fallback_result["requested_semantic"] = String(requested)
 			fallback_result["fallback"] = true
 			return fallback_result
+
+	# Some imported Mixamo/Sketchfab GLBs expose a single valid clip with a
+	# generic library name (for example "mixamo_com") instead of semantic names.
+	# That asset is still animated and safe to display. Use the generic clip as a
+	# presentation fallback so we never return to bind/T-pose, while explicitly
+	# reporting degraded semantics rather than pretending it is a true idle/run.
+	var generic_result := _play_scored(root, DEFAULT_KEYWORDS, requested, true, blend_seconds, speed)
+	if bool(generic_result.get("ok", false)):
+		generic_result["requested_semantic"] = String(requested)
+		generic_result["fallback"] = true
+		generic_result["generic_fallback"] = true
+		generic_result["matched"] = false
+		return generic_result
 	return result
 
 static func has_semantic_animation(root: Node, semantic: StringName) -> bool:
@@ -86,6 +99,26 @@ static func semantic_inventory(root: Node) -> Dictionary:
 		if bool(candidate.get("ok", false)):
 			result[String(semantic)] = String(candidate.get("animation", ""))
 	return result
+
+static func generic_animation(root: Node) -> Dictionary:
+	var candidate := _find_best_candidate(root, DEFAULT_KEYWORDS, &"idle", true)
+	if not bool(candidate.get("ok", false)):
+		return candidate
+	candidate.erase("player")
+	candidate["generic_fallback"] = not bool(candidate.get("matched", false))
+	return candidate
+
+static func capability_snapshot(root: Node) -> Dictionary:
+	var semantic := semantic_inventory(root)
+	var generic := generic_animation(root)
+	return {
+		"usable": has_usable_animation(root),
+		"semantic": semantic,
+		"semantic_count": semantic.size(),
+		"generic": generic,
+		"generic_fallback": bool(generic.get("ok", false)) and bool(generic.get("generic_fallback", false)),
+		"inventory": animation_inventory(root),
+	}
 
 static func _play_scored(root: Node, keywords: Array, semantic: StringName, allow_generic: bool, blend_seconds: float, speed: float) -> Dictionary:
 	var candidate := _find_best_candidate(root, keywords, semantic, allow_generic)
