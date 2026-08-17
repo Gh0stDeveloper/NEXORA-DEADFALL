@@ -12,6 +12,7 @@ config/icon="res://assets/branding/deadfall_icon.svg"
 [autoload]
 Game="*res://src/autoload/Game.gd"
 Settings="*res://src/autoload/Settings.gd"
+PerformanceTuner="*res://src/mobile/MobilePerformanceTuner.gd"
 GuestIdentity="*res://src/identity/GuestIdentity.gd"
 SocialClient="*res://src/social/SocialClient.gd"
 NetworkTelemetry="*res://src/network/NetworkTelemetry.gd"
