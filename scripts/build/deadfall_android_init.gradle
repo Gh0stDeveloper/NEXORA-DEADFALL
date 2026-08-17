@@ -1,14 +1,21 @@
 // NEXORA: DEADFALL Gradle init hook for Godot-generated Android projects.
 //
 // Godot writes src/release/AndroidManifest.xml immediately before invoking
-// Gradle. Hooking the manifest merger task makes the sanitization resilient
-// even when that generated file is refreshed during every export.
+// Gradle. The VPS builder installs this file temporarily under
+// $HOME/.gradle/init.d so Gradle loads it automatically. The hook is strictly
+// scoped to DEADFALL_ROOT/android/build.
 
 gradle.projectsEvaluated {
+    def deadfallRootValue = System.getenv("DEADFALL_ROOT")
+    if (deadfallRootValue == null || deadfallRootValue.trim().isEmpty()) {
+        return
+    }
+
+    def deadfallRoot = new File(deadfallRootValue).canonicalFile
+    def expectedProject = new File(deadfallRoot, "android/build").canonicalFile
     def root = gradle.rootProject
-    def deadfallRoot = System.getenv("DEADFALL_ROOT")
-    if (deadfallRoot == null || deadfallRoot.trim().isEmpty()) {
-        throw new GradleException("DEADFALL_ROOT is required by the DEADFALL Android init hook")
+    if (root.projectDir.canonicalFile != expectedProject) {
+        return
     }
 
     def patcher = new File(deadfallRoot, "scripts/build/patch_android_template.py")
