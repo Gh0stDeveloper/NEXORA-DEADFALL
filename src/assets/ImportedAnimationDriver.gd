@@ -21,6 +21,7 @@ const FALLBACK_SEMANTICS := {
 	&"death": [],
 	&"reload": [&"idle"],
 }
+const UNSAFE_GENERIC_KEYWORDS := ["death", "die", "dead", "ragdoll", "hurt", "damage", "fall", "attack", "melee", "slash", "bite", "punch"]
 
 static func play_best_pose(root: Node, preferred_keywords: Array = DEFAULT_KEYWORDS) -> Dictionary:
 	return _play_scored(root, preferred_keywords, &"idle", true, 0.0, 1.0)
@@ -48,18 +49,25 @@ static func play_semantic(root: Node, semantic: StringName, blend_seconds: float
 			fallback_result["fallback"] = true
 			return fallback_result
 
-	# Some imported Mixamo/Sketchfab GLBs expose a single valid clip with a
-	# generic library name (for example "mixamo_com") instead of semantic names.
-	# That asset is still animated and safe to display. Use the generic clip as a
-	# presentation fallback so we never return to bind/T-pose, while explicitly
-	# reporting degraded semantics rather than pretending it is a true idle/run.
-	var generic_result := _play_scored(root, DEFAULT_KEYWORDS, requested, true, blend_seconds, speed)
+	# Some imported Mixamo/Sketchfab GLBs expose one valid clip under a generic
+	# library name (for example "mixamo_com"). A single neutral-looking generic
+	# clip is safe as a degraded presentation fallback and prevents bind/T-pose.
+	# Multiple unlabeled clips stay ambiguous and are not guessed.
+	var generic_result := _find_safe_generic_candidate(root, requested)
 	if bool(generic_result.get("ok", false)):
-		generic_result["requested_semantic"] = String(requested)
-		generic_result["fallback"] = true
-		generic_result["generic_fallback"] = true
-		generic_result["matched"] = false
-		return generic_result
+		var player := generic_result.get("player") as AnimationPlayer
+		var animation_name := StringName(generic_result.get("animation", ""))
+		if player != null and not animation_name.is_empty():
+			player.play(animation_name, maxf(0.0, blend_seconds), maxf(0.05, speed))
+			player.advance(0.0)
+			generic_result.erase("player")
+			generic_result["semantic"] = String(requested)
+			generic_result["requested_semantic"] = String(requested)
+			generic_result["fallback"] = true
+			generic_result["generic_fallback"] = true
+			generic_result["matched"] = false
+			generic_result["player_path"] = String(player.get_path())
+			return generic_result
 	return result
 
 static func has_semantic_animation(root: Node, semantic: StringName) -> bool:
@@ -70,16 +78,7 @@ static func has_semantic_animation(root: Node, semantic: StringName) -> bool:
 	return bool(candidate.get("ok", false))
 
 static func has_usable_animation(root: Node) -> bool:
-	if root == null:
-		return false
-	var players: Array[AnimationPlayer] = []
-	_collect_animation_players(root, players)
-	for player in players:
-		for animation_name in player.get_animation_list():
-			var normalized := String(animation_name).strip_edges().to_lower()
-			if not normalized.is_empty() and normalized != "reset" and not normalized.ends_with("/reset"):
-				return true
-	return false
+	return not _usable_clips(root).is_empty()
 
 static func animation_inventory(root: Node) -> Array[String]:
 	var result: Array[String] = []
@@ -101,11 +100,11 @@ static func semantic_inventory(root: Node) -> Dictionary:
 	return result
 
 static func generic_animation(root: Node) -> Dictionary:
-	var candidate := _find_best_candidate(root, DEFAULT_KEYWORDS, &"idle", true)
+	var candidate := _find_safe_generic_candidate(root, &"idle")
 	if not bool(candidate.get("ok", false)):
 		return candidate
 	candidate.erase("player")
-	candidate["generic_fallback"] = not bool(candidate.get("matched", false))
+	candidate["generic_fallback"] = true
 	return candidate
 
 static func capability_snapshot(root: Node) -> Dictionary:
@@ -116,7 +115,7 @@ static func capability_snapshot(root: Node) -> Dictionary:
 		"semantic": semantic,
 		"semantic_count": semantic.size(),
 		"generic": generic,
-		"generic_fallback": bool(generic.get("ok", false)) and bool(generic.get("generic_fallback", false)),
+		"generic_fallback": bool(generic.get("ok", false)),
 		"inventory": animation_inventory(root),
 	}
 
@@ -129,8 +128,6 @@ static func _play_scored(root: Node, keywords: Array, semantic: StringName, allo
 	if player == null or animation_name.is_empty():
 		return {"ok": false, "reason": "invalid_candidate", "semantic": String(semantic)}
 	player.play(animation_name, maxf(0.0, blend_seconds), maxf(0.05, speed))
-	# AnimationPlayer.play() applies the new animation on its next processing
-	# tick. Imported GLBs can otherwise be visible for one frame in bind/T-pose.
 	player.advance(0.0)
 	candidate.erase("player")
 	candidate["semantic"] = String(semantic)
@@ -153,7 +150,7 @@ static func _find_best_candidate(root: Node, preferred_keywords: Array, semantic
 	for player in players:
 		for animation_name in player.get_animation_list():
 			var normalized := String(animation_name).strip_edges().to_lower()
-			if normalized.is_empty() or normalized == "reset" or normalized.ends_with("/reset"):
+			if not _is_usable_clip_name(normalized):
 				continue
 			clip_count += 1
 			var scored := _score_animation_name(normalized, preferred_keywords, semantic)
@@ -183,6 +180,40 @@ static func _find_best_candidate(root: Node, preferred_keywords: Array, semantic
 		"matched": semantic_match,
 		"player": best_player,
 	}
+
+static func _find_safe_generic_candidate(root: Node, semantic: StringName) -> Dictionary:
+	var clips := _usable_clips(root)
+	if clips.size() != 1:
+		return {"ok": false, "reason": "generic_clip_ambiguous", "clip_count": clips.size(), "semantic": String(semantic)}
+	var entry: Dictionary = clips[0]
+	var normalized := String(entry.get("normalized", ""))
+	for unsafe_keyword in UNSAFE_GENERIC_KEYWORDS:
+		if normalized.contains(unsafe_keyword):
+			return {"ok": false, "reason": "generic_clip_not_neutral", "clip_count": 1, "semantic": String(semantic), "best_candidate": String(entry.get("animation", ""))}
+	return {
+		"ok": true,
+		"animation": String(entry.get("animation", "")),
+		"score": 1,
+		"clip_count": 1,
+		"matched": false,
+		"player": entry.get("player"),
+	}
+
+static func _usable_clips(root: Node) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if root == null:
+		return result
+	var players: Array[AnimationPlayer] = []
+	_collect_animation_players(root, players)
+	for player in players:
+		for animation_name in player.get_animation_list():
+			var normalized := String(animation_name).strip_edges().to_lower()
+			if _is_usable_clip_name(normalized):
+				result.append({"player": player, "animation": String(animation_name), "normalized": normalized})
+	return result
+
+static func _is_usable_clip_name(normalized: String) -> bool:
+	return not normalized.is_empty() and normalized != "reset" and not normalized.ends_with("/reset")
 
 static func _score_animation_name(normalized: String, preferred_keywords: Array, semantic: StringName) -> Dictionary:
 	var score := 1
