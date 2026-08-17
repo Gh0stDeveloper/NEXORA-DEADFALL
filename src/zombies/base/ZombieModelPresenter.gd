@@ -5,6 +5,12 @@ const ExternalModels = preload("res://src/assets/ExternalModelCatalog.gd")
 const ModelNormalizer = preload("res://src/assets/ModelNormalizer.gd")
 const AnimationDriver = preload("res://src/assets/ImportedAnimationDriver.gd")
 const TARGET_VISUAL_HEIGHT := 1.95
+const VISIBILITY_RANGE_BY_TIER := {
+	0: 52.0,
+	1: 72.0,
+	2: 96.0,
+	3: 128.0,
+}
 
 @export var prepared_rig_path := NodePath("../PreparedRig")
 @export var variant: StringName = &"animated"
@@ -16,6 +22,7 @@ var _animation_status: Dictionary = {}
 var _semantic_state := StringName()
 var _animation_elapsed := 0.0
 var _visuals_enabled := true
+var _quality_tier := 1
 
 func _ready() -> void:
 	_prepared_rig = get_node_or_null(prepared_rig_path) as Node3D
@@ -24,6 +31,7 @@ func _ready() -> void:
 		visible = false
 		set_process(false)
 		return
+	_bind_quality_profile()
 	set_process(true)
 	call_deferred("load_external_model")
 
@@ -65,6 +73,7 @@ func load_external_model() -> bool:
 	if not bool(normalization.get("ok", false)):
 		push_warning("DEADFALL zombie model normalization failed: %s" % String(normalization.get("reason", "unknown")))
 	_set_prepared_rig_visible(false)
+	_apply_quality_visibility()
 	_semantic_state = &"idle"
 	_animation_status = AnimationDriver.play_semantic(_loaded_model, _semantic_state, 0.0)
 	if not bool(_animation_status.get("ok", false)):
@@ -88,6 +97,36 @@ func get_semantic_state() -> StringName:
 
 func get_semantic_inventory() -> Dictionary:
 	return AnimationDriver.semantic_inventory(_loaded_model) if has_external_model() else {}
+
+func _bind_quality_profile() -> void:
+	var settings := get_tree().root.get_node_or_null("Settings") if get_tree() != null else null
+	if settings == null:
+		return
+	var tier_value = settings.get("quality_tier")
+	_quality_tier = clampi(int(tier_value) if tier_value != null else 1, 0, 3)
+	if settings.has_signal("quality_profile_changed"):
+		var callback := Callable(self, "_on_quality_profile_changed")
+		if not settings.is_connected("quality_profile_changed", callback):
+			settings.connect("quality_profile_changed", callback)
+
+func _on_quality_profile_changed(tier: int, _profile: Dictionary) -> void:
+	_quality_tier = clampi(tier, 0, 3)
+	_apply_quality_visibility()
+
+func _apply_quality_visibility() -> void:
+	if not has_external_model():
+		return
+	var end_distance := float(VISIBILITY_RANGE_BY_TIER.get(_quality_tier, 72.0))
+	_apply_visibility_range_recursive(_loaded_model, end_distance)
+
+func _apply_visibility_range_recursive(node: Node, end_distance: float) -> void:
+	if node is GeometryInstance3D:
+		var geometry := node as GeometryInstance3D
+		geometry.visibility_range_end = end_distance
+		geometry.visibility_range_end_margin = 6.0
+		geometry.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+	for child in node.get_children():
+		_apply_visibility_range_recursive(child, end_distance)
 
 func _update_semantic_animation() -> void:
 	var desired := _desired_semantic_state()
