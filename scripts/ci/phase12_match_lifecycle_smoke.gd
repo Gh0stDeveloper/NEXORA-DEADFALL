@@ -5,6 +5,7 @@ const MatchAdmissionScript = preload("res://src/server/MatchAdmission.gd")
 const MatchGuardScript = preload("res://src/server/MatchInstanceGuard.gd")
 const MatchOrchestratorScript = preload("res://src/server/MatchOrchestrator.gd")
 const LifecycleSessionScript = preload("res://src/network/LifecycleMtuSafeNetworkSession.gd")
+const LifecycleControlApiScript = preload("res://src/server/LifecycleControlApiServer.gd")
 const ResultOverlayScript = preload("res://src/ui/MatchResultOverlay.gd")
 
 class FakeLifecycleSession:
@@ -23,6 +24,27 @@ class FakeLifecycleSession:
 	func publish_match_result(result: Dictionary) -> bool:
 		published_result = result.duplicate(true)
 		return true
+
+class FakeLifecycleOrchestrator:
+	extends Node
+
+	func get_status_snapshot() -> Dictionary:
+		return {
+			"active_count": 2,
+			"heartbeat_stale_seconds": 12,
+			"max_match_runtime_seconds": 7230,
+			"active_matches": [{"match_id": "private", "pid": 12345}],
+			"metrics": {
+				"started_total": 7,
+				"completed_total": 2,
+				"defeated_total": 1,
+				"failed_total": 1,
+				"frozen_total": 1,
+				"crashed_total": 0,
+				"reaped_total": 2,
+				"reconnects_total": 4,
+			},
+		}
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -57,7 +79,7 @@ func _run() -> void:
 	var ready_path := "%s.ready" % config_path
 	var heartbeat_path := "%s.heartbeat" % config_path
 	var result_path := "%s.result" % config_path
-	var ticket := "a".repeat(64)
+	var ticket := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	_cleanup([config_path, ready_path, heartbeat_path, result_path, heartbeat_path + ".tmp", result_path + ".tmp"])
 	var config := {
 		"schema_version": 2,
@@ -134,6 +156,24 @@ func _run() -> void:
 		_fail("Orchestrator watchdog/TTL status contract missing")
 		return
 	orchestrator.free()
+
+	var fake_orchestrator := FakeLifecycleOrchestrator.new()
+	var control_api = LifecycleControlApiScript.new()
+	control_api.configure(null, null, fake_orchestrator)
+	var health: Dictionary = control_api.call("_route", HTTPClient.METHOD_GET, "/v1/health", "", {})
+	var public_lifecycle: Dictionary = Dictionary(health.get("match_lifecycle", {}))
+	if not bool(health.get("ok", false)) or int(public_lifecycle.get("active_count", -1)) != 2:
+		_fail("Lifecycle health endpoint did not expose aggregate state")
+		return
+	if not public_lifecycle.has("metrics") or public_lifecycle.has("active_matches") or public_lifecycle.has("pid"):
+		_fail("Lifecycle health endpoint exposed unsafe per-match internals or lost aggregate metrics")
+		return
+	var health_text := JSON.stringify(health)
+	if health_text.contains("\"match_id\"") or health_text.contains("12345"):
+		_fail("Lifecycle public health leaked match ID/PID details")
+		return
+	control_api.free()
+	fake_orchestrator.free()
 
 	var result_overlay_script := ResultOverlayScript as Script
 	if result_overlay_script == null or not result_overlay_script.can_instantiate():
