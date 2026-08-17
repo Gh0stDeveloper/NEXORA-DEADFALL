@@ -9,6 +9,7 @@ const SQUAD_ARENA_PATH := "res://src/maps/duo/DuoArena.tscn"
 const CAMPAIGN_ARENA_PATH := "res://src/maps/campaign/OutbreakDistrict.tscn"
 const HARDENED_SESSION_PATH := "res://src/network/ClosedBetaNetworkSession.gd"
 const MTU_SAFE_SESSION_PATH := "res://src/network/MtuSafeClosedBetaNetworkSession.gd"
+const LIFECYCLE_SESSION_PATH := "res://src/network/LifecycleMtuSafeNetworkSession.gd"
 const MTU_SAFE_CHUNK_BYTES := 900
 
 func _initialize() -> void:
@@ -36,10 +37,10 @@ func _test_build_compatibility() -> bool:
 		return _fail("Wrong content version was accepted")
 	if BuildInfoScript.MIN_CLIENT_VERSION_CODE > 0 and bool(BuildInfoScript.validate_client(BuildInfoScript.NETWORK_PROTOCOL, BuildInfoScript.MIN_CLIENT_VERSION_CODE - 1, BuildInfoScript.CONTENT_VERSION).get("compatible", true)):
 		return _fail("Obsolete client version was accepted")
-	if BuildInfoScript.VERSION_CODE != 900004 or BuildInfoScript.APP_VERSION != "0.9.0-beta.4":
-		return _fail("Current feature candidate must remain 0.9.0-beta.4 / 900004")
+	if BuildInfoScript.VERSION_CODE != 900005 or BuildInfoScript.APP_VERSION != "0.9.0-beta.5":
+		return _fail("Current lifecycle candidate must be 0.9.0-beta.5 / 900005")
 	if BuildInfoScript.MIN_CLIENT_VERSION_CODE != BuildInfoScript.VERSION_CODE or BuildInfoScript.MIN_SERVER_VERSION_CODE != BuildInfoScript.VERSION_CODE:
-		return _fail("Beta.4 compatibility floor must reject older beta.3 gameplay clients/servers")
+		return _fail("Beta.5 compatibility floor must reject older lifecycle clients/servers")
 	return true
 
 func _test_abuse_guard() -> bool:
@@ -112,6 +113,9 @@ func _test_scene_session_contract() -> bool:
 	var mtu_script := load(MTU_SAFE_SESSION_PATH) as Script
 	if mtu_script == null or not mtu_script.can_instantiate():
 		return _fail("MTU-safe Closed Beta session could not compile")
+	var lifecycle_script := load(LIFECYCLE_SESSION_PATH) as Script
+	if lifecycle_script == null or not lifecycle_script.can_instantiate():
+		return _fail("Beta.5 lifecycle MTU-safe session could not compile")
 	var mtu_file := FileAccess.open(MTU_SAFE_SESSION_PATH, FileAccess.READ)
 	var mtu_source := mtu_file.get_as_text() if mtu_file != null else ""
 	if not mtu_source.contains("extends \"%s\"" % HARDENED_SESSION_PATH):
@@ -120,24 +124,41 @@ func _test_scene_session_contract() -> bool:
 		return _fail("MTU-safe session chunk budget changed unexpectedly")
 	if not mtu_source.contains("\"encoding\": \"variant_fastlz_chunks\"") or not mtu_source.contains("\"chunk_bytes\": SNAPSHOT_CHUNK_BYTES"):
 		return _fail("MTU-safe Closed Beta transport status contract is missing")
+	var lifecycle_file := FileAccess.open(LIFECYCLE_SESSION_PATH, FileAccess.READ)
+	var lifecycle_source := lifecycle_file.get_as_text() if lifecycle_file != null else ""
+	if not lifecycle_source.contains("extends \"%s\"" % MTU_SAFE_SESSION_PATH):
+		return _fail("Lifecycle session no longer layers on MTU-safe transport")
+	if not lifecycle_source.contains("publish_match_result") or not lifecycle_source.contains("match_finished"):
+		return _fail("Lifecycle session lost authoritative result contract")
 
-	for scene_path in [SQUAD_ARENA_PATH, CAMPAIGN_ARENA_PATH]:
-		var scene: PackedScene = load(scene_path) as PackedScene
-		if scene == null:
-			return _fail("Network arena could not be loaded: %s" % scene_path)
-		var instance: Node = scene.instantiate()
-		if instance == null:
-			return _fail("Network arena could not be instantiated: %s" % scene_path)
-		root.add_child(instance)
-		var session: Node = instance.get_node_or_null("NetworkSession")
-		if session == null or session.get_script() == null or String(session.get_script().resource_path) != MTU_SAFE_SESSION_PATH:
-			instance.free()
-			return _fail("Network arena is not using the MTU-safe Closed Beta hardened session: %s" % scene_path)
-		for method in ["configure_server", "start_client", "get_status_snapshot"]:
-			if not session.has_method(method):
-				instance.free()
-				return _fail("MTU-safe Closed Beta session missing hardened method: %s" % method)
-		instance.free()
+	var squad: PackedScene = load(SQUAD_ARENA_PATH) as PackedScene
+	if squad == null:
+		return _fail("Squad arena could not be loaded")
+	var squad_instance := squad.instantiate()
+	root.add_child(squad_instance)
+	var squad_session := squad_instance.get_node_or_null("NetworkSession")
+	if squad_session == null or squad_session.get_script() == null or String(squad_session.get_script().resource_path) != MTU_SAFE_SESSION_PATH:
+		squad_instance.free()
+		return _fail("Legacy squad arena must keep the MTU-safe hardened session")
+	squad_instance.free()
+
+	var campaign: PackedScene = load(CAMPAIGN_ARENA_PATH) as PackedScene
+	if campaign == null:
+		return _fail("Campaign arena could not be loaded")
+	var campaign_instance := campaign.instantiate()
+	root.add_child(campaign_instance)
+	var campaign_session := campaign_instance.get_node_or_null("NetworkSession")
+	if campaign_session == null or campaign_session.get_script() == null or String(campaign_session.get_script().resource_path) != LIFECYCLE_SESSION_PATH:
+		campaign_instance.free()
+		return _fail("Campaign arena is not using the beta.5 lifecycle session")
+	for method in ["configure_server", "start_client", "get_status_snapshot", "publish_match_result"]:
+		if not campaign_session.has_method(method):
+			campaign_instance.free()
+			return _fail("Lifecycle campaign session missing method: %s" % method)
+	if not campaign_session.has_signal("match_finished"):
+		campaign_instance.free()
+		return _fail("Lifecycle campaign session missing match_finished signal")
+	campaign_instance.free()
 	return true
 
 func _test_release_contract() -> bool:
