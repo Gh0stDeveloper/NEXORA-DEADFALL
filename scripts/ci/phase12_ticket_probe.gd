@@ -29,9 +29,13 @@ func _run() -> void:
 	if _session == null or not _session.has_method("start_client"):
 		_finish(2, "DEADFALL_PHASE12_PROBE_ERROR session_missing")
 		return
-	_session.joined.connect(_on_joined, CONNECT_ONE_SHOT)
-	_session.join_failed.connect(_on_join_failed, CONNECT_ONE_SHOT)
-	_session.disconnected.connect(_on_disconnected, CONNECT_ONE_SHOT)
+	for signal_name in ["joined", "join_failed", "disconnected"]:
+		if not _session.has_signal(signal_name):
+			_finish(2, "DEADFALL_PHASE12_PROBE_ERROR signal_missing:%s" % signal_name)
+			return
+	_session.connect("joined", Callable(self, "_on_joined"), CONNECT_ONE_SHOT)
+	_session.connect("join_failed", Callable(self, "_on_join_failed"), CONNECT_ONE_SHOT)
+	_session.connect("disconnected", Callable(self, "_on_disconnected"), CONNECT_ONE_SHOT)
 	var error := int(_session.call("start_client", host, port, player_name, "", ticket))
 	if error != OK:
 		_finish(2, "DEADFALL_PHASE12_PROBE_ERROR create_client:%s" % error_string(error))
@@ -68,11 +72,10 @@ func _on_timeout() -> void:
 
 func _graceful_close() -> void:
 	if _session != null:
-		var client_peer = _session.get("_client_peer")
-		if client_peer != null and client_peer.has_method("close"):
-			client_peer.call("close")
-	if multiplayer != null:
-		multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+		var client_peer := _session.get("_client_peer") as ENetMultiplayerPeer
+		if client_peer != null:
+			client_peer.close()
+	root.multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	if Game.is_network_client():
 		Game.stop_session()
 
