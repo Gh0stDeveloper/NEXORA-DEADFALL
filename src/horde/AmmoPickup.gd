@@ -54,10 +54,14 @@ func apply_network_snapshot(snapshot: Dictionary) -> void:
 func _on_body_entered(body: Node3D) -> void:
 	if _collected or replica_only or not _has_simulation_authority() or body == null or not body.is_in_group("deadfall_player"):
 		return
-	var weapon := body.get_node_or_null("PrimaryWeapon")
-	if weapon == null or not weapon.has_method("add_reserve_ammo"):
-		return
-	var added := int(weapon.call("add_reserve_ammo", ammo_amount))
+	var added := 0
+	var loadout := body.get_node_or_null("WeaponLoadout")
+	if loadout != null and loadout.has_method("add_ammo"):
+		added = int(loadout.call("add_ammo", ammo_amount))
+	else:
+		var weapon := body.get_node_or_null("PrimaryWeapon")
+		if weapon != null and weapon.has_method("add_reserve_ammo"):
+			added = int(weapon.call("add_reserve_ammo", ammo_amount))
 	if added <= 0:
 		return
 	_collected = true
