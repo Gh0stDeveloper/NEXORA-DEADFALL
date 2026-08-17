@@ -3,6 +3,8 @@ extends CanvasLayer
 
 signal return_requested()
 
+const LOADING_ART: Texture2D = preload("res://assets/ui/loading_deadfall.svg")
+
 var _status_label: Label
 var _detail_label: Label
 var _progress: ProgressBar
@@ -59,61 +61,26 @@ func _build_ui() -> void:
 	root.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(root)
 
-	var background := ColorRect.new()
-	background.color = Color(0.008, 0.014, 0.022, 1.0)
+	var background := TextureRect.new()
+	background.texture = LOADING_ART
+	background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(background)
 
-	var horizon := ColorRect.new()
-	horizon.color = Color(0.04, 0.19, 0.24, 0.72)
-	horizon.anchor_left = 0.0
-	horizon.anchor_top = 0.48
-	horizon.anchor_right = 1.0
-	horizon.anchor_bottom = 1.0
-	background.add_child(horizon)
+	var darken := ColorRect.new()
+	darken.color = Color(0.0, 0.0, 0.0, 0.16)
+	darken.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	darken.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(darken)
 
-	var infected_glow := ColorRect.new()
-	infected_glow.color = Color(0.58, 0.035, 0.045, 0.22)
-	infected_glow.anchor_left = 0.56
-	infected_glow.anchor_top = 0.0
-	infected_glow.anchor_right = 1.0
-	infected_glow.anchor_bottom = 1.0
-	background.add_child(infected_glow)
-
-	for index in range(9):
-		var building := ColorRect.new()
-		var width := 0.055 + float(index % 3) * 0.018
-		var height := 0.16 + float((index * 37) % 5) * 0.055
-		building.color = Color(0.012, 0.020, 0.026, 0.96)
-		building.anchor_left = 0.03 + float(index) * 0.105
-		building.anchor_right = minf(0.98, building.anchor_left + width)
-		building.anchor_top = 0.76 - height
-		building.anchor_bottom = 0.76
-		background.add_child(building)
-
-	var vignette_top := ColorRect.new()
-	vignette_top.color = Color(0.0, 0.0, 0.0, 0.46)
-	vignette_top.anchor_right = 1.0
-	vignette_top.anchor_bottom = 0.20
-	background.add_child(vignette_top)
-
-	var header := VBoxContainer.new()
-	header.anchor_left = 0.055
-	header.anchor_top = 0.08
-	header.anchor_right = 0.60
-	header.anchor_bottom = 0.28
-	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(header)
-	var brand := Label.new()
-	brand.text = "NEXORA: DEADFALL"
-	brand.add_theme_font_size_override("font_size", 42)
-	brand.add_theme_color_override("font_color", Color(0.96, 0.18, 0.16))
-	header.add_child(brand)
-	var subtitle := Label.new()
-	subtitle.text = "SURVIVE · ADAPT · ESCAPE"
-	subtitle.add_theme_font_size_override("font_size", 16)
-	subtitle.add_theme_color_override("font_color", Color(0.55, 0.84, 0.88))
-	header.add_child(subtitle)
+	var top_fade := ColorRect.new()
+	top_fade.color = Color(0.0, 0.0, 0.0, 0.20)
+	top_fade.anchor_right = 1.0
+	top_fade.anchor_bottom = 0.24
+	top_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(top_fade)
 
 	var bottom := PanelContainer.new()
 	bottom.anchor_left = 0.055
