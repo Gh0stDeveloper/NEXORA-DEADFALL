@@ -279,8 +279,8 @@ func _on_match_loading_return_requested() -> void:
 			overlay.call("allow_match_reentry", failed_match_id)
 	if SocialClient != null and SocialClient.has_method("allow_match_reentry"):
 		SocialClient.call("allow_match_reentry", failed_match_id)
-	if SocialClient != null and SocialClient.has_method("refresh_party"):
-		SocialClient.call_deferred("refresh_party")
+	# Do not refresh here: a READY party would immediately re-emit the same
+	# assignment and throw the player back into loading without user intent.
 	_pending_lobby = null
 	_pending_match_id = ""
 	_pending_match_endpoint = ""
