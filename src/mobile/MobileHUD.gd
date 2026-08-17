@@ -10,9 +10,17 @@ const ActionButtonScript = preload("res://src/mobile/TouchActionButton.gd")
 @export var show_on_desktop := false
 
 var _safe_root: Control
+var _controls_root: Control
+var _player: Node
 var _input_target: Node
+var _health: Node
+var _weapon: Node
+var _health_bar: ProgressBar
+var _health_label: Label
+var _ammo_label: Label
 var _quick_settings_panel: PanelContainer
 var _sensitivity_value_label: Label
+var _gameplay_controls_enabled := true
 
 func _ready() -> void:
 	bind_player(get_node_or_null(player_path))
@@ -21,21 +29,58 @@ func bind_player(player: Node) -> bool:
 	if player == null:
 		push_warning("MobileHUD could not resolve player")
 		return false
+	_player = player
 	_input_target = player.get_node_or_null("PlayerInput")
 	if _input_target == null:
 		push_warning("MobileHUD could not resolve PlayerInput")
 		return false
+	_health = player.get_node_or_null("Health")
+	_weapon = player.get_node_or_null("PrimaryWeapon")
 	if _safe_root != null and is_instance_valid(_safe_root):
 		_safe_root.queue_free()
 	_build_hud()
+	_bind_status_sources()
 	visible = OS.has_feature("mobile") or show_on_desktop
 	return true
+
+func bind_weapon(weapon: Node) -> void:
+	if _weapon != null and is_instance_valid(_weapon) and _weapon.has_signal("ammo_changed"):
+		var previous_callable := Callable(self, "_on_ammo_changed")
+		if _weapon.is_connected("ammo_changed", previous_callable):
+			_weapon.disconnect("ammo_changed", previous_callable)
+	_weapon = weapon
+	if _weapon != null and _weapon.has_signal("ammo_changed"):
+		var ammo_callable := Callable(self, "_on_ammo_changed")
+		if not _weapon.is_connected("ammo_changed", ammo_callable):
+			_weapon.connect("ammo_changed", ammo_callable)
+		var in_mag := int(_weapon.call("get_ammo_in_mag")) if _weapon.has_method("get_ammo_in_mag") else 0
+		var reserve := int(_weapon.call("get_reserve_ammo")) if _weapon.has_method("get_reserve_ammo") else 0
+		_on_ammo_changed(in_mag, reserve)
+	else:
+		_on_ammo_changed(0, 0)
+
+func set_gameplay_controls_enabled(enabled: bool) -> void:
+	_gameplay_controls_enabled = enabled
+	if _controls_root != null:
+		_controls_root.visible = enabled
+		_controls_root.mouse_filter = Control.MOUSE_FILTER_IGNORE if enabled else Control.MOUSE_FILTER_STOP
+	if not enabled and _input_target != null and _input_target.has_method("clear_mobile_actions"):
+		_input_target.call("clear_mobile_actions")
+
+func are_gameplay_controls_enabled() -> bool:
+	return _gameplay_controls_enabled
 
 func _build_hud() -> void:
 	_safe_root = SafeAreaScript.new()
 	_safe_root.name = "SafeArea"
 	add_child(_safe_root)
 	_safe_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+	_controls_root = Control.new()
+	_controls_root.name = "GameplayControls"
+	_controls_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_controls_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_safe_root.add_child(_controls_root)
 
 	var look_area := LookAreaScript.new()
 	look_area.name = "LookArea"
@@ -45,7 +90,7 @@ func _build_hud() -> void:
 	look_area.anchor_top = 0.0
 	look_area.anchor_right = 1.0
 	look_area.anchor_bottom = 1.0
-	_safe_root.add_child(look_area)
+	_controls_root.add_child(look_area)
 
 	var joystick := JoystickScript.new()
 	joystick.name = "MoveJoystick"
@@ -58,21 +103,111 @@ func _build_hud() -> void:
 	joystick.offset_top = -322.0
 	joystick.offset_right = 322.0
 	joystick.offset_bottom = -42.0
-	_safe_root.add_child(joystick)
+	_controls_root.add_child(joystick)
 
-	# Thumb-first layout: locomotion helpers remain close to the left joystick,
-	# while combat/camera actions form a spaced arc around the right thumb.
-	_add_action_button(&"sprint", &"sprint", Rect2(326, -154, 92, 92), Vector2(0, 1), &"sprint")
+	# Sprint is deliberately latched on mobile. One tap enables it; the next tap disables it.
+	_add_action_button(&"sprint", &"sprint", Rect2(326, -154, 92, 92), Vector2(0, 1), &"sprint", Color(0.08, 0.60, 0.66, 1.0), true)
 	_add_action_button(&"interact", &"interact", Rect2(-492, -244, 88, 88), Vector2(1, 1), &"interact")
 	_add_action_button(&"flashlight", &"flashlight", Rect2(-492, -344, 82, 82), Vector2(1, 1), &"flashlight")
 	_add_action_button(&"prone", &"prone", Rect2(-395, -278, 84, 84), Vector2(1, 1), &"prone")
 	_add_action_button(&"crouch", &"crouch", Rect2(-397, -174, 90, 90), Vector2(1, 1), &"crouch")
 	_add_action_button(&"camera", &"camera_cycle", Rect2(-287, -374, 82, 82), Vector2(1, 1), &"camera")
-	_add_action_button(&"jump", &"jump", Rect2(-292, -272, 96, 96), Vector2(1, 1), &"jump")
-	_add_action_button(&"reload", &"reload", Rect2(-176, -286, 86, 86), Vector2(1, 1), &"reload")
+	_add_action_button(&"jump", &"jump", Rect2(-292, -272, 96, 96), Vector2(1, 1), &"jump", Color(0.10, 0.48, 0.76, 1.0))
+	_add_action_button(&"reload", &"reload", Rect2(-176, -286, 86, 86), Vector2(1, 1), &"reload", Color(0.88, 0.45, 0.07, 1.0))
 	_add_action_button(&"fire", &"fire", Rect2(-178, -178, 140, 140), Vector2(1, 1), &"fire", Color(0.82, 0.07, 0.09, 1.0))
 
+	_build_player_status()
 	_build_quick_settings()
+	set_gameplay_controls_enabled(_gameplay_controls_enabled)
+
+func _build_player_status() -> void:
+	var panel := PanelContainer.new()
+	panel.name = "PlayerStatus"
+	panel.anchor_left = 0.34
+	panel.anchor_top = 0.018
+	panel.anchor_right = 0.64
+	panel.anchor_bottom = 0.145
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_theme_stylebox_override("panel", _status_panel_style())
+	_safe_root.add_child(panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 18)
+	margin.add_theme_constant_override("margin_right", 18)
+	margin.add_theme_constant_override("margin_top", 10)
+	margin.add_theme_constant_override("margin_bottom", 10)
+	panel.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 4)
+	margin.add_child(vbox)
+
+	var row := HBoxContainer.new()
+	vbox.add_child(row)
+	_health_label = Label.new()
+	_health_label.text = "HP 100 / 100"
+	_health_label.add_theme_font_size_override("font_size", 17)
+	_health_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(_health_label)
+	_ammo_label = Label.new()
+	_ammo_label.text = "30 / 120"
+	_ammo_label.add_theme_font_size_override("font_size", 20)
+	_ammo_label.add_theme_color_override("font_color", Color(1.0, 0.79, 0.34))
+	_ammo_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	row.add_child(_ammo_label)
+
+	_health_bar = ProgressBar.new()
+	_health_bar.min_value = 0.0
+	_health_bar.max_value = 100.0
+	_health_bar.value = 100.0
+	_health_bar.show_percentage = false
+	_health_bar.custom_minimum_size = Vector2(0, 14)
+	_health_bar.add_theme_stylebox_override("background", _bar_style(Color(0.025, 0.035, 0.040, 0.96), Color(0.16, 0.27, 0.29, 0.78)))
+	_health_bar.add_theme_stylebox_override("fill", _bar_style(Color(0.09, 0.78, 0.55, 1.0), Color(0.35, 1.0, 0.72, 0.94)))
+	vbox.add_child(_health_bar)
+
+	var hint := Label.new()
+	hint.text = "VIDA                                    MUNICIÓN"
+	hint.add_theme_font_size_override("font_size", 10)
+	hint.add_theme_color_override("font_color", Color(0.54, 0.68, 0.72))
+	vbox.add_child(hint)
+
+func _bind_status_sources() -> void:
+	if _health != null and _health.has_signal("health_changed"):
+		var health_callable := Callable(self, "_on_health_changed")
+		if not _health.is_connected("health_changed", health_callable):
+			_health.connect("health_changed", health_callable)
+		_on_health_changed(float(_health.get("current_health")), float(_health.get("max_health")), null)
+	bind_weapon(_weapon)
+
+func _on_health_changed(current: float, maximum: float, _event = null) -> void:
+	var safe_max := maxf(1.0, maximum)
+	var ratio := clampf(current / safe_max, 0.0, 1.0)
+	if _health_bar != null:
+		_health_bar.max_value = safe_max
+		_health_bar.value = clampf(current, 0.0, safe_max)
+		var fill := Color(0.09, 0.78, 0.55, 1.0)
+		var border := Color(0.35, 1.0, 0.72, 0.94)
+		if ratio <= 0.25:
+			fill = Color(0.90, 0.07, 0.08, 1.0)
+			border = Color(1.0, 0.32, 0.18, 0.96)
+		elif ratio <= 0.55:
+			fill = Color(0.95, 0.48, 0.08, 1.0)
+			border = Color(1.0, 0.72, 0.22, 0.96)
+		_health_bar.add_theme_stylebox_override("fill", _bar_style(fill, border))
+	if _health_label != null:
+		_health_label.text = "HP %d / %d" % [int(round(current)), int(round(safe_max))]
+
+func _on_ammo_changed(in_mag: int, reserve: int) -> void:
+	if _ammo_label == null:
+		return
+	_ammo_label.text = "%02d / %03d" % [maxi(0, in_mag), maxi(0, reserve)]
+	if in_mag <= 0:
+		_ammo_label.add_theme_color_override("font_color", Color(1.0, 0.22, 0.16))
+	elif reserve <= 0:
+		_ammo_label.add_theme_color_override("font_color", Color(1.0, 0.52, 0.18))
+	else:
+		_ammo_label.add_theme_color_override("font_color", Color(1.0, 0.79, 0.34))
 
 func _add_action_button(
 	control_id: StringName,
@@ -80,7 +215,8 @@ func _add_action_button(
 	rect: Rect2,
 	anchor: Vector2,
 	icon: StringName,
-	accent: Color = Color(0.56, 0.06, 0.08, 1.0)
+	accent: Color = Color(0.56, 0.06, 0.08, 1.0),
+	toggle_action: bool = false
 ) -> DeadfallTouchActionButton:
 	var button: DeadfallTouchActionButton = ActionButtonScript.new()
 	button.name = "%sButton" % String(control_id).capitalize()
@@ -88,15 +224,16 @@ func _add_action_button(
 	button.action_name = action
 	button.icon_name = icon
 	button.accent_color = accent
+	button.toggle_action = toggle_action
 	button.anchor_left = anchor.x
 	button.anchor_top = anchor.y
 	button.anchor_right = anchor.x
 	button.anchor_bottom = anchor.y
 	button.position = rect.position
 	button.size = rect.size
-	button.modulate = Color(1.0, 1.0, 1.0, 0.86)
+	button.modulate = Color(1.0, 1.0, 1.0, 0.90)
 	_apply_saved_layout(button, control_id, rect, anchor)
-	_safe_root.add_child(button)
+	_controls_root.add_child(button)
 	return button
 
 func _apply_saved_layout(button: Control, control_id: StringName, fallback_rect: Rect2, fallback_anchor: Vector2) -> void:
@@ -106,12 +243,10 @@ func _apply_saved_layout(button: Control, control_id: StringName, fallback_rect:
 		"x": fallback_anchor.x,
 		"y": fallback_anchor.y,
 		"scale": 1.0,
-		"opacity": 0.86,
+		"opacity": 0.90,
 		"visible": true,
 	}
 	var stored: Dictionary = Settings.get_hud_element(control_id, fallback)
-	# Phase 11's editor stores normalized anchors. Existing defaults still use
-	# pixel offsets so the initial layout remains deterministic across devices.
 	if Settings.hud_layout.has(String(control_id)):
 		button.anchor_left = float(stored.get("x", fallback_anchor.x))
 		button.anchor_top = float(stored.get("y", fallback_anchor.y))
@@ -120,7 +255,7 @@ func _apply_saved_layout(button: Control, control_id: StringName, fallback_rect:
 		button.position = -button.size * 0.5
 	button.scale = Vector2.ONE * float(stored.get("scale", 1.0))
 	var color := button.modulate
-	color.a = float(stored.get("opacity", 0.86))
+	color.a = float(stored.get("opacity", 0.90))
 	button.modulate = color
 	button.visible = bool(stored.get("visible", true))
 
@@ -136,8 +271,8 @@ func _build_quick_settings() -> void:
 	settings_button.anchor_bottom = 0.0
 	settings_button.position = Vector2(-92, 210)
 	settings_button.size = Vector2(72, 72)
-	settings_button.modulate = Color(1.0, 1.0, 1.0, 0.88)
-	_safe_root.add_child(settings_button)
+	settings_button.modulate = Color(1.0, 1.0, 1.0, 0.90)
+	_controls_root.add_child(settings_button)
 	settings_button.pressed.connect(_toggle_quick_settings)
 
 	_quick_settings_panel = PanelContainer.new()
@@ -152,7 +287,7 @@ func _build_quick_settings() -> void:
 	_quick_settings_panel.offset_bottom = 218.0
 	_quick_settings_panel.visible = false
 	_quick_settings_panel.add_theme_stylebox_override("panel", _panel_style())
-	_safe_root.add_child(_quick_settings_panel)
+	_controls_root.add_child(_quick_settings_panel)
 
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 24)
@@ -201,11 +336,33 @@ func _update_sensitivity_label(value: float) -> void:
 
 func _panel_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.018, 0.022, 0.028, 0.92)
-	style.border_color = Color(0.72, 0.08, 0.10, 0.70)
+	style.bg_color = Color(0.018, 0.030, 0.038, 0.94)
+	style.border_color = Color(0.16, 0.66, 0.70, 0.72)
 	style.set_border_width_all(2)
 	style.corner_radius_top_left = 18
 	style.corner_radius_top_right = 18
 	style.corner_radius_bottom_left = 18
 	style.corner_radius_bottom_right = 18
+	return style
+
+func _status_panel_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.008, 0.018, 0.024, 0.84)
+	style.border_color = Color(0.10, 0.52, 0.58, 0.72)
+	style.set_border_width_all(1)
+	style.corner_radius_top_left = 14
+	style.corner_radius_top_right = 14
+	style.corner_radius_bottom_left = 14
+	style.corner_radius_bottom_right = 14
+	return style
+
+func _bar_style(background: Color, border: Color) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = background
+	style.border_color = border
+	style.set_border_width_all(1)
+	style.corner_radius_top_left = 7
+	style.corner_radius_top_right = 7
+	style.corner_radius_bottom_left = 7
+	style.corner_radius_bottom_right = 7
 	return style
