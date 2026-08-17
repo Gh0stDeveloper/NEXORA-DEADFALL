@@ -66,8 +66,8 @@ func _run() -> void:
 
 	# Validate the exact serialization/compression/decompression primitive used
 	# by the wire path against the Godot runtime installed on the VPS. Include
-	# representative loadout and pickup data so future changes cannot silently
-	# make those fields unserializable in the chunked snapshot.
+	# representative loadout, action-sequence and pickup data so remote clients
+	# can animate authoritative weapon actions without inventing combat state.
 	var sample := {
 		"server_tick": 123,
 		"players": [{
@@ -75,9 +75,9 @@ func _run() -> void:
 			"position": Vector3(1, 2, 3),
 			"loadout": {
 				"active_slot": 1,
-				"primary": {"ammo": 24, "reserve": 96},
-				"secondary": {"ammo": 12, "reserve": 45},
-				"melee": {"weapon_id": "machete", "infinite": true},
+				"primary": {"ammo": 24, "reserve": 96, "last_sequence": 7},
+				"secondary": {"ammo": 12, "reserve": 45, "last_sequence": 11},
+				"melee": {"weapon_id": "machete", "infinite": true, "last_sequence": 3},
 			},
 		}],
 		"zombies": [],
@@ -105,6 +105,11 @@ func _run() -> void:
 	var decoded_loadout: Dictionary = Dictionary(decoded_player.get("loadout", {}))
 	if int(decoded_loadout.get("active_slot", -1)) != 1:
 		_fail("Loadout active slot did not survive MTU-safe round-trip")
+		return
+	var decoded_secondary: Dictionary = Dictionary(decoded_loadout.get("secondary", {}))
+	var decoded_melee: Dictionary = Dictionary(decoded_loadout.get("melee", {}))
+	if int(decoded_secondary.get("last_sequence", 0)) != 11 or int(decoded_melee.get("last_sequence", 0)) != 3:
+		_fail("Authoritative weapon action sequence was lost during MTU-safe round-trip")
 		return
 
 	arena.free()
