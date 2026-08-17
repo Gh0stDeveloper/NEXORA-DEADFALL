@@ -89,6 +89,26 @@ func _run() -> void:
 				instance.free()
 				_fail("Animated model has neither semantic clips nor a safe generic fallback: %s inventory=%s" % [model_name, JSON.stringify(inventory)])
 				return
+
+			var explicit_semantics: Dictionary = Dictionary(config.get("animation_semantics", {}))
+			for semantic_name in explicit_semantics.keys():
+				var expected_clip := StringName(String(explicit_semantics[semantic_name]))
+				if not AnimationDriver.has_named_animation(instance, expected_clip):
+					instance.free()
+					_fail("Pinned animation mapping is missing from imported GLB: %s %s -> %s" % [model_name, String(semantic_name), String(expected_clip)])
+					return
+				var exact_result := AnimationDriver.play_named(instance, expected_clip, StringName(String(semantic_name)), 0.0)
+				if not bool(exact_result.get("ok", false)):
+					instance.free()
+					_fail("Pinned animation mapping could not be played: %s %s -> %s" % [model_name, String(semantic_name), String(expected_clip)])
+					return
+
+			var explicit_generic := StringName(String(config.get("generic_animation_fallback", "")))
+			if not explicit_generic.is_empty() and not AnimationDriver.has_named_animation(instance, explicit_generic):
+				instance.free()
+				_fail("Pinned generic animation fallback is missing: %s -> %s" % [model_name, String(explicit_generic)])
+				return
+
 			var idle_result := AnimationDriver.play_semantic(instance, &"idle", 0.0)
 			if not bool(idle_result.get("ok", false)):
 				instance.free()
