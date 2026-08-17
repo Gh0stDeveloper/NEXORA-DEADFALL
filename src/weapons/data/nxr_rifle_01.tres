@@ -9,6 +9,7 @@ display_name = "NXR-4 Carbine"
 base_damage = 28.0
 magazine_size = 30
 starting_reserve_ammo = 120
+max_reserve_ammo = 360
 rounds_per_minute = 600.0
 reload_seconds = 2.1
 max_distance = 160.0
