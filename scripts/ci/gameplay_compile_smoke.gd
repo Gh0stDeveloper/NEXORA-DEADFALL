@@ -12,8 +12,11 @@ const REQUIRED_SCRIPTS := [
 	"res://src/mobile/MobileHUD.gd",
 	"res://src/mobile/MobilePerformanceTuner.gd",
 	"res://src/lobby/LobbyVisualPolish.gd",
+	"res://src/lobby/LobbyCharacterPreviewBridge.gd",
 	"res://src/assets/ModelNormalizer.gd",
 	"res://src/assets/ImportedAnimationDriver.gd",
+	"res://src/player/PlayerModelPresenter.gd",
+	"res://src/zombies/base/ZombieModelPresenter.gd",
 	"res://src/ui/MatchLoadingOverlay.gd",
 	"res://src/maps/campaign/DayNightCycle.gd",
 ]
@@ -40,6 +43,40 @@ func _run() -> void:
 	if campaign_scene == null or not campaign_scene.can_instantiate():
 		_fail("OutbreakDistrict.tscn cannot be instantiated after gameplay changes")
 		return
+
+	var animation_file := FileAccess.open("res://src/assets/ImportedAnimationDriver.gd", FileAccess.READ)
+	var animation_text := animation_file.get_as_text() if animation_file != null else ""
+	for contract in ["play_semantic", "semantic_inventory", "idle", "walk", "run", "attack", "death", "advance(0.0)"]:
+		if not animation_text.contains(contract):
+			_fail("Semantic imported animation contract missing: %s" % contract)
+			return
+
+	var player_presenter_file := FileAccess.open("res://src/player/PlayerModelPresenter.gd", FileAccess.READ)
+	var player_presenter_text := player_presenter_file.get_as_text() if player_presenter_file != null else ""
+	if not player_presenter_text.contains("_desired_semantic_state") or not player_presenter_text.contains("last_sequence") or not player_presenter_text.contains("dedicated_server"):
+		_fail("Player model semantic/headless presentation contract missing")
+		return
+
+	var zombie_presenter_file := FileAccess.open("res://src/zombies/base/ZombieModelPresenter.gd", FileAccess.READ)
+	var zombie_presenter_text := zombie_presenter_file.get_as_text() if zombie_presenter_file != null else ""
+	if not zombie_presenter_text.contains("_desired_semantic_state") or not zombie_presenter_text.contains("dedicated_server"):
+		_fail("Zombie model semantic/headless presentation contract missing")
+		return
+
+	var rifle_file := FileAccess.open("res://src/weapons/rifles/HitscanRifle.gd", FileAccess.READ)
+	var rifle_text := rifle_file.get_as_text() if rifle_file != null else ""
+	var machete_file := FileAccess.open("res://src/weapons/melee/MacheteWeapon.gd", FileAccess.READ)
+	var machete_text := machete_file.get_as_text() if machete_file != null else ""
+	if not rifle_text.contains("\"last_sequence\"") or not machete_text.contains("\"last_sequence\""):
+		_fail("Weapon action sequence is not replicated for remote animation presentation")
+		return
+
+	var performance_file := FileAccess.open("res://src/mobile/MobilePerformanceTuner.gd", FileAccess.READ)
+	var performance_text := performance_file.get_as_text() if performance_file != null else ""
+	for contract in ["scaling_3d_scale", "mesh_lod_threshold", "msaa_3d", "FPS_BY_TIER"]:
+		if not performance_text.contains(contract):
+			_fail("Mobile performance tuner contract missing: %s" % contract)
+			return
 
 	var performance_tuner := root.get_node_or_null("PerformanceTuner")
 	if performance_tuner == null or not performance_tuner.has_method("get_status_snapshot"):
