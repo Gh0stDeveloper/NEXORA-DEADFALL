@@ -22,7 +22,10 @@ for file in \
   web/download-site/package.json \
   web/download-site/next.config.ts \
   web/download-site/src/app/page.tsx \
-  assets/branding/deadfall_icon.svg; do
+  assets/branding/deadfall_icon.svg \
+  scripts/build/patch_android_template.py \
+  scripts/build/deadfall_android_init.gradle \
+  scripts/ci/android_template_patch_smoke.sh; do
   test -s "$file"
 done
 
@@ -65,10 +68,6 @@ if grep -Fq '> /etc/nginx/sites-available/nexora-deadfall' deploy/vps/install.sh
   echo 'Installer/updater must use configure_nginx_site instead of assuming sites-available exists' >&2
   exit 1
 fi
-if grep -Fq 'godot --headless --path "$DEADFALL_ROOT" --install-android-build-template --quit' scripts/build/build_android_vps.sh; then
-  echo 'Android Gradle template installation must be coupled to the export invocation' >&2
-  exit 1
-fi
 if grep -Fq 'JSON.parse_string' src/campaign/CampaignSaveStore.gd; then
   echo 'CampaignSaveStore must parse corrupt-save candidates without emitting JSON parser noise' >&2
   exit 1
@@ -80,11 +79,20 @@ grep -Fq 'Node.js 24 LTS' deploy/vps/install.sh
 grep -Fq 'reboot-required' deploy/vps/install.sh
 grep -Fq 'NEXORA-DEADFALL-latest.apk' scripts/build/build_android_vps.sh
 grep -Fq 'apksigner' scripts/build/build_android_vps.sh
-grep -Fq 'INSTALL_TEMPLATE_ARGS+=(--install-android-build-template)' scripts/build/build_android_vps.sh
+grep -Fq 'ANDROID_BUILD_DIR="$DEADFALL_ROOT/android/build"' scripts/build/build_android_vps.sh
+grep -Fq 'if [[ ! -f "$ANDROID_BUILD_DIR/build.gradle" ]]' scripts/build/build_android_vps.sh
+grep -Fq -- '--install-android-build-template --quit' scripts/build/build_android_vps.sh
+grep -Fq 'patch_android_template.py' scripts/build/build_android_vps.sh
+grep -Fq 'deadfall_android_init.gradle' scripts/build/build_android_vps.sh
+grep -Fq 'GRADLE_INIT_DIR="$DEADFALL_HOME/.gradle/init.d"' scripts/build/build_android_vps.sh
 grep -Fq 'run_deadfall_home env' scripts/build/build_android_vps.sh
-grep -Fq 'Instalando Android SDK Build-Tools 36.0.0' scripts/build/build_android_vps.sh
+grep -Fq 'Instalando Android SDK Build-Tools 36.1.0 requerido por Godot 4.6.3' scripts/build/build_android_vps.sh
+grep -Fq 'android.suppressUnsupportedCompileSdk' scripts/build/patch_android_template.py
+grep -Fq 'processStandardReleaseMainManifest' scripts/build/deadfall_android_init.gradle
 grep -Fq 'func is_dedicated_server() -> bool:' src/autoload/Game.gd
 grep -Fq 'APP=0; SERVER=0; WEB=0; DEPLOY=0' deploy/vps/update.sh
+grep -Fq 'scripts/build/' deploy/vps/update.sh
+grep -Fq 'APP=1; SERVER=1; WEB=1; DEPLOY=1' deploy/vps/update.sh
 grep -Fq 'output:' web/download-site/next.config.ts || grep -Fq "output: 'standalone'" web/download-site/next.config.ts
 grep -Fq 'proxy_pass http://127.0.0.1:3100' deploy/nginx/nexora-deadfall.conf.template
 grep -Fq '24560/udp' docs/VPS_INSTALLER.md
@@ -100,6 +108,10 @@ assert p['dependencies']['react-dom']=='19.2.8'
 update=Path('deploy/vps/update.sh').read_text()
 assert update.index('build_download_site.sh') < update.index('build_android_vps.sh'), 'portal must deploy before Android build'
 assert update.index('https://$DEADFALL_DOMAIN/') < update.index('El puerto HTTP/80 local no pertenece a DEADFALL'), 'HTTPS must be authoritative when a certificate exists'
+release=Path('.github/workflows/closed-beta-release.yml').read_text()
+assert 'Resolve release identity from BuildInfo' in release
+assert 'DEADFALL_VERSION: "0.9.0-beta.1"' not in release
+assert 'build-tools;36.1.0' in release
 PY
 
 echo 'NEXORA: DEADFALL Phase 10 VPS installer smoke passed'
