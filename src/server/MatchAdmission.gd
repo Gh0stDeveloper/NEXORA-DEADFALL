@@ -1,7 +1,7 @@
 class_name DeadfallMatchAdmission
 extends RefCounted
 
-const SCHEMA_VERSION := 1
+const SCHEMA_VERSION := 2
 
 var match_id := ""
 var party_code := ""
@@ -10,6 +10,8 @@ var port := 0
 var mission_id := "mission_01_first_signal"
 var created_unix := 0
 var ready_path := ""
+var heartbeat_path := ""
+var result_path := ""
 var expected_members := 0
 var _members_by_ticket: Dictionary = {}
 var _tickets_by_guest: Dictionary = {}
@@ -33,6 +35,8 @@ func load_from_file(path: String) -> bool:
 	mission_id = String(root.get("mission_id", "mission_01_first_signal"))
 	created_unix = int(root.get("created_unix", 0))
 	ready_path = String(root.get("ready_path", "")).strip_edges()
+	heartbeat_path = String(root.get("heartbeat_path", "")).strip_edges()
+	result_path = String(root.get("result_path", "")).strip_edges()
 	_members_by_ticket.clear()
 	_tickets_by_guest.clear()
 	var members_value: Variant = root.get("members", [])
@@ -49,7 +53,15 @@ func load_from_file(path: String) -> bool:
 		_members_by_ticket[ticket] = member
 		_tickets_by_guest[guest_id] = ticket
 	expected_members = _members_by_ticket.size()
-	return not match_id.is_empty() and not party_code.is_empty() and port > 0 and expected_members > 0 and not ready_path.is_empty()
+	return (
+		not match_id.is_empty()
+		and not party_code.is_empty()
+		and port > 0
+		and expected_members > 0
+		and not ready_path.is_empty()
+		and not heartbeat_path.is_empty()
+		and not result_path.is_empty()
+	)
 
 func validate_ticket(ticket: String) -> Dictionary:
 	var clean := ticket.strip_edges()
@@ -79,5 +91,7 @@ func snapshot() -> Dictionary:
 		"mission_id": mission_id,
 		"created_unix": created_unix,
 		"ready_path": ready_path,
+		"heartbeat_path": heartbeat_path,
+		"result_path": result_path,
 		"expected_members": expected_members,
 	}
