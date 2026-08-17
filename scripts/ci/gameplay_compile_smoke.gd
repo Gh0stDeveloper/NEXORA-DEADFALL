@@ -66,6 +66,13 @@ func _run() -> void:
 	if child_exit != 0:
 		_fail("Gameplay feature regression smoke failed (exit=%d): %s" % [child_exit, child_text])
 		return
+	# Godot can occasionally keep the process exit code at zero after a dependency
+	# load error if the outer script remains alive. Treat any compiler/load marker
+	# as a hard failure so a false green marker cannot hide broken gameplay code.
+	for fatal_marker in ["SCRIPT ERROR:", "ERROR: Failed to load script", "Compile Error:", "Parse Error:"]:
+		if child_text.contains(fatal_marker):
+			_fail("Gameplay feature regression smoke emitted a script/load error: %s" % child_text)
+			return
 	if not child_text.contains("NEXORA: DEADFALL gameplay features smoke passed"):
 		_fail("Gameplay feature regression smoke did not emit its success marker: %s" % child_text)
 		return
