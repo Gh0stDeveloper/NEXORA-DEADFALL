@@ -25,11 +25,11 @@ log "Validando el parche reproducible del template Android..."
 bash "$DEADFALL_ROOT/scripts/ci/android_template_patch_smoke.sh"
 
 SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-if [[ ! -d "$ANDROID_HOME/build-tools/36.0.0" ]]; then
+if [[ ! -d "$ANDROID_HOME/build-tools/36.1.0" ]]; then
   test -x "$SDKMANAGER"
-  log "Instalando Android SDK Build-Tools 36.0.0 para targetSdk 36..."
-  "$SDKMANAGER" --sdk_root="$ANDROID_HOME" "build-tools;36.0.0"
-  chown -R "$DEADFALL_USER:$DEADFALL_GROUP" "$ANDROID_HOME/build-tools/36.0.0"
+  log "Instalando Android SDK Build-Tools 36.1.0 requerido por Godot 4.6.3..."
+  "$SDKMANAGER" --sdk_root="$ANDROID_HOME" "build-tools;36.1.0"
+  chown -R "$DEADFALL_USER:$DEADFALL_GROUP" "$ANDROID_HOME/build-tools/36.1.0"
 fi
 
 if [[ ! -f "$ANDROID_BUILD_DIR/build.gradle" ]]; then
