@@ -1,6 +1,7 @@
 extends SceneTree
 
-const TRANSPORT_PATH := "res://src/network/MtuSafeClosedBetaNetworkSession.gd"
+const BASE_TRANSPORT_PATH := "res://src/network/MtuSafeClosedBetaNetworkSession.gd"
+const LIFECYCLE_SESSION_PATH := "res://src/network/LifecycleMtuSafeNetworkSession.gd"
 const CAMPAIGN_SCENE_PATH := "res://src/maps/campaign/OutbreakDistrict.tscn"
 const EXPECTED_CHUNK_BYTES := 900
 
@@ -8,11 +9,16 @@ func _initialize() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
-	var transport_script := load(TRANSPORT_PATH) as Script
+	var transport_script := load(BASE_TRANSPORT_PATH) as Script
 	if transport_script == null or not transport_script.can_instantiate():
 		_fail("MTU-safe Closed Beta transport could not compile/instantiate")
 		return
-	var transport_file := FileAccess.open(TRANSPORT_PATH, FileAccess.READ)
+	var lifecycle_script := load(LIFECYCLE_SESSION_PATH) as Script
+	if lifecycle_script == null or not lifecycle_script.can_instantiate():
+		_fail("Beta.5 lifecycle transport could not compile/instantiate")
+		return
+
+	var transport_file := FileAccess.open(BASE_TRANSPORT_PATH, FileAccess.READ)
 	var transport_text := transport_file.get_as_text() if transport_file != null else ""
 	if not transport_text.contains("const SNAPSHOT_CHUNK_BYTES := %d" % EXPECTED_CHUNK_BYTES):
 		_fail("MTU-safe transport chunk contract changed")
@@ -32,13 +38,23 @@ func _run() -> void:
 			_fail("MTU-safe online weapon/pickup replication contract missing token: %s" % required_token)
 			return
 
+	var lifecycle_file := FileAccess.open(LIFECYCLE_SESSION_PATH, FileAccess.READ)
+	var lifecycle_text := lifecycle_file.get_as_text() if lifecycle_file != null else ""
+	if not lifecycle_text.contains("extends \"%s\"" % BASE_TRANSPORT_PATH):
+		_fail("Beta.5 lifecycle session no longer layers on MTU-safe transport")
+		return
+	for lifecycle_token in ["match_finished", "publish_match_result", "match_ticket", "orchestrated_reconnects"]:
+		if not lifecycle_text.contains(lifecycle_token):
+			_fail("Beta.5 lifecycle transport contract missing token: %s" % lifecycle_token)
+			return
+
 	var campaign_scene := load(CAMPAIGN_SCENE_PATH) as PackedScene
 	if campaign_scene == null:
-		_fail("Campaign arena could not load with MTU-safe transport")
+		_fail("Campaign arena could not load with lifecycle MTU-safe transport")
 		return
 	var arena := campaign_scene.instantiate()
 	if arena == null:
-		_fail("Campaign arena could not instantiate with MTU-safe transport")
+		_fail("Campaign arena could not instantiate with lifecycle MTU-safe transport")
 		return
 	root.add_child(arena)
 	await process_frame
@@ -47,27 +63,32 @@ func _run() -> void:
 		_fail("Campaign arena NetworkSession missing")
 		return
 	var script := session.get_script() as Script
-	if script == null or script.resource_path != TRANSPORT_PATH:
-		_fail("Campaign arena is not wired to MTU-safe Closed Beta transport")
+	if script == null or script.resource_path != LIFECYCLE_SESSION_PATH:
+		_fail("Campaign arena is not wired to beta.5 lifecycle MTU-safe transport")
 		return
-	for method in ["start_client", "configure_server", "get_status_snapshot"]:
+	for method in ["start_client", "configure_server", "get_status_snapshot", "publish_match_result"]:
 		if not session.has_method(method):
-			_fail("MTU-safe transport missing method: %s" % method)
+			_fail("Lifecycle MTU-safe transport missing method: %s" % method)
 			return
+	if not session.has_signal("match_finished"):
+		_fail("Lifecycle MTU-safe transport missing match_finished signal")
+		return
 	var status_value = session.call("get_status_snapshot")
 	var status: Dictionary = status_value if typeof(status_value) == TYPE_DICTIONARY else {}
 	var transport_status: Dictionary = Dictionary(status.get("transport", {}))
 	if String(transport_status.get("encoding", "")) != "variant_fastlz_chunks" or int(transport_status.get("chunk_bytes", 0)) != EXPECTED_CHUNK_BYTES:
-		_fail("MTU-safe transport runtime status mismatch")
+		_fail("MTU-safe transport runtime status mismatch through lifecycle layer")
 		return
 	if not bool(transport_status.get("pickup_replication", false)) or not bool(transport_status.get("weapon_loadout_authoritative", false)):
-		_fail("Online weapon/pickup replication flags are not active")
+		_fail("Online weapon/pickup replication flags are not active through lifecycle layer")
+		return
+	var lifecycle_status: Dictionary = Dictionary(status.get("match_lifecycle", {}))
+	if not bool(lifecycle_status.get("authoritative_result_rpc", false)):
+		_fail("Lifecycle transport status does not advertise authoritative result RPC")
 		return
 
 	# Validate the exact serialization/compression/decompression primitive used
-	# by the wire path against the Godot runtime installed on the VPS. Include
-	# representative loadout, action-sequence and pickup data so remote clients
-	# can animate authoritative weapon actions without inventing combat state.
+	# by the inherited wire path against the Godot runtime installed on the VPS.
 	var sample := {
 		"server_tick": 123,
 		"players": [{
