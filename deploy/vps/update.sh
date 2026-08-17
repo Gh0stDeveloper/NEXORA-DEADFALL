@@ -89,6 +89,8 @@ prepare_validation_project(){
 
 if [[ "$NETWORK_ONLY" -eq 1 ]]; then
   prepare_validation_project
+  log "Validando transporte MTU-safe y escena Campaign antes de los probes reales..."
+  run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/phase11_network_transport_smoke.gd
   log "Ejecutando únicamente el smoke real de red/orquestación/tickets de Phase 11.3..."
   run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/phase11_orchestration_smoke.gd
   trap - EXIT
