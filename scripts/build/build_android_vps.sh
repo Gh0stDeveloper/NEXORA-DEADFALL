@@ -12,7 +12,9 @@ BUILD_KEYSTORE="$DEADFALL_HOME/.deadfall-build.keystore"
 ANDROID_BUILD_DIR="$DEADFALL_ROOT/android/build"
 ANDROID_PATCHER="$DEADFALL_ROOT/scripts/build/patch_android_template.py"
 ANDROID_GRADLE_INIT="$DEADFALL_ROOT/scripts/build/deadfall_android_init.gradle"
-cleanup(){ rm -f "$BUILD_KEYSTORE" "$TMP"; }
+GRADLE_INIT_DIR="$DEADFALL_HOME/.gradle/init.d"
+ACTIVE_GRADLE_INIT="$GRADLE_INIT_DIR/deadfall_android_init.gradle"
+cleanup(){ rm -f "$BUILD_KEYSTORE" "$TMP" "$ACTIVE_GRADLE_INIT"; }
 trap cleanup EXIT
 
 install -d -o "$DEADFALL_USER" -g "$DEADFALL_GROUP" "$DEADFALL_BUILD_DIR"
@@ -47,15 +49,16 @@ python3 "$ANDROID_PATCHER" "$ANDROID_BUILD_DIR"
 chown -R "$DEADFALL_USER:$DEADFALL_GROUP" "$ANDROID_BUILD_DIR"
 
 # Godot may refresh src/release/AndroidManifest.xml immediately before invoking
-# Gradle. GRADLE_OPTS installs our init hook into that child Gradle invocation,
-# so the four redundant tools:replace markers are removed immediately before
-# processStandardReleaseMainManifest rather than relying on a stale generated
-# file from a previous build.
+# Gradle. Gradle automatically loads init scripts from $HOME/.gradle/init.d;
+# install a temporary scoped hook so the four redundant tools:replace markers
+# are removed immediately before processStandardReleaseMainManifest.
+install -d -m 0755 -o "$DEADFALL_USER" -g "$DEADFALL_GROUP" "$GRADLE_INIT_DIR"
+install -m 0644 -o "$DEADFALL_USER" -g "$DEADFALL_GROUP" "$ANDROID_GRADLE_INIT" "$ACTIVE_GRADLE_INIT"
+
 run_deadfall_home env \
   ANDROID_HOME="$ANDROID_HOME" \
   JAVA_HOME="$JAVA_HOME" \
   DEADFALL_ROOT="$DEADFALL_ROOT" \
-  GRADLE_OPTS="${GRADLE_OPTS:-} -I $ANDROID_GRADLE_INIT" \
   GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$BUILD_KEYSTORE" \
   GODOT_ANDROID_KEYSTORE_RELEASE_USER="$DEADFALL_KEYSTORE_ALIAS" \
   GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="$DEADFALL_KEYSTORE_PASSWORD" \
