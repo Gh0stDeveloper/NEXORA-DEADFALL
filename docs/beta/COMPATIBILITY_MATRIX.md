@@ -4,16 +4,27 @@ Use one row per physical device/build combination. Do not mark physical compatib
 
 ## Current closed-beta candidate
 
-- App version: `0.9.0-beta.4`
-- Version code: `900004`
+- App version: `0.9.0-beta.5`
+- Version code: `900005`
 - Network protocol: `2`
 - Content version: `1`
-- Accepted client range: `900004–900999`
-- Accepted server range: `900004–900999`
+- Accepted client range: `900005–900999`
+- Accepted server range: `900005–900999`
 - Target Android API: `36`
 - Maximum players: `4`
 
-Beta.4 intentionally rejects beta.3 gameplay clients/servers so physical acceptance is performed only with the presentation/performance candidate. It carries forward the authoritative rifle/pistol/machete loadout, replicated ammo pickups, mobile HP/ammo HUD, sprint toggle, recoverable matchmaking/loading flow, Game Over restart hardening and day/night cycle, and adds the Lobby 2.0 presentation pass, GLB animation capability handling, exact Quaternius zombie animation aliases, headless visual suppression, mobile render-scale/LOD/MSAA/FPS tuning and zombie visual-distance culling. The MTU-safe FastLZ transport framing remains protocol `2`.
+Beta.5 intentionally rejects beta.4 and older clients/servers because the dedicated-match lifecycle contract changed even though the wire protocol remains `2`. The candidate retains the beta.4 presentation/performance work and adds ticket-scoped authoritative reconnect, child-process heartbeat supervision, frozen-process detection, match TTL/reaping, authoritative match outcomes, coordinated return to lobby and lifecycle metrics exposed through the safe health endpoint.
+
+### Beta.5 lifecycle acceptance contract
+
+- A private 256-bit admission ticket remains scoped to exactly one match and one guest identity.
+- If that client loses ENet connectivity, the server reserves its authoritative entity/slot/state for the reconnect grace window; the client never uploads trusted HP, position, ammo or hit state during recovery.
+- The Android client retries reconnect for up to 42 seconds with bounded attempts. A successful reconnect must restore the same server-owned entity state rather than spawning an unrelated player.
+- Every isolated match process writes a local heartbeat every 2 seconds. The parent orchestrator treats a live PID with a stale heartbeat as frozen and reaps it.
+- Match children have startup/empty/runtime TTLs, and terminal children are reaped if they do not exit after result delivery.
+- `VICTORY`, `DEFEAT` and `ABORTED` outcomes are produced by the authoritative child process, sent to connected peers and mirrored through local IPC for the parent orchestrator.
+- On terminal result, the parent unlocks the squad and every connected Android client returns to a refreshed lobby after the result screen or its automatic timeout.
+- Public `/v1/health` may expose aggregate lifecycle counters and watchdog settings, but never private tickets, per-player identities, child PIDs or match configuration paths.
 
 ## Imported 3D animation capability
 
@@ -35,9 +46,9 @@ Beta.4 intentionally rejects beta.3 gameplay clients/servers so physical accepta
 - `ULTRA_HD`: render scale 1.00, 60 FPS target, high-detail mesh LOD, MSAA 4x, zombie visuals roughly 128 m.
 - These are runtime budgets, not claimed measured performance. Physical-device FPS/thermal acceptance still has to be recorded below.
 
-| Date | Build | Manufacturer / model | SoC | GPU | RAM | Android / API | Resolution | Tier | FPS p50 | FPS 1% low | Peak RAM | Thermal after 20m | Wi-Fi | Mobile data | Campaign | 4-player Squad | Reconnect | Crash/ANR | Result |
-|---|---|---|---|---|---:|---|---|---|---:|---:|---:|---|---|---|---|---|---|---|---|
-| | 0.9.0-beta.4 | | | | | | | | | | | | | | | | | | |
+| Date | Build | Manufacturer / model | SoC | GPU | RAM | Android / API | Resolution | Tier | FPS p50 | FPS 1% low | Peak RAM | Thermal after 20m | Wi-Fi | Mobile data | Campaign | 4-player Squad | Ticket reconnect | Result → lobby | Crash/ANR | Result |
+|---|---|---|---|---|---:|---|---|---|---:|---:|---:|---|---|---|---|---|---|---|---|---|
+| | 0.9.0-beta.5 | | | | | | | | | | | | | | | | | | | |
 
 ## Minimum test set
 
@@ -47,8 +58,10 @@ Beta.4 intentionally rejects beta.3 gameplay clients/servers so physical accepta
 - Both major mobile GPU families where available (Adreno and Mali).
 - Wi-Fi and mobile-data sessions.
 - Solo Campaign and a four-player Squad/Horde session.
-- Background/foreground, Wi-Fi↔mobile-data transition, reconnect and 20+ minute thermal soak.
+- A deliberate disconnect/reconnect during an active match, including at least one Wi-Fi↔mobile-data transition where practical.
+- One authoritative victory/defeat result with all connected squad members returning to the same unlocked lobby.
+- Background/foreground and 20+ minute thermal soak.
 
 ## Pass notes
 
-Record observed behavior; do not infer performance from specifications alone. A device is not considered compatible merely because the APK installs.
+Record observed behavior; do not infer performance from specifications alone. A device is not considered compatible merely because the APK installs. Beta.5 lifecycle acceptance remains pending until the VPS gates, signed APK deployment and physical multi-device tests are complete.
