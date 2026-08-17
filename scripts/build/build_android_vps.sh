@@ -19,6 +19,9 @@ install -d -o "$DEADFALL_USER" -g "$DEADFALL_GROUP" "$DEADFALL_BUILD_DIR"
 install -m 0600 -o "$DEADFALL_USER" -g "$DEADFALL_GROUP" "$DEADFALL_KEYSTORE" "$BUILD_KEYSTORE"
 chown -R "$DEADFALL_USER:$DEADFALL_GROUP" "$DEADFALL_ROOT"
 
+log "Validando el parche reproducible del template Android..."
+bash "$DEADFALL_ROOT/scripts/ci/android_template_patch_smoke.sh"
+
 SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
 if [[ ! -d "$ANDROID_HOME/build-tools/36.0.0" ]]; then
   test -x "$SDKMANAGER"
