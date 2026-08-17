@@ -2,6 +2,8 @@ class_name DeadfallZombieModelPresenter
 extends Node3D
 
 const ExternalModels = preload("res://src/assets/ExternalModelCatalog.gd")
+const ModelNormalizer = preload("res://src/assets/ModelNormalizer.gd")
+const TARGET_VISUAL_HEIGHT := 1.95
 
 @export var prepared_rig_path := NodePath("../PreparedRig")
 @export var variant: StringName = &"animated"
@@ -36,6 +38,9 @@ func load_external_model() -> bool:
 	_loaded_model.rotation_degrees = configured_rotation
 	_loaded_model.position = configured_offset
 	add_child(_loaded_model)
+	var normalization := ModelNormalizer.normalize_visual(_loaded_model, self, TARGET_VISUAL_HEIGHT)
+	if not bool(normalization.get("ok", false)):
+		push_warning("DEADFALL zombie model normalization failed: %s" % String(normalization.get("reason", "unknown")))
 	_set_prepared_rig_visible(false)
 	_play_idle_if_available(_loaded_model)
 	return true
@@ -61,9 +66,14 @@ func _play_idle_if_available(root: Node) -> void:
 	if animation_player == null:
 		return
 	var animations := animation_player.get_animation_list()
-	for candidate in ["Idle", "idle", "IDLE"]:
-		if candidate in animations:
-			animation_player.play(candidate)
+	for name in animations:
+		var lowered := String(name).to_lower()
+		if lowered.contains("idle") or lowered.contains("stand"):
+			animation_player.play(StringName(name))
+			return
+	for name in animations:
+		if String(name).to_lower() != "reset":
+			animation_player.play(StringName(name))
 			return
 
 func _find_animation_player(root: Node) -> AnimationPlayer:
