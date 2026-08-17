@@ -180,7 +180,67 @@ func _initialize() -> void:
 	if horde_director == null or horde_spawns == null or horde_zombies == null or horde_hud == null:
 		_fail("Phase 5 Horde director/spawn container/HUD missing")
 		return
-
+	if horde_spawns.get_child_count() < 4:
+		_fail("Horde arena needs multiple spawn points")
+		return
+	if not horde_director.has_method("get_recoverable_player_count") or not horde_director.has_method("get_scaling_squad_size"):
+		_fail("HordeDirector Squad contract incomplete")
+		return
+	var zombie_scene := load("res://src/zombies/base/Zombie.tscn") as PackedScene
+	var zombie := zombie_scene.instantiate() as CharacterBody3D
+	if zombie == null or zombie.get_node_or_null("NavigationAgent3D") == null or zombie.get_node_or_null("Health") == null or zombie.get_node_or_null("Gore") == null or zombie.get_node_or_null("ArchetypeBehavior") == null:
+		_fail("Zombie AI/health/gore/archetype components missing")
+		return
+	if not zombie.has_method("get_network_snapshot") or not zombie.has_method("apply_network_snapshot"):
+		_fail("Zombie network snapshot contract missing")
+		return
+	zombie.free()
+	var squad_scene := load("res://src/maps/duo/DuoArena.tscn") as PackedScene
+	if squad_scene == null:
+		_fail("Phase 7 Squad arena could not be loaded")
+		return
+	var squad := squad_scene.instantiate()
+	if squad == null:
+		_fail("Phase 7 Squad arena could not be instantiated")
+		return
+	root.add_child(squad)
+	for node_path in ["NetworkSession", "NetworkPlayers", "PlayerSpawnPoints/SpawnA", "PlayerSpawnPoints/SpawnB", "PlayerSpawnPoints/SpawnC", "PlayerSpawnPoints/SpawnD", "HordeDirector", "HordeZombies"]:
+		if squad.get_node_or_null(node_path) == null:
+			_fail("Phase 7 Squad arena missing %s" % node_path)
+			return
+	var squad_network: Node = squad.get_node("NetworkSession")
+	var squad_network_script: Script = squad_network.get_script() as Script
+	if squad_network_script == null or String(squad_network_script.resource_path) != "res://src/network/MtuSafeClosedBetaNetworkSession.gd":
+		_fail("Phase 11 MTU-safe hardened network session is not active in Squad arena")
+		return
+	squad.free()
+	var campaign_scene := load("res://src/maps/campaign/OutbreakDistrict.tscn") as PackedScene
+	if campaign_scene == null:
+		_fail("Phase 8 Campaign arena could not be loaded")
+		return
+	var campaign := campaign_scene.instantiate()
+	if campaign == null:
+		_fail("Phase 8 Campaign arena could not be instantiated")
+		return
+	root.add_child(campaign)
+	for node_path in ["CampaignDirector", "CampaignNetworkBridge", "CampaignHUD", "CampaignTargets/StreetGate", "CampaignTargets/EvacPoint", "CampaignTargets/RadioConsole", "NetworkSession", "PlayerSpawnPoints/SpawnA", "PlayerSpawnPoints/SpawnD"]:
+		if campaign.get_node_or_null(node_path) == null:
+			_fail("Phase 8 Campaign arena missing %s" % node_path)
+			return
+	if not campaign.get_node("CampaignDirector").has_method("get_status_snapshot"):
+		_fail("Phase 8 CampaignDirector snapshot contract missing")
+		return
+	var campaign_network: Node = campaign.get_node("NetworkSession")
+	var campaign_network_script: Script = campaign_network.get_script() as Script
+	if campaign_network_script == null or String(campaign_network_script.resource_path) != "res://src/network/MtuSafeClosedBetaNetworkSession.gd":
+		_fail("Phase 11 MTU-safe hardened network session is not active in Campaign arena")
+		return
+	campaign.free()
+	for action in ["move_forward", "move_back", "move_left", "move_right", "jump", "sprint", "crouch", "prone", "camera_cycle", "fire", "reload", "interact"]:
+		if not InputMap.has_action(action):
+			_fail("Input action was not registered: %s" % action)
+			return
+	range_instance.free()
 	print("NEXORA: DEADFALL smoke test passed")
 	quit(0)
 
