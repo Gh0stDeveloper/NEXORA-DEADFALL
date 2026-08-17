@@ -21,7 +21,12 @@ cat > "$TMP/src/release/AndroidManifest.xml" <<'EOF'
 </manifest>
 EOF
 
-python3 -m py_compile "$ROOT/scripts/build/patch_android_template.py"
+python3 - "$ROOT/scripts/build/patch_android_template.py" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+compile(path.read_text(encoding='utf-8'), str(path), 'exec')
+PY
 python3 "$ROOT/scripts/build/patch_android_template.py" "$TMP" --require-manifest
 python3 "$ROOT/scripts/build/patch_android_template.py" "$TMP" --require-manifest
 
