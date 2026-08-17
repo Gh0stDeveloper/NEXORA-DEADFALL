@@ -160,8 +160,8 @@ func _initialize() -> void:
 	if player == null or not player is CharacterBody3D:
 		_fail("Test range Player must be a CharacterBody3D")
 		return
-	if player.get_node_or_null("PlayerInput") == null or player.get_node_or_null("Health") == null or player.get_node_or_null("LifeState") == null or player.get_node_or_null("PrimaryWeapon") == null:
-		_fail("Player combat/Squad components missing")
+	if player.get_node_or_null("PlayerInput") == null or player.get_node_or_null("Health") == null or player.get_node_or_null("LifeState") == null or player.get_node_or_null("PrimaryWeapon") == null or player.get_node_or_null("SecondaryWeapon") == null or player.get_node_or_null("MacheteWeapon") == null or player.get_node_or_null("WeaponLoadout") == null:
+		_fail("Player combat/Squad/loadout components missing")
 		return
 	if player.get_node_or_null("CameraRig/Pitch/FirstPerson") == null or player.get_node_or_null("CameraRig/Pitch/ThirdPersonRear") == null or player.get_node_or_null("CameraRig/Pitch/ThirdPersonFront") == null:
 		_fail("Player camera rig incomplete")
@@ -223,9 +223,9 @@ func _initialize() -> void:
 		_fail("Phase 8 Campaign arena could not be instantiated")
 		return
 	root.add_child(campaign)
-	for node_path in ["CampaignDirector", "CampaignNetworkBridge", "CampaignHUD", "CampaignTargets/StreetGate", "CampaignTargets/EvacPoint", "CampaignTargets/RadioConsole", "NetworkSession", "PlayerSpawnPoints/SpawnA", "PlayerSpawnPoints/SpawnD"]:
+	for node_path in ["CampaignDirector", "CampaignNetworkBridge", "CampaignHUD", "CampaignTargets/StreetGate", "CampaignTargets/EvacPoint", "CampaignTargets/RadioConsole", "NetworkSession", "PlayerSpawnPoints/SpawnA", "PlayerSpawnPoints/SpawnD", "AmmoDropDirector", "WorldPickups", "DayNightCycle"]:
 		if campaign.get_node_or_null(node_path) == null:
-			_fail("Phase 8 Campaign arena missing %s" % node_path)
+			_fail("Phase 8/11 Campaign arena missing %s" % node_path)
 			return
 	if not campaign.get_node("CampaignDirector").has_method("get_status_snapshot"):
 		_fail("Phase 8 CampaignDirector snapshot contract missing")
@@ -234,6 +234,9 @@ func _initialize() -> void:
 	var campaign_network_script: Script = campaign_network.get_script() as Script
 	if campaign_network_script == null or String(campaign_network_script.resource_path) != "res://src/network/MtuSafeClosedBetaNetworkSession.gd":
 		_fail("Phase 11 MTU-safe hardened network session is not active in Campaign arena")
+		return
+	if DisplayServer.get_name() == "headless" and campaign.get_node("DayNightCycle").is_processing():
+		_fail("DayNightCycle must remain disabled on the headless Campaign server")
 		return
 	campaign.free()
 	for action in ["move_forward", "move_back", "move_left", "move_right", "jump", "sprint", "crouch", "prone", "camera_cycle", "fire", "reload", "interact"]:
