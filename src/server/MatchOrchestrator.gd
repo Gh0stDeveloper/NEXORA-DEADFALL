@@ -306,11 +306,11 @@ func _process(_delta: float) -> void:
 					if reconnects > previous_reconnects:
 						_metrics["reconnects_total"] = int(_metrics["reconnects_total"]) + reconnects - previous_reconnects
 					record["observed_reconnects"] = maxi(previous_reconnects, reconnects)
-					var admitted_once := bool(record.get("ever_had_player", false)) \
-						or bool(heartbeat.get("ever_had_player", false)) \
-						or int(record.get("connected_players", 0)) > 0 \
-						or int(record.get("reserved_slots", 0)) > 0 \
-						or reconnects > 0
+					var had_player_before := bool(record.get("ever_had_player", false))
+					var heartbeat_had_player := bool(heartbeat.get("ever_had_player", false))
+					var has_connected_player := int(record.get("connected_players", 0)) > 0
+					var has_reserved_player := int(record.get("reserved_slots", 0)) > 0
+					var admitted_once := had_player_before or heartbeat_had_player or has_connected_player or has_reserved_player or reconnects > 0
 					record["ever_had_player"] = admitted_once
 					_matches[match_id] = record
 					if String(record.get("status", "")) == "READY" and admitted_once:
