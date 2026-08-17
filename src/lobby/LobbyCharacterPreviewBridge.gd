@@ -2,6 +2,8 @@ class_name DeadfallLobbyCharacterPreviewBridge
 extends Node
 
 const ExternalModels = preload("res://src/assets/ExternalModelCatalog.gd")
+const ModelNormalizer = preload("res://src/assets/ModelNormalizer.gd")
+const PREVIEW_HEIGHT := 1.76
 
 var _viewport: SubViewport
 var _preview_root: Node3D
@@ -58,6 +60,9 @@ func _show_character(character_id: StringName) -> void:
 	_model.rotation_degrees = configured_rotation
 	_model.position = configured_offset
 	_preview_root.add_child(_model)
+	var normalization := ModelNormalizer.normalize_visual(_model, _preview_root, PREVIEW_HEIGHT)
+	if not bool(normalization.get("ok", false)):
+		push_warning("DEADFALL lobby preview normalization failed: %s" % String(normalization.get("reason", "unknown")))
 	_set_placeholder_visible(false)
 	_play_idle_if_available(_model)
 
@@ -75,9 +80,14 @@ func _play_idle_if_available(root: Node) -> void:
 	if player == null:
 		return
 	var animations := player.get_animation_list()
-	for candidate in ["Idle", "idle", "IDLE"]:
-		if candidate in animations:
-			player.play(candidate)
+	for name in animations:
+		var lowered := String(name).to_lower()
+		if lowered.contains("idle") or lowered.contains("stand") or lowered.contains("breath"):
+			player.play(StringName(name))
+			return
+	for name in animations:
+		if String(name).to_lower() != "reset":
+			player.play(StringName(name))
 			return
 
 func _find_animation_player(root: Node) -> AnimationPlayer:
