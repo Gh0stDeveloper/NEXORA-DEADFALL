@@ -3,15 +3,22 @@ extends "res://src/network/ClosedBetaNetworkSession.gd"
 
 # ENet reported an effective unreliable MTU of ~1392 bytes on the VPS path.
 # Keep every RPC fragment comfortably below that boundary and reconstruct one
-# authoritative semantic snapshot client-side. Gameplay authority and snapshot
-# contents stay unchanged; only their transport representation is packetized.
+# authoritative semantic snapshot client-side.
 const SNAPSHOT_CHUNK_BYTES := 900
 const SNAPSHOT_MAX_RAW_BYTES := 65_536
 const SNAPSHOT_MAX_CHUNKS := 80
 const SNAPSHOT_ASSEMBLY_WINDOW_TICKS := 8
+const AmmoPickupScene = preload("res://src/horde/AmmoPickup.tscn")
+
+@export var pickups_root_path := NodePath("../WorldPickups")
 
 var _snapshot_chunk_assemblies: Dictionary = {}
 var _last_completed_snapshot_tick := 0
+var _pickups_root: Node3D
+
+func _ready() -> void:
+	super._ready()
+	_resolve_pickups_root()
 
 func _physics_process(delta: float) -> void:
 	if role != Role.SERVER:
@@ -28,7 +35,7 @@ func _physics_process(delta: float) -> void:
 		_send_snapshot_chunks(int(peer_id))
 
 func _send_snapshot_chunks(peer_id: int) -> void:
-	var snapshot: Dictionary = super._build_server_snapshot_for_peer(peer_id)
+	var snapshot := _build_server_snapshot_with_pickups(peer_id)
 	var raw := var_to_bytes(snapshot)
 	if raw.is_empty() or raw.size() > SNAPSHOT_MAX_RAW_BYTES:
 		push_warning("DEADFALL snapshot raw payload rejected: bytes=%d max=%d" % [raw.size(), SNAPSHOT_MAX_RAW_BYTES])
@@ -47,6 +54,18 @@ func _send_snapshot_chunks(peer_id: int) -> void:
 		var end := mini(begin + SNAPSHOT_CHUNK_BYTES, compressed.size())
 		var chunk := compressed.slice(begin, end)
 		rpc_id(peer_id, "_client_receive_snapshot_chunk", tick, raw.size(), total_chunks, chunk_index, chunk)
+
+func _build_server_snapshot_with_pickups(peer_id: int) -> Dictionary:
+	var snapshot: Dictionary = super._build_server_snapshot_for_peer(peer_id)
+	var pickups: Array = []
+	if _pickups_root == null or not is_instance_valid(_pickups_root):
+		_resolve_pickups_root()
+	if _pickups_root != null:
+		for child in _pickups_root.get_children():
+			if child.has_method("get_network_snapshot"):
+				pickups.append(child.call("get_network_snapshot"))
+	snapshot["pickups"] = pickups
+	return snapshot
 
 @rpc("authority", "call_remote", "unreliable", 1)
 func _client_receive_snapshot_chunk(server_tick: int, raw_size: int, total_chunks: int, chunk_index: int, chunk: PackedByteArray) -> void:
@@ -91,9 +110,6 @@ func _client_receive_snapshot_chunk(server_tick: int, raw_size: int, total_chunk
 	_snapshot_chunk_assemblies.erase(server_tick)
 	if raw.size() != raw_size:
 		return
-	# Godot 4.6 exposes bytes_to_var() with a single argument. The payload was
-	# produced locally with var_to_bytes() from server-owned snapshot data, so
-	# no object deserialization is required here.
 	var decoded: Variant = bytes_to_var(raw)
 	if typeof(decoded) != TYPE_DICTIONARY:
 		return
@@ -102,6 +118,41 @@ func _client_receive_snapshot_chunk(server_tick: int, raw_size: int, total_chunk
 		return
 	_last_completed_snapshot_tick = server_tick
 	super._client_receive_snapshot(snapshot)
+	_sync_pickups(snapshot)
+
+func _sync_pickups(snapshot: Dictionary) -> void:
+	if _pickups_root == null or not is_instance_valid(_pickups_root):
+		_resolve_pickups_root()
+	if _pickups_root == null:
+		return
+	var seen: Dictionary = {}
+	for value in Array(snapshot.get("pickups", [])):
+		if typeof(value) != TYPE_DICTIONARY:
+			continue
+		var pickup_snapshot: Dictionary = value
+		var pickup_id := int(pickup_snapshot.get("pickup_id", 0))
+		if pickup_id <= 0:
+			continue
+		seen[pickup_id] = true
+		var pickup := _pickups_root.get_node_or_null("AmmoPickup_%d" % pickup_id) as Area3D
+		if pickup == null:
+			pickup = AmmoPickupScene.instantiate() as Area3D
+			if pickup == null:
+				continue
+			pickup.name = "AmmoPickup_%d" % pickup_id
+			if pickup.has_method("configure"):
+				pickup.call("configure", pickup_id, int(pickup_snapshot.get("amount", 30)), true)
+			_pickups_root.add_child(pickup)
+		if pickup.has_method("apply_network_snapshot"):
+			pickup.call("apply_network_snapshot", pickup_snapshot)
+	for child in _pickups_root.get_children():
+		var id_value = child.get("pickup_id")
+		var pickup_id := int(id_value) if id_value != null else 0
+		if pickup_id > 0 and not seen.has(pickup_id):
+			child.queue_free()
+
+func _resolve_pickups_root() -> void:
+	_pickups_root = get_node_or_null(pickups_root_path) as Node3D
 
 func _prune_snapshot_assemblies(newest_tick: int) -> void:
 	for tick_value in _snapshot_chunk_assemblies.keys():
@@ -110,8 +161,6 @@ func _prune_snapshot_assemblies(newest_tick: int) -> void:
 			_snapshot_chunk_assemblies.erase(tick_value)
 
 func _max_payload_bytes() -> int:
-	# This is the semantic snapshot budget before compression/chunking. The wire
-	# budget is SNAPSHOT_CHUNK_BYTES and is intentionally much smaller.
 	return clampi(int(_quality_profile().get("network_max_payload_bytes", 32000)), 12000, 64000)
 
 func get_status_snapshot() -> Dictionary:
@@ -121,5 +170,6 @@ func get_status_snapshot() -> Dictionary:
 		"chunk_bytes": SNAPSHOT_CHUNK_BYTES,
 		"max_raw_bytes": SNAPSHOT_MAX_RAW_BYTES,
 		"max_chunks": SNAPSHOT_MAX_CHUNKS,
+		"pickup_replication": true,
 	}
 	return snapshot
