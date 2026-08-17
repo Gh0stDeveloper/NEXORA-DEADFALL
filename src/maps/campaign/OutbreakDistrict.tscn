@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://src/maps/campaign/OutbreakDistrict.gd" id="1_map"]
 [ext_resource type="Script" path="res://src/horde/HordeDirector.gd" id="2_horde"]
@@ -7,6 +7,7 @@
 [ext_resource type="Script" path="res://src/campaign/CampaignNetworkBridge.gd" id="5_bridge"]
 [ext_resource type="Script" path="res://src/campaign/CampaignHUD.gd" id="6_hud"]
 [ext_resource type="Script" path="res://src/maps/campaign/DayNightCycle.gd" id="7_daynight"]
+[ext_resource type="Script" path="res://src/horde/AmmoDropDirector.gd" id="8_ammo"]
 
 [node name="CampaignArena" type="Node3D"]
 script = ExtResource("1_map")
@@ -62,6 +63,7 @@ position = Vector3(-27, 0.05, 27)
 position = Vector3(-28, 0.05, 0)
 
 [node name="HordeZombies" type="Node3D" parent="."]
+[node name="WorldPickups" type="Node3D" parent="."]
 
 [node name="HordeDirector" type="Node" parent="."]
 script = ExtResource("2_horde")
@@ -72,12 +74,18 @@ zombie_parent_path = NodePath("../HordeZombies")
 initial_countdown_seconds = 2.0
 intermission_seconds = 5.0
 
+[node name="AmmoDropDirector" type="Node" parent="."]
+script = ExtResource("8_ammo")
+zombies_root_path = NodePath("../HordeZombies")
+pickups_root_path = NodePath("../WorldPickups")
+
 [node name="NetworkSession" type="Node" parent="."]
 script = ExtResource("3_network")
 players_root_path = NodePath("../NetworkPlayers")
 player_spawn_points_path = NodePath("../PlayerSpawnPoints")
 zombies_root_path = NodePath("../HordeZombies")
 horde_director_path = NodePath("../HordeDirector")
+pickups_root_path = NodePath("../WorldPickups")
 
 [node name="CampaignDirector" type="Node" parent="."]
 script = ExtResource("4_campaign")
