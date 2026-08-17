@@ -46,7 +46,7 @@ func _run() -> void:
 
 	var animation_file := FileAccess.open("res://src/assets/ImportedAnimationDriver.gd", FileAccess.READ)
 	var animation_text := animation_file.get_as_text() if animation_file != null else ""
-	for contract in ["play_semantic", "semantic_inventory", "idle", "walk", "run", "attack", "death", "advance(0.0)"]:
+	for contract in ["play_semantic", "semantic_inventory", "capability_snapshot", "generic_fallback", "idle", "walk", "run", "attack", "death", "advance(0.0)"]:
 		if not animation_text.contains(contract):
 			_fail("Semantic imported animation contract missing: %s" % contract)
 			return
