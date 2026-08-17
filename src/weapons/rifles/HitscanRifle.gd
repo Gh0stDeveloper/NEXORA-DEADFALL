@@ -104,11 +104,14 @@ func server_try_reload(request_sequence: int) -> bool:
 func add_reserve_ammo(amount: int) -> int:
 	if amount <= 0 or weapon_data == null or not _is_simulation_authority():
 		return 0
-	var configured_max := int(weapon_data.get("max_reserve_ammo")) if weapon_data.get("max_reserve_ammo") != null else int(weapon_data.get("starting_reserve_ammo")) * 3
-	var maximum := maxi(0, configured_max)
-	var before := _state.reserve_ammo
-	_state.reserve_ammo = mini(maximum, _state.reserve_ammo + amount)
-	var added := _state.reserve_ammo - before
+	var configured_max: int = int(weapon_data.get("max_reserve_ammo")) if weapon_data.get("max_reserve_ammo") != null else int(weapon_data.get("starting_reserve_ammo")) * 3
+	var maximum: int = maxi(0, configured_max)
+	# _state comes from a dynamically loaded script. Godot 4.6 cannot infer a
+	# local static type from one of its properties, so keep pickup arithmetic
+	# explicitly typed to make this script compile consistently in headless CI.
+	var before: int = int(_state.reserve_ammo)
+	_state.reserve_ammo = mini(maximum, before + amount)
+	var added: int = int(_state.reserve_ammo) - before
 	if added > 0:
 		ammo_changed.emit(_state.ammo_in_mag, _state.reserve_ammo)
 	return added
