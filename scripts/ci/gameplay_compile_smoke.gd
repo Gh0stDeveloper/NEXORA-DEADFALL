@@ -53,7 +53,31 @@ func _run() -> void:
 		day_night.queue_free()
 		await process_frame
 
+	# Run behavior regressions in an isolated Godot process. Keeping this child
+	# separate prevents the local-authority/TestRange lifecycle from contaminating
+	# the later Closed Beta/network smokes that run in their own processes.
+	var child_output: Array = []
+	var project_root: String = ProjectSettings.globalize_path("res://")
+	var feature_script: String = ProjectSettings.globalize_path("res://scripts/ci/gameplay_features_smoke.gd")
+	var child_exit: int = OS.execute(
+		OS.get_executable_path(),
+		PackedStringArray(["--headless", "--path", project_root, "--script", feature_script]),
+		child_output,
+		true,
+		false
+	)
+	var child_text := ""
+	for value in child_output:
+		child_text += String(value)
+	if child_exit != 0:
+		_fail("Gameplay feature regression smoke failed (exit=%d): %s" % [child_exit, child_text])
+		return
+	if not child_text.contains("NEXORA: DEADFALL gameplay features smoke passed"):
+		_fail("Gameplay feature regression smoke did not emit its success marker: %s" % child_text)
+		return
+
 	print("NEXORA: DEADFALL strict gameplay compile smoke passed")
+	print("NEXORA: DEADFALL gameplay features smoke passed")
 	quit(0)
 
 func _fail(message: String) -> void:
