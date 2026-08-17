@@ -11,6 +11,7 @@ const DedicatedServerScript = preload("res://src/server/DedicatedServer.gd")
 const PlayerScene = preload("res://src/player/Player.tscn")
 const PlayerControllerScript = preload("res://src/player/PlayerController.gd")
 const SquadArenaScene = preload("res://src/maps/duo/DuoArena.tscn")
+const MtuSafeSessionScript = preload("res://src/network/MtuSafeClosedBetaNetworkSession.gd")
 
 func _initialize() -> void:
 	if not _test_network_authority(): return
@@ -73,6 +74,10 @@ func _test_squad_capacity_contract() -> bool:
 		return _fail("Squad session gameplay capacity must be four players")
 	if int(DedicatedServerScript.DEFAULT_MAX_CLIENTS) != 4:
 		return _fail("Dedicated ENet transport must cap Squad at four clients")
+	if int(MtuSafeSessionScript.SNAPSHOT_CHUNK_BYTES) >= 1392:
+		return _fail("Closed Beta snapshot chunk budget must stay below observed ENet MTU")
+	if int(MtuSafeSessionScript.SNAPSHOT_MAX_RAW_BYTES) > 65536:
+		return _fail("Closed Beta snapshot decoder raw-size guard is too large")
 	return true
 
 func _test_player_command_and_weapon_sequence() -> bool:
@@ -108,7 +113,7 @@ func _test_squad_arena_contract() -> bool:
 	for path in ["NetworkSession", "NetworkPlayers", "PlayerSpawnPoints/SpawnA", "PlayerSpawnPoints/SpawnB", "PlayerSpawnPoints/SpawnC", "PlayerSpawnPoints/SpawnD", "HordeDirector", "HordeZombies"]:
 		if arena.get_node_or_null(path) == null: return _fail("Squad arena missing %s" % path)
 	var session := arena.get_node("NetworkSession")
-	if String(session.get_script().resource_path) != "res://src/network/ClosedBetaNetworkSession.gd": return _fail("Squad arena is not using hardened Closed Beta session")
+	if String(session.get_script().resource_path) != "res://src/network/MtuSafeClosedBetaNetworkSession.gd": return _fail("Squad arena is not using MTU-safe hardened Closed Beta session")
 	arena.free()
 	return true
 
