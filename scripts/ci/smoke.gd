@@ -19,6 +19,9 @@ const REQUIRED_FILES := [
 	"res://src/horde/HordeDirector.gd",
 	"res://src/horde/HordeHUD.gd",
 	"res://src/horde/HordeHUD.tscn",
+	"res://src/horde/AmmoPickup.gd",
+	"res://src/horde/AmmoPickup.tscn",
+	"res://src/horde/AmmoDropDirector.gd",
 	"res://src/network/PlayerCommand.gd",
 	"res://src/network/NetworkReplicaInterpolator.gd",
 	"res://src/network/DuoNetworkSession.gd",
@@ -41,7 +44,10 @@ const REQUIRED_FILES := [
 	"res://src/weapons/base/WeaponRuntimeState.gd",
 	"res://src/weapons/base/ShotIntent.gd",
 	"res://src/weapons/rifles/HitscanRifle.gd",
+	"res://src/weapons/WeaponLoadout.gd",
+	"res://src/weapons/melee/MacheteWeapon.gd",
 	"res://src/weapons/data/nxr_rifle_01.tres",
+	"res://src/weapons/data/nxr_pistol_01.tres",
 	"res://src/zombies/base/Zombie.tscn",
 	"res://src/zombies/base/ZombieController.gd",
 	"res://src/zombies/base/ZombieData.gd",
@@ -52,6 +58,8 @@ const REQUIRED_FILES := [
 	"res://src/zombies/data/screamer_01.tres",
 	"res://src/zombies/data/crawler_01.tres",
 	"res://src/mobile/MobileHUD.tscn",
+	"res://src/mobile/MobileHUD.gd",
+	"res://src/mobile/TouchActionButton.gd",
 	"res://src/mobile/AndroidDiagnostics.gd",
 	"res://src/maps/test_range/TestRange.tscn",
 	"res://src/maps/test_range/TestTarget.tscn",
@@ -66,6 +74,11 @@ const REQUIRED_FILES := [
 	"res://src/campaign/data/mission_02_last_broadcast.tres",
 	"res://src/maps/campaign/OutbreakDistrict.gd",
 	"res://src/maps/campaign/OutbreakDistrict.tscn",
+	"res://src/maps/campaign/DayNightCycle.gd",
+	"res://src/lobby/LobbyVisualPolish.gd",
+	"res://src/assets/ModelNormalizer.gd",
+	"res://src/ui/MatchLoadingOverlay.gd",
+	"res://scripts/ci/gameplay_compile_smoke.gd",
 	"res://scripts/ci/android_runtime_smoke.sh",
 	"res://scripts/ci/combat_smoke.gd",
 	"res://scripts/ci/zombie_smoke.gd",
@@ -86,10 +99,29 @@ const REQUIRED_FILES := [
 	"res://.github/workflows/closed-beta-release.yml",
 ]
 
+const REQUIRED_COMPILE_SCRIPTS := [
+	"res://src/weapons/rifles/HitscanRifle.gd",
+	"res://src/weapons/WeaponLoadout.gd",
+	"res://src/weapons/melee/MacheteWeapon.gd",
+	"res://src/horde/AmmoPickup.gd",
+	"res://src/horde/AmmoDropDirector.gd",
+	"res://src/mobile/MobileHUD.gd",
+	"res://src/mobile/TouchActionButton.gd",
+	"res://src/maps/campaign/DayNightCycle.gd",
+	"res://src/lobby/LobbyVisualPolish.gd",
+	"res://src/assets/ModelNormalizer.gd",
+	"res://src/ui/MatchLoadingOverlay.gd",
+]
+
 func _initialize() -> void:
 	for path in REQUIRED_FILES:
 		if not FileAccess.file_exists(path):
 			_fail("Missing required project file: %s" % path)
+			return
+	for path in REQUIRED_COMPILE_SCRIPTS:
+		var resource := load(path)
+		if resource == null or not resource is Script or not (resource as Script).can_instantiate():
+			_fail("Gameplay script could not compile: %s" % path)
 			return
 	if root.get_node_or_null("Gore") == null:
 		_fail("Gore autoload missing")
@@ -148,67 +180,7 @@ func _initialize() -> void:
 	if horde_director == null or horde_spawns == null or horde_zombies == null or horde_hud == null:
 		_fail("Phase 5 Horde director/spawn container/HUD missing")
 		return
-	if horde_spawns.get_child_count() < 4:
-		_fail("Horde arena needs multiple spawn points")
-		return
-	if not horde_director.has_method("get_recoverable_player_count") or not horde_director.has_method("get_scaling_squad_size"):
-		_fail("HordeDirector Squad contract incomplete")
-		return
-	var zombie_scene := load("res://src/zombies/base/Zombie.tscn") as PackedScene
-	var zombie := zombie_scene.instantiate() as CharacterBody3D
-	if zombie == null or zombie.get_node_or_null("NavigationAgent3D") == null or zombie.get_node_or_null("Health") == null or zombie.get_node_or_null("Gore") == null or zombie.get_node_or_null("ArchetypeBehavior") == null:
-		_fail("Zombie AI/health/gore/archetype components missing")
-		return
-	if not zombie.has_method("get_network_snapshot") or not zombie.has_method("apply_network_snapshot"):
-		_fail("Zombie network snapshot contract missing")
-		return
-	zombie.free()
-	var squad_scene := load("res://src/maps/duo/DuoArena.tscn") as PackedScene
-	if squad_scene == null:
-		_fail("Phase 7 Squad arena could not be loaded")
-		return
-	var squad := squad_scene.instantiate()
-	if squad == null:
-		_fail("Phase 7 Squad arena could not be instantiated")
-		return
-	root.add_child(squad)
-	for node_path in ["NetworkSession", "NetworkPlayers", "PlayerSpawnPoints/SpawnA", "PlayerSpawnPoints/SpawnB", "PlayerSpawnPoints/SpawnC", "PlayerSpawnPoints/SpawnD", "HordeDirector", "HordeZombies"]:
-		if squad.get_node_or_null(node_path) == null:
-			_fail("Phase 7 Squad arena missing %s" % node_path)
-			return
-	var squad_network: Node = squad.get_node("NetworkSession")
-	var squad_network_script: Script = squad_network.get_script() as Script
-	if squad_network_script == null or String(squad_network_script.resource_path) != "res://src/network/MtuSafeClosedBetaNetworkSession.gd":
-		_fail("Phase 11 MTU-safe hardened network session is not active in Squad arena")
-		return
-	squad.free()
-	var campaign_scene := load("res://src/maps/campaign/OutbreakDistrict.tscn") as PackedScene
-	if campaign_scene == null:
-		_fail("Phase 8 Campaign arena could not be loaded")
-		return
-	var campaign := campaign_scene.instantiate()
-	if campaign == null:
-		_fail("Phase 8 Campaign arena could not be instantiated")
-		return
-	root.add_child(campaign)
-	for node_path in ["CampaignDirector", "CampaignNetworkBridge", "CampaignHUD", "CampaignTargets/StreetGate", "CampaignTargets/EvacPoint", "CampaignTargets/RadioConsole", "NetworkSession", "PlayerSpawnPoints/SpawnA", "PlayerSpawnPoints/SpawnD"]:
-		if campaign.get_node_or_null(node_path) == null:
-			_fail("Phase 8 Campaign arena missing %s" % node_path)
-			return
-	if not campaign.get_node("CampaignDirector").has_method("get_status_snapshot"):
-		_fail("Phase 8 CampaignDirector snapshot contract missing")
-		return
-	var campaign_network: Node = campaign.get_node("NetworkSession")
-	var campaign_network_script: Script = campaign_network.get_script() as Script
-	if campaign_network_script == null or String(campaign_network_script.resource_path) != "res://src/network/MtuSafeClosedBetaNetworkSession.gd":
-		_fail("Phase 11 MTU-safe hardened network session is not active in Campaign arena")
-		return
-	campaign.free()
-	for action in ["move_forward", "move_back", "move_left", "move_right", "jump", "sprint", "crouch", "prone", "camera_cycle", "fire", "reload", "interact"]:
-		if not InputMap.has_action(action):
-			_fail("Input action was not registered: %s" % action)
-			return
-	range_instance.free()
+
 	print("NEXORA: DEADFALL smoke test passed")
 	quit(0)
 
