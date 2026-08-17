@@ -13,7 +13,7 @@ const MAIN_PATH := "res://src/main/Main.gd"
 class FakeLifecycleSession:
 	extends Node
 	var published_result: Dictionary = {}
-	var connected_players := 2
+	var connected_players := 0
 	var reconnects := 3
 
 	func get_status_snapshot() -> Dictionary:
@@ -146,6 +146,9 @@ func _run() -> void:
 		_fail("Admission snapshot lost heartbeat/result IPC paths")
 		return
 
+	# Reproduce the real reconnect gap: nobody is connected right now, but the
+	# server still has an authoritative reserved slot and prior reconnect history.
+	# That must keep the match monotonically classified as having started.
 	var fake: FakeLifecycleSession = FakeLifecycleSession.new()
 	root.add_child(fake)
 	var guard: Node = guard_script.new() as Node
@@ -156,8 +159,11 @@ func _run() -> void:
 	guard.call("configure", fake, match_id, heartbeat_path, result_path, null, null)
 	guard.call("_write_heartbeat", "RUNNING")
 	var heartbeat: Dictionary = _read_json(heartbeat_path)
-	if String(heartbeat.get("match_id", "")) != match_id or int(heartbeat.get("connected_players", 0)) != 2:
-		_fail("Match heartbeat does not contain authoritative runtime state")
+	if String(heartbeat.get("match_id", "")) != match_id or int(heartbeat.get("connected_players", -1)) != 0:
+		_fail("Reconnect-gap heartbeat does not contain authoritative disconnected state")
+		return
+	if int(heartbeat.get("reserved_slots", 0)) != 1 or not bool(heartbeat.get("ever_had_player", false)):
+		_fail("Reconnect-gap heartbeat lost monotonic in-match evidence")
 		return
 	if int(heartbeat.get("orchestrated_reconnects", -1)) != 3:
 		_fail("Match heartbeat does not export reconnect telemetry")
