@@ -15,6 +15,14 @@ var _moon: DirectionalLight3D
 
 func _ready() -> void:
 	normalized_time = starting_time
+	# Dedicated/headless instances run gameplay simulation only. OutbreakDistrict
+	# deliberately skips WorldEnvironment/MoonLight creation there, so retrying
+	# lighting initialization would enqueue one deferred call forever and can
+	# exhaust Godot's MessageQueue. Rendering is disabled in headless mode anyway.
+	if DisplayServer.get_name() == "headless" or OS.has_feature("dedicated_server"):
+		set_process(false)
+		return
+	set_process(false)
 	call_deferred("_initialize_lighting")
 
 func _process(delta: float) -> void:
@@ -29,16 +37,25 @@ func _process(delta: float) -> void:
 
 func set_time(value: float) -> void:
 	normalized_time = fposmod(value, 1.0)
-	_apply_lighting()
+	if _environment != null and _sun != null and _moon != null:
+		_apply_lighting()
 
 func _initialize_lighting() -> void:
+	if DisplayServer.get_name() == "headless" or OS.has_feature("dedicated_server"):
+		set_process(false)
+		return
 	var arena := get_parent()
 	if arena == null:
+		set_process(false)
 		return
 	var world := arena.get_node_or_null("WorldEnvironment") as WorldEnvironment
 	_moon = arena.get_node_or_null("MoonLight") as DirectionalLight3D
+	# This function is deferred until after the parent arena's _ready(), where
+	# OutbreakDistrict builds both nodes. If they are still unavailable, stop
+	# safely instead of recursively queueing deferred retries.
 	if world == null or world.environment == null or _moon == null:
-		call_deferred("_initialize_lighting")
+		push_warning("DEADFALL_DAY_NIGHT_DISABLED missing WorldEnvironment/MoonLight")
+		set_process(false)
 		return
 	_environment = world.environment
 	_sun = arena.get_node_or_null("SunLight") as DirectionalLight3D
@@ -50,6 +67,7 @@ func _initialize_lighting() -> void:
 		_sun.shadow_blur = 1.15
 		arena.add_child(_sun)
 	_apply_lighting()
+	set_process(true)
 
 func _apply_lighting() -> void:
 	if _environment == null or _sun == null or _moon == null:
