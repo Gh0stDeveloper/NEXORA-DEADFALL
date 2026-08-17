@@ -78,6 +78,12 @@ func set_mobile_action(action: StringName, pressed: bool) -> void:
 			_debug_actions_logged[action] = true
 			print("DEADFALL_TOUCH_ACTION %s" % action)
 
+func clear_mobile_actions() -> void:
+	_mobile_move = Vector2.ZERO
+	_mobile_look = Vector2.ZERO
+	_mobile_pressed.clear()
+	_mobile_just_pressed.clear()
+
 func _android_debug_enabled() -> bool:
 	return OS.has_feature("android") and OS.is_debug_build()
 
