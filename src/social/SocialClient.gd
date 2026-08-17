@@ -78,6 +78,10 @@ func cancel_party_match() -> bool:
 func refresh_match_status() -> bool:
 	return _request_json("match_status", HTTPClient.METHOD_GET, "/match/status", {}, true)
 
+func allow_match_reentry(match_id: String = "") -> void:
+	if match_id.is_empty() or _emitted_match_id == match_id:
+		_emitted_match_id = ""
+
 func request_friend(account_id: String) -> bool:
 	return _request_json("friend_request", HTTPClient.METHOD_POST, "/friends/request", {"account_id": account_id}, true)
 
