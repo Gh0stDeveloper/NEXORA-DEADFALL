@@ -3,6 +3,10 @@ extends SceneTree
 const REQUIRED_SCRIPTS := [
 	"res://src/main/Main.gd",
 	"res://src/network/MtuSafeClosedBetaNetworkSession.gd",
+	"res://src/network/LifecycleMtuSafeNetworkSession.gd",
+	"res://src/server/MatchAdmission.gd",
+	"res://src/server/MatchInstanceGuard.gd",
+	"res://src/server/MatchOrchestrator.gd",
 	"res://src/weapons/rifles/HitscanRifle.gd",
 	"res://src/weapons/WeaponLoadout.gd",
 	"res://src/weapons/melee/MacheteWeapon.gd",
@@ -18,6 +22,7 @@ const REQUIRED_SCRIPTS := [
 	"res://src/player/PlayerModelPresenter.gd",
 	"res://src/zombies/base/ZombieModelPresenter.gd",
 	"res://src/ui/MatchLoadingOverlay.gd",
+	"res://src/ui/MatchResultOverlay.gd",
 	"res://src/maps/campaign/DayNightCycle.gd",
 ]
 
@@ -113,14 +118,21 @@ func _run() -> void:
 		return
 	if not _run_child_smoke(
 		"res://scripts/ci/presentation_mobile_smoke.gd",
-		"NEXORA: DEADFALL beta.4 lobby/mobile presentation smoke passed",
-		"Beta.4 lobby/mobile presentation"
+		"NEXORA: DEADFALL lobby/mobile presentation smoke passed",
+		"Lobby/mobile presentation"
+	):
+		return
+	if not _run_child_smoke(
+		"res://scripts/ci/phase12_match_lifecycle_smoke.gd",
+		"NEXORA: DEADFALL beta.5 match lifecycle smoke passed",
+		"Beta.5 match lifecycle"
 	):
 		return
 
 	print("NEXORA: DEADFALL strict gameplay compile smoke passed")
 	print("NEXORA: DEADFALL gameplay features smoke passed")
-	print("NEXORA: DEADFALL beta.4 lobby/mobile presentation smoke passed")
+	print("NEXORA: DEADFALL lobby/mobile presentation smoke passed")
+	print("NEXORA: DEADFALL beta.5 match lifecycle smoke passed")
 	quit(0)
 
 func _run_child_smoke(script_path: String, success_marker: String, label: String) -> bool:
