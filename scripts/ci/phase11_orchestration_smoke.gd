@@ -11,6 +11,7 @@ const TEST_PORT_START := 30000
 const TEST_PORT_END := 30007
 const READY_TIMEOUT_SECONDS := 20.0
 const CLIENT_PROBE_TIMEOUT_SECONDS := 5
+const RECONNECT_OBSERVE_TIMEOUT_SECONDS := 8.0
 const INVALID_TICKET := "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 
 class FakeAccountStore:
@@ -113,10 +114,6 @@ var _orchestrator_script: Script
 var _match_admission_script: Script
 
 func _initialize() -> void:
-	# Direct --script execution starts before some project autoload identifiers
-	# are available to dependency preloads. Defer dependency loading until the
-	# SceneTree/autoload lifecycle has initialized so Game/Settings compile in
-	# the same context used by the real dedicated process.
 	call_deferred("_run")
 
 func _run() -> void:
@@ -194,6 +191,10 @@ func _run() -> void:
 	if not bool(admission.load_from_file(config_path)):
 		_fail("Generated match admission config could not be reloaded")
 		return
+	var admission_snapshot: Dictionary = admission.snapshot()
+	if String(admission_snapshot.get("heartbeat_path", "")).is_empty() or String(admission_snapshot.get("result_path", "")).is_empty():
+		_fail("Generated match admission config is missing beta.5 lifecycle IPC paths")
+		return
 	var leader_admission: Dictionary = admission.validate_ticket(leader_ticket)
 	var member_admission: Dictionary = admission.validate_ticket(member_ticket)
 	if String(leader_admission.get("guest_id", "")) != LEADER_GUEST:
@@ -219,24 +220,67 @@ func _run() -> void:
 		return
 	if not _run_network_probe(assigned_port, "", "DEADFALL_SQUAD_JOIN_REJECTED reason=match_ticket_required", "NoTicket"):
 		return
-	if not _run_network_probe(assigned_port, leader_ticket, "DEADFALL_SQUAD_JOIN_ACCEPTED", "TicketLeader"):
+	if not _run_network_probe(assigned_port, leader_ticket, "DEADFALL_SQUAD_JOIN_ACCEPTED", "TicketLeaderFirst"):
+		return
+
+	# The first probe is intentionally killed by timeout after admission. Give
+	# ENet enough time to publish the disconnect and ticket-keyed resume record,
+	# then reconnect using exactly the same private member capability.
+	await create_timer(1.0).timeout
+	if not _run_network_probe(assigned_port, leader_ticket, "DEADFALL_SQUAD_JOIN_ACCEPTED", "TicketLeaderReconnect"):
 		return
 	if not _run_network_probe(assigned_port, member_ticket, "DEADFALL_SQUAD_JOIN_ACCEPTED", "TicketMember"):
 		return
 
-	var status_after_ready: Dictionary = Dictionary(_orchestrator.call("get_status_snapshot"))
-	if int(status_after_ready.get("production_port_start", 0)) != 24600 or int(status_after_ready.get("production_port_end", 0)) != 24749:
-		_fail("Production match port contract changed during validation")
+	var reconnect_observed := false
+	var reconnect_deadline := Time.get_ticks_usec() + int(RECONNECT_OBSERVE_TIMEOUT_SECONDS * 1_000_000.0)
+	while Time.get_ticks_usec() < reconnect_deadline:
+		await create_timer(0.25).timeout
+		var status_value: Dictionary = Dictionary(_orchestrator.call("get_status_snapshot"))
+		var active_value: Array = Array(status_value.get("active_matches", []))
+		if active_value.is_empty():
+			_fail("Match disappeared while observing ticket-scoped reconnect")
+			return
+		var active_record: Dictionary = Dictionary(active_value[0])
+		var metrics: Dictionary = Dictionary(status_value.get("metrics", {}))
+		if int(active_record.get("reconnects", 0)) >= 1 and int(metrics.get("reconnects_total", 0)) >= 1:
+			reconnect_observed = true
+			break
+	if not reconnect_observed:
+		_fail("Ticket-scoped reconnect was accepted by the client but not observed in authoritative heartbeat metrics")
 		return
 
-	var cancelled: Dictionary = Dictionary(_orchestrator.call("cancel_party_match", LEADER_TOKEN))
-	if not bool(cancelled.get("ok", false)):
-		_fail("Validation match child could not be cancelled cleanly")
+	var status_after_join: Dictionary = Dictionary(_orchestrator.call("get_status_snapshot"))
+	if int(status_after_join.get("production_port_start", 0)) != 24600 or int(status_after_join.get("production_port_end", 0)) != 24749:
+		_fail("Production match port contract changed during validation")
 		return
-	await create_timer(0.20).timeout
-	var final_status: Dictionary = Dictionary(_orchestrator.call("get_status_snapshot"))
-	if int(final_status.get("active_count", -1)) != 0:
-		_fail("Validation match was not cleaned from orchestrator state")
+	var active_after_join: Array = Array(status_after_join.get("active_matches", []))
+	if active_after_join.is_empty():
+		_fail("No active match remains after network probes")
+		return
+	var active_record: Dictionary = Dictionary(active_after_join[0])
+	if String(active_record.get("status", "")) != "IN_MATCH":
+		_fail("Heartbeat did not promote READY match to IN_MATCH after real admission")
+		return
+	var child_pid := int(active_record.get("pid", 0))
+	if child_pid <= 0 or not OS.is_process_running(child_pid):
+		_fail("Validation match child process is not alive before cleanup")
+		return
+
+	# Production must not let a leader cancel an already-running authoritative
+	# match. Cleanup for this smoke is performed through orchestrator shutdown,
+	# which exercises the real child-process reap path instead of weakening that
+	# rule solely for tests.
+	var cancelled: Dictionary = Dictionary(_orchestrator.call("cancel_party_match", LEADER_TOKEN))
+	if bool(cancelled.get("ok", false)) or String(cancelled.get("reason", "")) != "match_already_running":
+		_fail("Leader cancellation rule did not reject an IN_MATCH instance")
+		return
+
+	_orchestrator.free()
+	_orchestrator = null
+	await create_timer(0.50).timeout
+	if OS.is_process_running(child_pid):
+		_fail("Orchestrator shutdown did not reap the active validation child process")
 		return
 
 	_cleanup()
@@ -259,7 +303,9 @@ func _run_network_probe(port: int, ticket: String, expected_marker: String, prob
 		process_args.append("--match-ticket=%s" % ticket)
 	var output: Array = []
 	var exit_code := OS.execute("timeout", process_args, output, true)
-	var text := String(output[0]) if not output.is_empty() else ""
+	var text := ""
+	for value in output:
+		text += String(value)
 	if not text.contains(expected_marker):
 		_fail("Network probe %s did not produce expected marker '%s' (exit=%d): %s" % [probe_name, expected_marker, exit_code, text])
 		return false
