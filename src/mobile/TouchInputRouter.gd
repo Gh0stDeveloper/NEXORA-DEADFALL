@@ -34,6 +34,9 @@ func register_click_control(value: Node) -> void:
 	if value == null or value in _click_controls:
 		return
 	_click_controls.append(value)
+	if value is Control and _mobile_runtime():
+		# Explicit router release emits the click; avoid a duplicate emulated mouse click.
+		(value as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 func register_passthrough_control(value: Node) -> void:
 	if value == null or value in _passthrough_controls:
@@ -160,3 +163,6 @@ func _consume() -> void:
 	var viewport := get_viewport()
 	if viewport != null:
 		viewport.set_input_as_handled()
+
+func _mobile_runtime() -> bool:
+	return OS.has_feature("mobile") or OS.has_feature("android") or OS.has_feature("ios")
