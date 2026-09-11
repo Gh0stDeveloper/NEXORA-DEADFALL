@@ -4,6 +4,11 @@ set -euo pipefail
 APK="${1:-build/android/NEXORA-DEADFALL-emulator.apk}"
 PACKAGE="com.nexora.deadfall"
 LOG="/tmp/deadfall-android-logcat.txt"
+EXPECTED_VERSION="$(grep -oP 'const APP_VERSION := "\K[^"]+' src/release/BuildInfo.gd 2>/dev/null || true)"
+if [[ -z "$EXPECTED_VERSION" ]]; then
+  echo "Unable to resolve current BuildInfo version" >&2
+  exit 1
+fi
 
 if [[ ! -s "$APK" ]]; then
   echo "APK not found or empty: $APK" >&2
@@ -42,7 +47,7 @@ echo "--- DEADFALL runtime markers ---"
 grep -E "DEADFALL_BETA_READY|NEXORA: DEADFALL client bootstrap ready|DEADFALL_CAMPAIGN_ARENA_READY|DEADFALL_ANDROID_READY|DEADFALL_GORE_STATS|DEADFALL_HORDE_STATS|DEADFALL_SQUAD_STATS|DEADFALL_CAMPAIGN_STATS|DEADFALL_TOUCH_" "$LOG" || true
 
 grep -Fq "DEADFALL_BETA_READY" "$LOG"
-grep -Fq '"app_version":"0.9.0-beta.1"' "$LOG"
+grep -Fq "\"app_version\":\"${EXPECTED_VERSION}\"" "$LOG"
 grep -Fq '"target_android_api":36' "$LOG"
 grep -Fq "NEXORA: DEADFALL client bootstrap ready" "$LOG"
 grep -Fq "DEADFALL_CAMPAIGN_ARENA_READY" "$LOG"

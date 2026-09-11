@@ -10,10 +10,13 @@ var toggle_action := false
 var haptic_feedback := true
 
 var _feedback_tween: Tween
+var _router_touch_index := -1
+var _router_toggle_guard := false
 
 func _ready() -> void:
 	focus_mode = Control.FOCUS_NONE
 	text = ""
+	mouse_filter = Control.MOUSE_FILTER_STOP
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	toggle_mode = toggle_action
 	pivot_offset = size * 0.5
@@ -40,7 +43,45 @@ func set_latched(active: bool) -> void:
 func is_latched() -> bool:
 	return toggle_action and button_pressed
 
+func router_touch_down(index: int) -> bool:
+	if _router_touch_index != -1:
+		return false
+	_router_touch_index = index
+	_play_press_feedback()
+	if toggle_action:
+		_router_toggle_guard = true
+		button_pressed = not button_pressed
+		_router_toggle_guard = false
+		_apply_mobile_action(button_pressed)
+		if haptic_feedback and OS.has_feature("mobile"):
+			Input.vibrate_handheld(28 if button_pressed else 16)
+		_refresh_rest_visual()
+	else:
+		_apply_mobile_action(true)
+	return true
+
+func router_touch_drag(_index: int, _screen_position: Vector2) -> bool:
+	return true
+
+func router_touch_up(index: int) -> bool:
+	if index != _router_touch_index:
+		return false
+	_router_touch_index = -1
+	if not toggle_action:
+		_apply_mobile_action(false)
+		_play_release_feedback()
+		if action_name.is_empty():
+			emit_signal("pressed")
+	else:
+		_play_release_feedback()
+	return true
+
+func router_touch_cancel() -> void:
+	if _router_touch_index != -1:
+		router_touch_up(_router_touch_index)
+
 func _exit_tree() -> void:
+	_router_touch_index = -1
 	if not action_name.is_empty() and input_target != null and input_target.has_method("set_mobile_action"):
 		input_target.set_mobile_action(action_name, false)
 
@@ -55,6 +96,8 @@ func _on_button_up() -> void:
 	_play_release_feedback()
 
 func _on_toggled(active: bool) -> void:
+	if _router_toggle_guard:
+		return
 	_apply_mobile_action(active)
 	if haptic_feedback and OS.has_feature("mobile"):
 		Input.vibrate_handheld(28 if active else 16)
@@ -161,9 +204,9 @@ func _draw() -> void:
 		&"settings":
 			draw_arc(center, radius * 0.90, 0.0, TAU, 24, icon_color, width, true)
 			draw_circle(center, radius * 0.30, icon_color, false, width, true)
-			for angle in range(0, 360, 45):
-				var direction := Vector2.RIGHT.rotated(deg_to_rad(float(angle)))
-				draw_line(center + direction * radius * 0.92, center + direction * radius * 1.28, icon_color, width, true)
+		for angle in range(0, 360, 45):
+			var direction := Vector2.RIGHT.rotated(deg_to_rad(float(angle)))
+			draw_line(center + direction * radius * 0.92, center + direction * radius * 1.28, icon_color, width, true)
 		&"flashlight":
 			draw_rect(Rect2(center + Vector2(-radius * 0.65, -radius * 0.32), Vector2(radius * 0.90, radius * 0.64)), icon_color, false, width, true)
 			draw_line(center + Vector2(radius * 0.25, -radius * 0.55), center + Vector2(radius * 0.90, -radius), icon_color, width, true)

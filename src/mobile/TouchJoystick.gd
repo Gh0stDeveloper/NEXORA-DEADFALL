@@ -21,25 +21,55 @@ func _notification(what: int) -> void:
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
-		if event.pressed and _touch_index == -1:
-			_touch_index = event.index
-			_update_value(event.position)
-			accept_event()
-		elif not event.pressed and event.index == _touch_index:
-			_touch_index = -1
-			_value = Vector2.ZERO
-			_push_value()
-			queue_redraw()
+		if event.pressed:
+			if _begin_touch_local(event.index, event.position):
+				accept_event()
+		elif _end_touch(event.index):
 			accept_event()
 	elif event is InputEventScreenDrag and event.index == _touch_index:
 		_update_value(event.position)
 		accept_event()
 
-func _update_value(local_position: Vector2) -> void:
-	var delta := local_position - _center
-	_value = (delta / radius).limit_length(1.0)
+func router_touch_down(index: int, screen_position: Vector2) -> bool:
+	if _touch_index != -1:
+		return false
+	_touch_index = index
+	_update_value(_screen_to_local(screen_position))
+	return true
+
+func router_touch_drag(index: int, screen_position: Vector2) -> bool:
+	if index != _touch_index:
+		return false
+	_update_value(_screen_to_local(screen_position))
+	return true
+
+func router_touch_up(index: int) -> bool:
+	return _end_touch(index)
+
+func _begin_touch_local(index: int, local_position: Vector2) -> bool:
+	if _touch_index != -1:
+		return false
+	_touch_index = index
+	_update_value(local_position)
+	return true
+
+func _end_touch(index: int) -> bool:
+	if index != _touch_index:
+		return false
+	_touch_index = -1
+	_value = Vector2.ZERO
 	_push_value()
 	queue_redraw()
+	return true
+
+func _update_value(local_position: Vector2) -> void:
+	var delta := local_position - _center
+	_value = (delta / maxf(1.0, radius)).limit_length(1.0)
+	_push_value()
+	queue_redraw()
+
+func _screen_to_local(screen_position: Vector2) -> Vector2:
+	return get_global_transform_with_canvas().affine_inverse() * screen_position
 
 func _push_value() -> void:
 	if input_target != null and input_target.has_method("set_mobile_move"):

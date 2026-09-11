@@ -5,6 +5,7 @@ const PlayerScene = preload("res://src/player/Player.tscn")
 const PlayerControllerScript = preload("res://src/player/PlayerController.gd")
 const MobileHUDScene = preload("res://src/mobile/MobileHUD.tscn")
 const HordeHUDScene = preload("res://src/horde/HordeHUD.tscn")
+const EnvironmentArt = preload("res://src/maps/campaign/ProceduralEnvironmentArt.gd")
 const Mission1 = preload("res://src/campaign/data/mission_01_first_signal.tres")
 const Mission2 = preload("res://src/campaign/data/mission_02_last_broadcast.tres")
 const NAV_SOURCE_GROUP: StringName = &"deadfall_nav_source"
@@ -81,6 +82,11 @@ func _build_environment() -> void:
 	environment.adjustment_enabled = true
 	environment.adjustment_brightness = 1.10
 	environment.adjustment_contrast = 1.02
+	environment.fog_enabled = true
+	environment.fog_light_color = Color(0.12, 0.15, 0.19)
+	environment.fog_light_energy = 0.42
+	environment.fog_density = 0.006
+	environment.fog_sky_affect = 0.20
 	environment_node.environment = environment
 	add_child(environment_node)
 
@@ -93,20 +99,28 @@ func _build_environment() -> void:
 	moon.shadow_blur = 1.35
 	add_child(moon)
 
+	var fill := DirectionalLight3D.new()
+	fill.name = "ColdStreetFill"
+	fill.rotation_degrees = Vector3(-24, 142, 0)
+	fill.light_color = Color(0.24, 0.31, 0.42)
+	fill.light_energy = 0.20
+	fill.shadow_enabled = false
+	add_child(fill)
+
 func _build_geometry() -> void:
-	_create_box("DistrictFloor", Vector3(0, -0.25, 0), Vector3(72, 0.5, 72), Color(0.10, 0.11, 0.12))
-	_create_box("NorthBlock", Vector3(0, 4.0, -31), Vector3(54, 8, 5), Color(0.12, 0.14, 0.16))
-	_create_box("WestBlock", Vector3(-31, 3.0, -2), Vector3(5, 6, 46), Color(0.13, 0.14, 0.16))
-	_create_box("EastBlock", Vector3(31, 3.5, 2), Vector3(5, 7, 46), Color(0.13, 0.14, 0.16))
-	_create_box("Clinic", Vector3(-14, 2.5, -12), Vector3(10, 5, 8), Color(0.16, 0.18, 0.19))
-	_create_box("Market", Vector3(14, 2.0, -8), Vector3(11, 4, 9), Color(0.17, 0.16, 0.15))
-	_create_box("QuarantineBarrierLeft", Vector3(-6, 1.25, 2), Vector3(9, 2.5, 0.8), Color(0.24, 0.24, 0.20))
-	_create_box("QuarantineBarrierRight", Vector3(6, 1.25, 2), Vector3(9, 2.5, 0.8), Color(0.24, 0.24, 0.20))
-	_create_box("RadioBase", Vector3(14, 1.0, 14), Vector3(8, 2, 8), Color(0.20, 0.22, 0.23))
-	_create_box("TunnelWallLeft", Vector3(-8, 1.5, 29), Vector3(12, 3, 2), Color(0.16, 0.17, 0.18))
-	_create_box("TunnelWallRight", Vector3(8, 1.5, 29), Vector3(12, 3, 2), Color(0.16, 0.17, 0.18))
+	_create_box("DistrictFloor", Vector3(0, -0.25, 0), Vector3(72, 0.5, 72), Color(0.10, 0.11, 0.12), &"ground")
+	_create_box("NorthBlock", Vector3(0, 4.0, -31), Vector3(54, 8, 5), Color(0.12, 0.14, 0.16), &"perimeter")
+	_create_box("WestBlock", Vector3(-31, 3.0, -2), Vector3(5, 6, 46), Color(0.13, 0.14, 0.16), &"perimeter")
+	_create_box("EastBlock", Vector3(31, 3.5, 2), Vector3(5, 7, 46), Color(0.13, 0.14, 0.16), &"perimeter")
+	_create_box("Clinic", Vector3(-14, 2.5, -12), Vector3(10, 5, 8), Color(0.16, 0.18, 0.19), &"building")
+	_create_box("Market", Vector3(14, 2.0, -8), Vector3(11, 4, 9), Color(0.17, 0.16, 0.15), &"building")
+	_create_box("QuarantineBarrierLeft", Vector3(-6, 1.25, 2), Vector3(9, 2.5, 0.8), Color(0.24, 0.24, 0.20), &"barrier")
+	_create_box("QuarantineBarrierRight", Vector3(6, 1.25, 2), Vector3(9, 2.5, 0.8), Color(0.24, 0.24, 0.20), &"barrier")
+	_create_box("RadioBase", Vector3(14, 1.0, 14), Vector3(8, 2, 8), Color(0.20, 0.22, 0.23), &"facility")
+	_create_box("TunnelWallLeft", Vector3(-8, 1.5, 29), Vector3(12, 3, 2), Color(0.16, 0.17, 0.18), &"perimeter")
+	_create_box("TunnelWallRight", Vector3(8, 1.5, 29), Vector3(12, 3, 2), Color(0.16, 0.17, 0.18), &"perimeter")
 	for position in [Vector3(-9, 0.75, 9), Vector3(8, 0.75, 7), Vector3(-16, 0.75, 18), Vector3(20, 0.75, 22)]:
-		_create_box("StreetCover_%d" % int(abs(position.x * 10.0 + position.z)), position, Vector3(2.4, 1.5, 1.2), Color(0.20, 0.21, 0.22))
+		_create_box("StreetCover_%d" % int(abs(position.x * 10.0 + position.z)), position, Vector3(2.4, 1.5, 1.2), Color(0.20, 0.21, 0.22), &"cover")
 
 func _build_navigation() -> void:
 	if _navigation_region != null:
@@ -131,26 +145,8 @@ func _build_navigation() -> void:
 	add_child(_navigation_region)
 	_navigation_region.bake_navigation_mesh(true)
 
-func _create_box(node_name: String, position_value: Vector3, size_value: Vector3, color: Color) -> void:
-	var body := StaticBody3D.new()
-	body.name = node_name
-	body.position = position_value
-	body.collision_layer = 1
-	body.collision_mask = 0
-	var shape_node := CollisionShape3D.new()
-	var shape := BoxShape3D.new()
-	shape.size = size_value
-	shape_node.shape = shape
-	body.add_child(shape_node)
-	if DisplayServer.get_name() != "headless":
-		var mesh_node := MeshInstance3D.new()
-		var mesh := BoxMesh.new()
-		mesh.size = size_value
-		var material := StandardMaterial3D.new()
-		material.albedo_color = color
-		material.roughness = 0.9
-		mesh.material = material
-		mesh_node.mesh = mesh
-		body.add_child(mesh_node)
-	add_child(body)
+func _create_box(node_name: String, position_value: Vector3, size_value: Vector3, color: Color, detail: StringName = &"building") -> void:
+	var body := EnvironmentArt.create_structure(self, node_name, position_value, size_value, color, detail)
+	if body == null:
+		return
 	body.add_to_group(NAV_SOURCE_GROUP)

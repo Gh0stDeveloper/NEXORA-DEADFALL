@@ -5,12 +5,14 @@ const SafeAreaScript = preload("res://src/mobile/SafeArea.gd")
 const JoystickScript = preload("res://src/mobile/TouchJoystick.gd")
 const LookAreaScript = preload("res://src/mobile/TouchLookArea.gd")
 const ActionButtonScript = preload("res://src/mobile/TouchActionButton.gd")
+const TouchRouterScript = preload("res://src/mobile/TouchInputRouter.gd")
 
 @export var player_path := NodePath("../Player")
 @export var show_on_desktop := false
 
 var _safe_root: Control
 var _controls_root: Control
+var _touch_router: Control
 var _player: Node
 var _input_target: Node
 var _health: Node
@@ -68,6 +70,8 @@ func set_gameplay_controls_enabled(enabled: bool) -> void:
 	if _controls_root != null:
 		_controls_root.visible = enabled
 		_controls_root.mouse_filter = Control.MOUSE_FILTER_IGNORE if enabled else Control.MOUSE_FILTER_STOP
+	if _touch_router != null and _touch_router.has_method("set_enabled"):
+		_touch_router.call("set_enabled", enabled)
 	if not enabled and _input_target != null and _input_target.has_method("clear_mobile_actions"):
 		_input_target.call("clear_mobile_actions")
 
@@ -85,6 +89,12 @@ func _build_hud() -> void:
 	_controls_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_controls_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_safe_root.add_child(_controls_root)
+
+	_touch_router = TouchRouterScript.new()
+	_touch_router.name = "TouchInputRouter"
+	_touch_router.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_touch_router.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_controls_root.add_child(_touch_router)
 
 	var look_area := LookAreaScript.new()
 	look_area.name = "LookArea"
@@ -108,6 +118,8 @@ func _build_hud() -> void:
 	joystick.offset_right = 322.0
 	joystick.offset_bottom = -42.0
 	_controls_root.add_child(joystick)
+	_touch_router.call("register_joystick", joystick)
+	_touch_router.call("register_look_area", look_area)
 
 	_add_action_button(&"sprint", &"sprint", Rect2(326, -154, 92, 92), Vector2(0, 1), &"sprint", Color(0.08, 0.60, 0.66, 1.0), true)
 	_add_action_button(&"interact", &"interact", Rect2(-492, -244, 88, 88), Vector2(1, 1), &"interact")
@@ -311,11 +323,14 @@ func _add_action_button(
 	button.anchor_top = anchor.y
 	button.anchor_right = anchor.x
 	button.anchor_bottom = anchor.y
-	button.position = rect.position
-	button.size = rect.size
+	button.offset_left = rect.position.x
+	button.offset_top = rect.position.y
+	button.offset_right = rect.position.x + rect.size.x
+	button.offset_bottom = rect.position.y + rect.size.y
 	button.modulate = Color(1.0, 1.0, 1.0, 0.90)
 	_apply_saved_layout(button, control_id, rect, anchor)
 	_controls_root.add_child(button)
+	_touch_router.call("register_action_button", button)
 	return button
 
 func _apply_saved_layout(button: Control, control_id: StringName, fallback_rect: Rect2, fallback_anchor: Vector2) -> void:
@@ -334,7 +349,10 @@ func _apply_saved_layout(button: Control, control_id: StringName, fallback_rect:
 		button.anchor_top = float(stored.get("y", fallback_anchor.y))
 		button.anchor_right = button.anchor_left
 		button.anchor_bottom = button.anchor_top
-		button.position = -button.size * 0.5
+		button.offset_left = -button.size.x * 0.5
+		button.offset_top = -button.size.y * 0.5
+		button.offset_right = button.size.x * 0.5
+		button.offset_bottom = button.size.y * 0.5
 	button.scale = Vector2.ONE * float(stored.get("scale", 1.0))
 	var color := button.modulate
 	color.a = float(stored.get("opacity", 0.90))
@@ -351,10 +369,13 @@ func _build_quick_settings() -> void:
 	settings_button.anchor_top = 0.0
 	settings_button.anchor_right = 1.0
 	settings_button.anchor_bottom = 0.0
-	settings_button.position = Vector2(-92, 210)
-	settings_button.size = Vector2(72, 72)
+	settings_button.offset_left = -92.0
+	settings_button.offset_top = 210.0
+	settings_button.offset_right = -20.0
+	settings_button.offset_bottom = 282.0
 	settings_button.modulate = Color(1.0, 1.0, 1.0, 0.90)
 	_controls_root.add_child(settings_button)
+	_touch_router.call("register_action_button", settings_button)
 	settings_button.pressed.connect(_toggle_quick_settings)
 
 	_quick_settings_panel = PanelContainer.new()

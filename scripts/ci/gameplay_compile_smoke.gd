@@ -13,6 +13,7 @@ const REQUIRED_SCRIPTS := [
 	"res://src/horde/AmmoPickup.gd",
 	"res://src/horde/AmmoDropDirector.gd",
 	"res://src/mobile/TouchActionButton.gd",
+	"res://src/mobile/TouchInputRouter.gd",
 	"res://src/mobile/MobileHUD.gd",
 	"res://src/mobile/MobilePerformanceTuner.gd",
 	"res://src/lobby/LobbyVisualPolish.gd",
@@ -24,6 +25,7 @@ const REQUIRED_SCRIPTS := [
 	"res://src/ui/MatchLoadingOverlay.gd",
 	"res://src/ui/MatchResultOverlay.gd",
 	"res://src/maps/campaign/DayNightCycle.gd",
+	"res://src/maps/campaign/ProceduralEnvironmentArt.gd",
 ]
 
 func _initialize() -> void:
@@ -82,6 +84,20 @@ func _run() -> void:
 	if not rifle_text.contains("\"last_sequence\"") or not machete_text.contains("\"last_sequence\""):
 		_fail("Weapon action sequence is not replicated for remote animation presentation")
 		return
+
+	var touch_router_file := FileAccess.open("res://src/mobile/TouchInputRouter.gd", FileAccess.READ)
+	var touch_router_text := touch_router_file.get_as_text() if touch_router_file != null else ""
+	for contract in ["register_action_button", "router_touch_down", "router_touch_drag", "set_input_as_handled"]:
+		if not touch_router_text.contains(contract):
+			_fail("Explicit mobile touch router contract missing: %s" % contract)
+			return
+
+	var environment_art_file := FileAccess.open("res://src/maps/campaign/ProceduralEnvironmentArt.gd", FileAccess.READ)
+	var environment_art_text := environment_art_file.get_as_text() if environment_art_file != null else ""
+	for contract in ["ProceduralModel", "CornerPier", "WindowGlass", "Rubble", "StaticBody3D"]:
+		if not environment_art_text.contains(contract):
+			_fail("Procedural environment art contract missing: %s" % contract)
+			return
 
 	var performance_file := FileAccess.open("res://src/mobile/MobilePerformanceTuner.gd", FileAccess.READ)
 	var performance_text := performance_file.get_as_text() if performance_file != null else ""
