@@ -1,6 +1,6 @@
 # NEXORA: DEADFALL — VPS production installer/runbook
 
-Last updated: 2026-08-17.
+Last updated: 2026-09-11.
 
 The managed VPS is the DEADFALL control/social server, match orchestrator, dedicated game-instance host, Android Closed Beta build host and download-portal host.
 
@@ -285,7 +285,9 @@ Current web source:
 web/download-site
 ```
 
-The existing portal reads current `release.json`. The next web phase will add durable release history, hamburger navigation and version-detail pages. That work must remain independently deployable as a web-only update when no Android/server runtime changed.
+The portal consumes the generated public `releases.json` catalog for the current release, durable history, hamburger navigation, version-detail pages, compatibility and beta information. The APK builder's current `release.json` is merged into that catalog so size/SHA-256 remain tied to the published artifact.
+
+`nexora-deadfall build-web` rebuilds only the portal and history publication. A normal differential update keeps web-only portal changes independent from Android/server rebuilds when no runtime surface changed.
 
 See `docs/DOWNLOAD_PORTAL_PLAN.md`.
 
