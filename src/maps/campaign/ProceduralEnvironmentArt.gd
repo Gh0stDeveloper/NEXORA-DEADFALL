@@ -47,7 +47,7 @@ static func _add_structure_details(root: Node3D, size_value: Vector3, base_color
 	if detail == &"barrier":
 		_add_box(root, "BarrierTop", Vector3(0.0, top_y + 0.09, 0.0), Vector3(width + 0.18, 0.16, depth + 0.12), cap_color, 0.74)
 		for side in [-1.0, 1.0]:
-			_add_box(root, "BarrierStripe_%s" % String(side), Vector3(side * width * 0.28, 0.02, -depth * 0.5 - 0.025), Vector3(width * 0.12, height * 0.72, 0.045), Color(0.66, 0.37, 0.08), 0.70)
+			_add_box(root, "BarrierStripe_%s" % str(side), Vector3(side * width * 0.28, 0.02, -depth * 0.5 - 0.025), Vector3(width * 0.12, height * 0.72, 0.045), Color(0.66, 0.37, 0.08), 0.70)
 		return
 	if detail == &"cover":
 		_add_box(root, "CoverLip", Vector3(0.0, top_y + 0.06, 0.0), Vector3(width + 0.10, 0.12, depth + 0.10), cap_color, 0.78)
@@ -74,7 +74,7 @@ static func _add_perimeter_piers(root: Node3D, size_value: Vector3, color: Color
 		for z_sign in [-1.0, 1.0]:
 			_add_box(
 				root,
-				"CornerPier_%s_%s" % [String(x_sign), String(z_sign)],
+				"CornerPier_%s_%s" % [str(x_sign), str(z_sign)],
 				Vector3(x_sign * x_offset, size_value.y * 0.5, z_sign * z_offset),
 				Vector3(0.18, size_value.y + 0.04, 0.18),
 				color,
@@ -94,8 +94,8 @@ static func _add_facade_windows(root: Node3D, size_value: Vector3) -> void:
 		var z: float = face_value * (size_value.z * 0.5 + 0.026)
 		for index in range(count):
 			var x := -size_value.x * 0.5 + 0.9 + window_width * 0.5 + float(index) * (window_width + 0.55)
-			_add_box(root, "WindowGlass_%s_%d" % [String(face_value), index], Vector3(x, size_value.y * 0.47, z), Vector3(window_width, window_height, 0.045), glass, 0.32)
-			_add_box(root, "WindowFrame_%s_%d" % [String(face_value), index], Vector3(x, size_value.y * 0.47, z + face_value * 0.026), Vector3(window_width + 0.08, 0.07, 0.025), frame, 0.72)
+			_add_box(root, "WindowGlass_%s_%d" % [str(face_value), index], Vector3(x, size_value.y * 0.47, z), Vector3(window_width, window_height, 0.045), glass, 0.32)
+			_add_box(root, "WindowFrame_%s_%d" % [str(face_value), index], Vector3(x, size_value.y * 0.47, z + face_value * 0.026), Vector3(window_width + 0.08, 0.07, 0.025), frame, 0.72)
 
 static func _add_rubble(root: Node3D, local_position: Vector3, radius: float, color: Color) -> void:
 	var rubble := MeshInstance3D.new()
