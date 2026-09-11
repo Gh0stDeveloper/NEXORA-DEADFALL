@@ -199,8 +199,11 @@ Verified animation capabilities:
 
 - Lobby 2.0 visual pass.
 - Central 3D character stage.
-- Animated/normalized GLB preview.
-- Turntable preview.
+- Own procedural operator models with MARA/DANTE palette variants, normalized visual height, used by default in lobby and gameplay.
+- Party rail with 2/4 visible procedural avatars, identity, leader and ping status.
+- Procedural first-person rifle/pistol/machete view models; the infinite machete remains server-authoritative.
+- Procedural zombie presentation around 1.60 m for the base walker, with aligned fallback visuals/hitboxes and gore forwarding.
+- Lobby turntable preview; the external GLB path remains only as optional compatibility fallback (runtime presenters use USE_EXTERNAL_MODELS := false).
 - Quality tiers controlling render scale, mesh LOD, MSAA and FPS target.
 - Zombie visual distance culling by quality tier.
 - Presentation GLBs disabled on dedicated/headless processes.
@@ -257,6 +260,16 @@ The current home page reads `/var/www/nexora-deadfall/release.json` dynamically 
 - Android/Closed Beta notice.
 
 This works, but it is intentionally simple and is scheduled for a product/UI upgrade. See `docs/DOWNLOAD_PORTAL_PLAN.md`.
+
+## Current presentation patch
+
+The active branch now contains a presentation-only multiplayer/lobby pass that is not a new deployed beta runtime yet:
+
+- Duo/Squad slots render each admitted member's selected operator as a small procedural 3D avatar.
+- Runtime player/zombie presenters default to first-party procedural geometry; external GLBs are not loaded by default.
+- Player visual height is kept below the authoritative standing collider; the base zombie target is about 1.64 m.
+- Match assignment validation accepts only the production UDP range 24600-24749 and 64-character hexadecimal tickets.
+- These changes still require the real VPS gates and physical Android acceptance before any beta runtime publication.
 
 ## Immediate next gate: physical beta.5 acceptance
 

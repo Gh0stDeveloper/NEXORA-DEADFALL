@@ -182,6 +182,10 @@ DEADFALL_MATCH_RECONNECT_ACCEPTED count=1
 Member join -> entity 102
 ```
 
+## Active branch presentation update
+
+The current branch adds a Duo/Squad lobby party rail with procedural avatars and procedural first-person weapon models. Player and zombie runtime presenters use own procedural geometry by default, with the existing external catalog retained only for optional compatibility fallback. This is source work after the last deployed beta.5 runtime and does not replace the required physical Android acceptance gate.
+
 ## Android/VPS build state
 
 - Godot 4.6.3.

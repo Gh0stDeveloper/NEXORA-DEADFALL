@@ -79,6 +79,12 @@ func _process(_delta: float) -> void:
 func request_start_match() -> void:
 	if _lobby == null or int(_lobby.get("selected_mode")) <= 1:
 		return
+	if not GuestIdentity.has_complete_profile():
+		_set_status("CONFIGURA UN NOMBRE ANTES DE FORMAR ESCUADRA")
+		return
+	if not SocialClient.has_session():
+		_set_status("CONECTANDO AL SERVICIO SOCIAL · INTENTA DE NUEVO")
+		return
 	var party := SocialClient.current_party
 	if party.is_empty():
 		_set_status("CREA UNA ESCUADRA ANTES DE INICIAR")
@@ -118,7 +124,7 @@ func _build_top_actions() -> void:
 	row.anchor_bottom = 0.11
 	row.add_theme_constant_override("separation", 8)
 	_safe_root.add_child(row)
-	row.add_child(_small_button("ESCUADRA", _open_party_management))
+	row.add_child(_small_button("EQUIPO", _open_party_management))
 	row.add_child(_small_button("PERFIL", _open_profile))
 	row.add_child(_small_button("AMIGOS", _open_friends))
 	row.add_child(_small_button("CHAT", _open_party_chat))
