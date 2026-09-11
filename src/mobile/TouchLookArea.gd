@@ -17,7 +17,7 @@ func _gui_input(event: InputEvent) -> void:
 		elif router_touch_up(event.index):
 			accept_event()
 	elif event is InputEventScreenDrag and event.index == _touch_index:
-		var delta := event.screen_relative
+		var delta: Vector2 = event.screen_relative
 		if delta.is_zero_approx():
 			delta = event.relative
 		router_touch_drag(event.index, delta)

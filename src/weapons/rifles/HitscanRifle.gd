@@ -77,7 +77,9 @@ func _build_view_model() -> void:
 	var camera := _camera_rig.call("get_aim_camera") as Camera3D
 	if camera == null:
 		return
-	var weapon_id := StringName(weapon_data.get("weapon_id", &"nxr_rifle_01")) if weapon_data != null else &"nxr_rifle_01"
+	var weapon_id: StringName = &"nxr_rifle_01"
+	if weapon_data != null:
+		weapon_id = weapon_data.weapon_id
 	_view_model = ProceduralWeapons.create_view_model(weapon_id)
 	_view_model.name = "ProceduralWeaponViewModel"
 	_view_model.position = _base_view_position

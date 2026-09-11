@@ -90,11 +90,12 @@ static func _add_facade_windows(root: Node3D, size_value: Vector3) -> void:
 	var glass := Color(0.055, 0.11, 0.13)
 	var frame := Color(0.24, 0.26, 0.25)
 	for face in [-1.0, 1.0]:
-		var z := face * (size_value.z * 0.5 + 0.026)
+		var face_value: float = float(face)
+		var z: float = face_value * (size_value.z * 0.5 + 0.026)
 		for index in range(count):
 			var x := -size_value.x * 0.5 + 0.9 + window_width * 0.5 + float(index) * (window_width + 0.55)
-			_add_box(root, "WindowGlass_%s_%d" % [String(face), index], Vector3(x, size_value.y * 0.47, z), Vector3(window_width, window_height, 0.045), glass, 0.32)
-			_add_box(root, "WindowFrame_%s_%d" % [String(face), index], Vector3(x, size_value.y * 0.47, z + face * 0.026), Vector3(window_width + 0.08, 0.07, 0.025), frame, 0.72)
+			_add_box(root, "WindowGlass_%s_%d" % [String(face_value), index], Vector3(x, size_value.y * 0.47, z), Vector3(window_width, window_height, 0.045), glass, 0.32)
+			_add_box(root, "WindowFrame_%s_%d" % [String(face_value), index], Vector3(x, size_value.y * 0.47, z + face_value * 0.026), Vector3(window_width + 0.08, 0.07, 0.025), frame, 0.72)
 
 static func _add_rubble(root: Node3D, local_position: Vector3, radius: float, color: Color) -> void:
 	var rubble := MeshInstance3D.new()
