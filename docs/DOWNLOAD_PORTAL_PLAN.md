@@ -1,6 +1,6 @@
 # NEXORA: DEADFALL — Download Portal Plan
 
-Last updated: 2026-08-17.
+Last updated: 2026-09-11.
 
 ## Objective
 
@@ -12,10 +12,16 @@ Current code lives in:
 web/download-site
 ```
 
-Current runtime metadata is read from:
+The APK build writes current runtime metadata to:
 
 ```text
 /var/www/nexora-deadfall/release.json
+```
+
+The portal consumes the durable generated catalog:
+
+```text
+/var/www/nexora-deadfall/releases.json
 ```
 
 The existing page already displays current version, APK size, SHA-256 and a download button. The next iteration must preserve that reliable download path while adding version history and richer release information.

@@ -1,6 +1,6 @@
 # NEXORA: DEADFALL — Persistent Project Context
 
-Last updated: 2026-08-17.
+Last updated: 2026-09-11.
 
 This document records the durable architecture and working rules for future development sessions. The fastest continuation point is `docs/HANDOFF_BETA_5.md`; the operational state is `docs/CURRENT_STATUS.md`.
 
@@ -283,7 +283,7 @@ The current Next.js App Router portal lives at:
 web/download-site
 ```
 
-It currently reads `release.json` and displays current version, APK size, SHA-256 and download action.
+It consumes the generated `releases.json` catalog for the current release, history, compatibility and detail pages. The current `release.json` is merged by the build pipeline so the catalog carries the published APK size and SHA-256.
 
 A redesign is planned with:
 

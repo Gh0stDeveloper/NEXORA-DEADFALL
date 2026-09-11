@@ -1,6 +1,6 @@
 # NEXORA: DEADFALL — Beta.5 Handoff / New Chat Continuation
 
-Last updated: 2026-08-17.
+Last updated: 2026-09-11.
 
 This is the authoritative continuation document for starting a new ChatGPT/Codex conversation. Read this before changing gameplay, networking, Android build, VPS deployment or the download portal.
 
@@ -214,7 +214,7 @@ Path:
 web/download-site
 ```
 
-Current Next.js page reads `release.json` dynamically and shows version/size/SHA-256/download.
+The portal now reads the generated public `releases.json` catalog dynamically and falls back to the tracked source records during build/preview. The current `release.json` remains the machine-readable APK manifest consumed by the history publisher.
 
 Planned upgrade is documented in:
 

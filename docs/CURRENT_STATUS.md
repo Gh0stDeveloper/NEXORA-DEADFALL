@@ -251,13 +251,11 @@ Current implementation is a small Next.js App Router application under:
 web/download-site
 ```
 
-The current home page reads `/var/www/nexora-deadfall/release.json` dynamically and displays:
+The current portal reads `/var/www/nexora-deadfall/releases.json` dynamically and displays the current release, history, detail routes, compatibility and beta information. The build pipeline consumes `release.json` as the current APK manifest and merges its size/SHA-256 into the durable catalog.
 
-- current version;
-- APK size;
-- SHA-256;
-- download button;
-- Android/Closed Beta notice.
+The stable download path remains:
+
+- `/downloads/NEXORA-DEADFALL-latest.apk`.
 
 This works, but it is intentionally simple and is scheduled for a product/UI upgrade. See `docs/DOWNLOAD_PORTAL_PLAN.md`.
 
