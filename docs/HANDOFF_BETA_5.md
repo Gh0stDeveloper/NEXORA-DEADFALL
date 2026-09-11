@@ -184,7 +184,7 @@ Member join -> entity 102
 
 ## Active branch presentation update
 
-The current branch adds a Duo/Squad lobby party rail with procedural avatars and procedural first-person weapon models. Player and zombie runtime presenters use own procedural geometry by default, with the existing external catalog retained only for optional compatibility fallback. This is source work after the last deployed beta.5 runtime and does not replace the required physical Android acceptance gate.
+The current branch adds a Duo/Squad lobby party rail with procedural avatars and procedural first-person weapon models. Player and zombie runtime presenters use own procedural geometry by default, with the existing external catalog retained only for optional compatibility fallback. The mobile touch button router was also repaired so action buttons emit once through the explicit touch path, including a corrected `TouchActionButton.gd` draw branch. This is source work after the last deployed beta.5 runtime and does not replace the required physical Android acceptance gate.
 
 ## Android/VPS build state
 

@@ -269,6 +269,7 @@ The active branch now contains a presentation-only multiplayer/lobby pass that i
 - Runtime player/zombie presenters default to first-party procedural geometry; external GLBs are not loaded by default.
 - Player visual height is kept below the authoritative standing collider; the base zombie target is about 1.64 m.
 - Match assignment validation accepts only the production UDP range 24600-24749 and 64-character hexadecimal tickets.
+- Mobile touch buttons now use the explicit router path without duplicate emulated clicks; the previously malformed `TouchActionButton.gd` draw branch was repaired.
 - These changes still require the real VPS gates and physical Android acceptance before any beta runtime publication.
 
 ## Immediate next gate: physical beta.5 acceptance
