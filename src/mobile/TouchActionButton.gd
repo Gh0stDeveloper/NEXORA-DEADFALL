@@ -207,9 +207,9 @@ func _draw() -> void:
 		&"settings":
 			draw_arc(center, radius * 0.90, 0.0, TAU, 24, icon_color, width, true)
 			draw_circle(center, radius * 0.30, icon_color, false, width, true)
-		for angle in range(0, 360, 45):
-			var direction := Vector2.RIGHT.rotated(deg_to_rad(float(angle)))
-			draw_line(center + direction * radius * 0.92, center + direction * radius * 1.28, icon_color, width, true)
+			for angle in range(0, 360, 45):
+				var direction := Vector2.RIGHT.rotated(deg_to_rad(float(angle)))
+				draw_line(center + direction * radius * 0.92, center + direction * radius * 1.28, icon_color, width, true)
 		&"flashlight":
 			draw_rect(Rect2(center + Vector2(-radius * 0.65, -radius * 0.32), Vector2(radius * 0.90, radius * 0.64)), icon_color, false, width, true)
 			draw_line(center + Vector2(radius * 0.25, -radius * 0.55), center + Vector2(radius * 0.90, -radius), icon_color, width, true)
