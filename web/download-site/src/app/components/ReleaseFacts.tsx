@@ -8,7 +8,7 @@ import {
 export function ReleaseFacts({ release }: { release: ReleaseRecord }) {
   const facts: Array<[string, string]> = [
     ["Publicación", formatDate(release.published_unix)],
-    ["Versión code", String(release.version_code)],
+    ["Versión code", release.version_code ? String(release.version_code) : "No disponible"],
     ["Tamaño APK", formatBytes(release.bytes)],
     ["Android", release.target_android_api ? "API " + release.target_android_api : "No disponible"],
     ["Protocolo", release.protocol ? String(release.protocol) : "No disponible"],

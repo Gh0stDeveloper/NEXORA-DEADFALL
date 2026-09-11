@@ -12,7 +12,7 @@ export type Compatibility = {
 
 export type ReleaseRecord = {
   version: string;
-  version_code: number;
+  version_code: number | null;
   channel: string;
   published_unix: number | null;
   status: ReleaseStatus;

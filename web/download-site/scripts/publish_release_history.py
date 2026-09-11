@@ -59,7 +59,7 @@ def validate_catalog(catalog: Any) -> tuple[dict[str, Any], dict[str, Any]]:
             fail(f"versión duplicada: {version}")
         versions.add(version)
         version_code = release.get("version_code")
-        if isinstance(version_code, bool) or not isinstance(version_code, int) or version_code < 1:
+        if version_code is not None and (isinstance(version_code, bool) or not isinstance(version_code, int) or version_code < 1):
             fail(f"{version}: version_code inválido")
         if release.get("status") not in ALLOWED_STATUSES:
             fail(f"{version}: status inválido")

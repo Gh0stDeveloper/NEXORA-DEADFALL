@@ -106,7 +106,7 @@
     },
     {
       "version": "0.9.0-beta.1",
-      "version_code": 900001,
+      "version_code": null,
       "channel": "closed_beta",
       "published_unix": null,
       "status": "superseded",
