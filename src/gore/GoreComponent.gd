@@ -87,6 +87,8 @@ func _apply_replica_limb(body_part: int) -> void:
 		mesh.visible = false
 	if wound != null:
 		wound.visible = true
+	if _model_presenter != null and _model_presenter.has_method("apply_gore_visual"):
+		_model_presenter.call("apply_gore_visual", body_part)
 	_disable_hitbox(part_name)
 	match body_part:
 		DamageEventScript.BodyPart.LEFT_LEG, DamageEventScript.BodyPart.RIGHT_LEG:
@@ -129,6 +131,8 @@ func _destroy_limb(body_part: int, event) -> void:
 		mesh.visible = false
 	if wound != null:
 		wound.visible = true
+	if _model_presenter != null and _model_presenter.has_method("apply_gore_visual"):
+		_model_presenter.call("apply_gore_visual", body_part)
 	_disable_hitbox(part_name)
 	var manager := get_tree().root.get_node_or_null("Gore") if get_tree() != null else null
 	if manager != null:

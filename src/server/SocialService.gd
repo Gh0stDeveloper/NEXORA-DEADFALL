@@ -201,7 +201,7 @@ func set_party_match_assignment(code: String, assignment: Dictionary) -> bool:
 	var host := String(assignment.get("host", ""))
 	var port := int(assignment.get("port", 0))
 	var tickets: Dictionary = Dictionary(assignment.get("tickets", {}))
-	if match_id.is_empty() or host.is_empty() or port <= 0 or tickets.is_empty():
+	if match_id.is_empty() or host.is_empty() or port < 24600 or port > 24749 or tickets.is_empty():
 		return false
 	var party: Dictionary = Dictionary(_parties[code])
 	party["match"] = assignment.duplicate(true)

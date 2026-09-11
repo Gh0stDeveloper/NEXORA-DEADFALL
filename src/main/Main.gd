@@ -16,6 +16,8 @@ const MATCH_RECONNECT_ATTEMPT_TIMEOUT_SECONDS := 7.0
 const MATCH_RECONNECT_RETRY_SECONDS := 3.0
 const MATCH_RECONNECT_WINDOW_SECONDS := 42.0
 const MATCH_RECONNECT_MAX_ATTEMPTS := 10
+const MATCH_UDP_PORT_MIN := 24600
+const MATCH_UDP_PORT_MAX := 24749
 
 var _pending_room_name := "Player"
 var _pending_campaign_mode := false
@@ -117,7 +119,7 @@ func _on_lobby_online_match_ready(match: Dictionary, lobby: Node) -> void:
 	var ticket := String(match.get("join_ticket", "")).strip_edges()
 	var mission_id := StringName(String(match.get("mission_id", "mission_01_first_signal")))
 	var match_id := String(match.get("match_id", "")).strip_edges()
-	if host.is_empty() or port <= 0 or ticket.length() != 64 or match_id.is_empty():
+	if host.is_empty() or port < MATCH_UDP_PORT_MIN or port > MATCH_UDP_PORT_MAX or not _is_match_ticket(ticket) or match_id.is_empty():
 		_set_lobby_status(lobby, "ASIGNACIÓN DE PARTIDA INVÁLIDA")
 		push_error("Invalid orchestrated match assignment")
 		return
@@ -530,6 +532,14 @@ func _set_lobby_status(lobby: Node, text: String) -> void:
 func _is_loopback_host(host: String) -> bool:
 	var normalized := host.strip_edges().to_lower()
 	return normalized in ["127.0.0.1", "localhost", "::1", "0.0.0.0"]
+
+func _is_match_ticket(value: String) -> bool:
+	if value.length() != 64:
+		return false
+	for character in value:
+		if "0123456789abcdefABCDEF".find(character) < 0:
+			return false
+	return true
 
 func _boot_android_diagnostics() -> void:
 	if not OS.has_feature("android") or not OS.is_debug_build():

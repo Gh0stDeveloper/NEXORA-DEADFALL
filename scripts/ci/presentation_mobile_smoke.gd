@@ -38,7 +38,7 @@ func _run() -> void:
 		return
 
 	var preview_source := _read_text("res://src/lobby/LobbyCharacterPreviewBridge.gd")
-	for token in ["LobbyCharacterTurntable", "AnimationDriver.play_semantic", "rotation.y", "ModelNormalizer.normalize_visual"]:
+	for token in ["LobbyCharacterTurntable", "AnimationDriver.play_semantic", "rotation.y", "ModelNormalizer.normalize_visual", "ProceduralCharacters.create_operator", "USE_EXTERNAL_MODELS := false", "PREVIEW_HEIGHT := 1.64"]:
 		if not preview_source.contains(token):
 			lobby.free()
 			_fail("Lobby animated preview contract missing: %s" % token)
@@ -65,12 +65,27 @@ func _run() -> void:
 			_fail("Android quality profile contract missing: %s" % token)
 			return
 
+	var party_avatar_source := _read_text("res://src/lobby/LobbyPartyAvatar.gd")
+	for token in ["SubViewport", "set_member", "set_empty", "AvatarTurntable", "ProceduralCharacters.create_operator"]:
+		if not party_avatar_source.contains(token):
+			lobby.free()
+			_fail("Party avatar procedural presentation contract missing: %s" % token)
+			return
+
+	var lobby_controller_source := _read_text("res://src/lobby/LobbyController.gd")
+	for token in ["PartyAvatarScript", "_party_avatars", "update_party_members", "INICIAR %s"]:
+		if not lobby_controller_source.contains(token):
+			lobby.free()
+			_fail("Party lobby formation contract missing: %s" % token)
+			return
+
 	var zombie_source := _read_text("res://src/zombies/base/ZombieModelPresenter.gd")
-	for token in ["VISIBILITY_RANGE_BY_TIER", "visibility_range_end", "play_named", "_desired_semantic_state"]:
+	for token in ["VISIBILITY_RANGE_BY_TIER", "visibility_range_end", "play_named", "_desired_semantic_state", "TARGET_VISUAL_HEIGHT := 1.64", "ProceduralCharacters.create_zombie"]:
 		if not zombie_source.contains(token):
 			lobby.free()
-			_fail("Zombie presentation/culling contract missing: %s" % token)
+			_fail("Zombie presentation/culling/procedural contract missing: %s" % token)
 			return
+
 
 	var catalog_source := _read_text("res://src/assets/ExternalModelCatalog.gd")
 	for token in ["Zombie|ZombieIdle", "Zombie|ZombieWalk", "Zombie|ZombieRun", "Zombie|ZombieCrawl", "Zombie|ZombieBite"]:

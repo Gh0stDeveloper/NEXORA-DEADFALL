@@ -4,7 +4,9 @@ extends Node
 const ExternalModels = preload("res://src/assets/ExternalModelCatalog.gd")
 const ModelNormalizer = preload("res://src/assets/ModelNormalizer.gd")
 const AnimationDriver = preload("res://src/assets/ImportedAnimationDriver.gd")
-const PREVIEW_HEIGHT := 1.76
+const ProceduralCharacters = preload("res://src/assets/ProceduralCharacterModel.gd")
+const PREVIEW_HEIGHT := 1.64
+const USE_EXTERNAL_MODELS := false
 
 @export_range(0.0, 1.0, 0.01) var turntable_radians_per_second := 0.10
 
@@ -57,23 +59,44 @@ func _show_character(character_id: StringName) -> void:
 		return
 	_current_character = requested
 	_clear_model()
-	var config := ExternalModels.character(requested)
-	if not ExternalModels.model_exists(config):
-		_set_placeholder_visible(true)
+	if not USE_EXTERNAL_MODELS:
+		_show_procedural_character(requested)
 		return
+	if _show_external_character(requested):
+		return
+	_show_procedural_character(requested)
+
+func get_animation_status() -> Dictionary:
+	return _animation_status.duplicate(true)
+
+func _show_procedural_character(character_id: StringName) -> void:
+	_model = ProceduralCharacters.create_operator(character_id)
+	_model.name = "LobbyProceduralCharacterModel"
+	_turntable.rotation = Vector3.ZERO
+	_turntable.add_child(_model)
+	_set_placeholder_visible(false)
+	_animation_status = {
+		"ok": true,
+		"source": "procedural",
+		"semantic": "idle",
+		"clip": "static_pose",
+	}
+
+func _show_external_character(character_id: StringName) -> bool:
+	var config := ExternalModels.character(character_id)
+	if not ExternalModels.model_exists(config):
+		return false
 	var resource := load(String(config.get("path", "")))
 	var scene := resource as PackedScene
 	if scene == null:
-		_set_placeholder_visible(true)
-		return
+		return false
 	_model = scene.instantiate() as Node3D
 	if _model == null:
-		_set_placeholder_visible(true)
-		return
+		return false
 	var configured_scale: Vector3 = config.get("scale", Vector3.ONE)
 	var configured_rotation: Vector3 = config.get("rotation_degrees", Vector3.ZERO)
 	var configured_offset: Vector3 = config.get("offset", Vector3.ZERO)
-	_model.name = "LobbyCharacterModel"
+	_model.name = "LobbyExternalCharacterModel"
 	_model.scale = configured_scale
 	_model.rotation_degrees = configured_rotation
 	_model.position = configured_offset
@@ -86,11 +109,8 @@ func _show_character(character_id: StringName) -> void:
 	_animation_status = AnimationDriver.play_semantic(_model, &"idle", 0.0)
 	if not bool(_animation_status.get("ok", false)):
 		_animation_status = AnimationDriver.play_best_pose(_model, ["idle", "stand", "breath", "walk", "run"])
-	if bool(config.get("expects_animation", false)) and not bool(_animation_status.get("ok", false)):
-		push_warning("DEADFALL lobby animated character has no usable runtime pose: %s" % String(config.get("source_name", requested)))
+	return true
 
-func get_animation_status() -> Dictionary:
-	return _animation_status.duplicate(true)
 
 func _clear_model() -> void:
 	if _model != null and is_instance_valid(_model):

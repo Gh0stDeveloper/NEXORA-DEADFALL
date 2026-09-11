@@ -6,6 +6,7 @@ signal attack_started()
 signal attack_hit(victim_id: int, damage: float)
 
 const DamageEventScript = preload("res://src/core/damage/DamageEvent.gd")
+const ProceduralWeapons = preload("res://src/assets/ProceduralWeaponModels.gd")
 
 @export var shooter_entity_id := 1
 @export var input_path := NodePath("../PlayerInput")
@@ -30,7 +31,7 @@ var _base_view_rotation := Vector3(deg_to_rad(18.0), deg_to_rad(-12.0), deg_to_r
 func _ready() -> void:
 	_input_source = get_node_or_null(input_path)
 	_camera_rig = get_node_or_null(camera_rig_path)
-	if DisplayServer.get_name() != "headless":
+	if DisplayServer.get_name() != "headless" and not OS.has_feature("dedicated_server"):
 		_build_view_model()
 	if _camera_rig != null and _camera_rig.has_signal("camera_mode_changed"):
 		_camera_rig.connect("camera_mode_changed", Callable(self, "_on_camera_mode_changed"))
@@ -148,37 +149,11 @@ func _build_view_model() -> void:
 	var camera := _camera_rig.call("get_aim_camera") as Camera3D if _camera_rig.has_method("get_aim_camera") else null
 	if camera == null:
 		return
-	_view_model = Node3D.new()
-	_view_model.name = "MacheteViewModel"
+	_view_model = ProceduralWeapons.create_view_model(&"machete")
+	_view_model.name = "ProceduralMacheteViewModel"
 	_view_model.position = _base_view_position
 	_view_model.rotation = _base_view_rotation
 	camera.add_child(_view_model)
-
-	var blade_material := StandardMaterial3D.new()
-	blade_material.albedo_color = Color(0.58, 0.64, 0.66)
-	blade_material.metallic = 0.72
-	blade_material.roughness = 0.28
-	var blade_mesh := BoxMesh.new()
-	blade_mesh.size = Vector3(0.075, 0.70, 0.035)
-	blade_mesh.material = blade_material
-	var blade := MeshInstance3D.new()
-	blade.name = "Blade"
-	blade.position = Vector3(0, 0.28, 0)
-	blade.rotation.z = deg_to_rad(-8.0)
-	blade.mesh = blade_mesh
-	_view_model.add_child(blade)
-
-	var handle_material := StandardMaterial3D.new()
-	handle_material.albedo_color = Color(0.055, 0.032, 0.024)
-	handle_material.roughness = 0.88
-	var handle_mesh := BoxMesh.new()
-	handle_mesh.size = Vector3(0.12, 0.27, 0.09)
-	handle_mesh.material = handle_material
-	var handle := MeshInstance3D.new()
-	handle.name = "Handle"
-	handle.position = Vector3(0, -0.20, 0)
-	handle.mesh = handle_mesh
-	_view_model.add_child(handle)
 
 func _animate_swing() -> void:
 	if _view_model == null or not is_instance_valid(_view_model):

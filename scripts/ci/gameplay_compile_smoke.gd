@@ -17,8 +17,12 @@ const REQUIRED_SCRIPTS := [
 	"res://src/mobile/MobileHUD.gd",
 	"res://src/mobile/MobilePerformanceTuner.gd",
 	"res://src/lobby/LobbyVisualPolish.gd",
+	"res://src/lobby/LobbyController.gd",
+	"res://src/lobby/LobbyPartyAvatar.gd",
 	"res://src/lobby/LobbyCharacterPreviewBridge.gd",
 	"res://src/assets/ModelNormalizer.gd",
+	"res://src/assets/ProceduralCharacterModel.gd",
+	"res://src/assets/ProceduralWeaponModels.gd",
 	"res://src/assets/ImportedAnimationDriver.gd",
 	"res://src/player/PlayerModelPresenter.gd",
 	"res://src/zombies/base/ZombieModelPresenter.gd",
@@ -67,13 +71,13 @@ func _run() -> void:
 
 	var player_presenter_file := FileAccess.open("res://src/player/PlayerModelPresenter.gd", FileAccess.READ)
 	var player_presenter_text := player_presenter_file.get_as_text() if player_presenter_file != null else ""
-	if not player_presenter_text.contains("_desired_semantic_state") or not player_presenter_text.contains("last_sequence") or not player_presenter_text.contains("dedicated_server"):
+	if not player_presenter_text.contains("_desired_semantic_state") or not player_presenter_text.contains("last_sequence") or not player_presenter_text.contains("dedicated_server") or not player_presenter_text.contains("USE_EXTERNAL_MODELS := false") or not player_presenter_text.contains("ProceduralCharacters.create_operator"):
 		_fail("Player model semantic/headless presentation contract missing")
 		return
 
 	var zombie_presenter_file := FileAccess.open("res://src/zombies/base/ZombieModelPresenter.gd", FileAccess.READ)
 	var zombie_presenter_text := zombie_presenter_file.get_as_text() if zombie_presenter_file != null else ""
-	if not zombie_presenter_text.contains("_desired_semantic_state") or not zombie_presenter_text.contains("dedicated_server") or not zombie_presenter_text.contains("_animation_overrides") or not zombie_presenter_text.contains("play_named"):
+	if not zombie_presenter_text.contains("_desired_semantic_state") or not zombie_presenter_text.contains("dedicated_server") or not zombie_presenter_text.contains("_animation_overrides") or not zombie_presenter_text.contains("play_named") or not zombie_presenter_text.contains("TARGET_VISUAL_HEIGHT := 1.64") or not zombie_presenter_text.contains("ProceduralCharacters.create_zombie"):
 		_fail("Zombie model exact-semantic/headless presentation contract missing")
 		return
 
@@ -81,9 +85,31 @@ func _run() -> void:
 	var rifle_text := rifle_file.get_as_text() if rifle_file != null else ""
 	var machete_file := FileAccess.open("res://src/weapons/melee/MacheteWeapon.gd", FileAccess.READ)
 	var machete_text := machete_file.get_as_text() if machete_file != null else ""
-	if not rifle_text.contains("\"last_sequence\"") or not machete_text.contains("\"last_sequence\""):
-		_fail("Weapon action sequence is not replicated for remote animation presentation")
+	if not rifle_text.contains("last_sequence") or not machete_text.contains("last_sequence") or not rifle_text.contains("ProceduralWeapons.create_view_model") or not rifle_text.contains("shot_fired.connect") or not machete_text.contains("ProceduralWeapons.create_view_model"):
+		_fail("Weapon action sequence/procedural view-model contract is incomplete")
 		return
+
+	var procedural_character_file := FileAccess.open("res://src/assets/ProceduralCharacterModel.gd", FileAccess.READ)
+	var procedural_character_text := procedural_character_file.get_as_text() if procedural_character_file != null else ""
+	for contract in ["create_operator", "ProceduralOperator", "create_zombie", "ProceduralZombie", "visual_height"]:
+		if not procedural_character_text.contains(contract):
+			_fail("Procedural character model contract missing: %s" % contract)
+			return
+
+	var procedural_weapon_file := FileAccess.open("res://src/assets/ProceduralWeaponModels.gd", FileAccess.READ)
+	var procedural_weapon_text := procedural_weapon_file.get_as_text() if procedural_weapon_file != null else ""
+	for contract in ["create_view_model", "ProceduralRifle", "ProceduralPistol", "ProceduralMachete", "weapon_id"]:
+		if not procedural_weapon_text.contains(contract):
+			_fail("Procedural weapon model contract missing: %s" % contract)
+			return
+
+	var party_avatar_file := FileAccess.open("res://src/lobby/LobbyPartyAvatar.gd", FileAccess.READ)
+	var party_avatar_text := party_avatar_file.get_as_text() if party_avatar_file != null else ""
+	for contract in ["SubViewport", "set_member", "set_empty", "AvatarTurntable", "ProceduralCharacters.create_operator"]:
+		if not party_avatar_text.contains(contract):
+			_fail("Party avatar presentation contract missing: %s" % contract)
+			return
+
 
 	var touch_router_file := FileAccess.open("res://src/mobile/TouchInputRouter.gd", FileAccess.READ)
 	var touch_router_text := touch_router_file.get_as_text() if touch_router_file != null else ""

@@ -11,6 +11,7 @@ signal dry_fired()
 const DamageEventScript = preload("res://src/core/damage/DamageEvent.gd")
 const RuntimeStateScript = preload("res://src/weapons/base/WeaponRuntimeState.gd")
 const ShotIntentScript = preload("res://src/weapons/base/ShotIntent.gd")
+const ProceduralWeapons = preload("res://src/assets/ProceduralWeaponModels.gd")
 
 @export var weapon_data: Resource
 @export var shooter_entity_id: int = 1
@@ -26,15 +27,26 @@ var _shot_sequence := 0
 var _last_server_fire_sequence := 0
 var _last_server_reload_sequence := 0
 var _last_presented_sequence := 0
+var _view_model: Node3D
+var _view_tween: Tween
+var _base_view_position := Vector3(0.32, -0.30, -0.70)
+var _base_view_rotation := Vector3(deg_to_rad(-1.0), deg_to_rad(-4.0), deg_to_rad(1.0))
 
 func _ready() -> void:
 	_input_source = get_node_or_null(input_path)
 	_camera_rig = get_node_or_null(camera_rig_path)
 	_state.configure(weapon_data)
 	ammo_changed.emit(_state.ammo_in_mag, _state.reserve_ammo)
+	if DisplayServer.get_name() != "headless" and not OS.has_feature("dedicated_server"):
+		_build_view_model()
+	if _camera_rig != null and _camera_rig.has_signal("camera_mode_changed"):
+		_camera_rig.connect("camera_mode_changed", Callable(self, "_on_camera_mode_changed"))
+	shot_fired.connect(Callable(self, "_on_view_shot_fired"))
+	_refresh_view_visibility()
 
 func set_input_enabled(enabled: bool) -> void:
 	input_enabled = enabled
+	_refresh_view_visibility()
 
 func _process(_delta: float) -> void:
 	if weapon_data == null:
@@ -58,6 +70,42 @@ func _process(_delta: float) -> void:
 		wants_fire = bool(_input_source.consume_action_just_pressed(&"fire"))
 	if wants_fire:
 		_try_fire(now_usec)
+
+func _build_view_model() -> void:
+	if _camera_rig == null or not _camera_rig.has_method("get_aim_camera"):
+		return
+	var camera := _camera_rig.call("get_aim_camera") as Camera3D
+	if camera == null:
+		return
+	var weapon_id := StringName(weapon_data.get("weapon_id", &"nxr_rifle_01")) if weapon_data != null else &"nxr_rifle_01"
+	_view_model = ProceduralWeapons.create_view_model(weapon_id)
+	_view_model.name = "ProceduralWeaponViewModel"
+	_view_model.position = _base_view_position
+	_view_model.rotation = _base_view_rotation
+	camera.add_child(_view_model)
+
+func _on_camera_mode_changed(_mode: int) -> void:
+	_refresh_view_visibility()
+
+func _refresh_view_visibility() -> void:
+	if _view_model == null or _camera_rig == null:
+		return
+	var mode_value = _camera_rig.get("mode")
+	_view_model.visible = input_enabled and int(mode_value) == 0
+
+func _on_view_shot_fired(_intent, _hit_result) -> void:
+	if _view_model == null or not is_instance_valid(_view_model):
+		return
+	if _view_tween != null and _view_tween.is_valid():
+		_view_tween.kill()
+	_view_model.position = _base_view_position
+	_view_model.rotation = _base_view_rotation
+	_view_tween = create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_view_tween.tween_property(_view_model, "position", _base_view_position + Vector3(0.0, 0.018, 0.065), 0.055)
+	_view_tween.parallel().tween_property(_view_model, "rotation", _base_view_rotation + Vector3(deg_to_rad(-4.0), deg_to_rad(1.5), deg_to_rad(2.0)), 0.055)
+	_view_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_view_tween.tween_property(_view_model, "position", _base_view_position, 0.14)
+	_view_tween.parallel().tween_property(_view_model, "rotation", _base_view_rotation, 0.14)
 
 func _try_fire(now_usec: int) -> bool:
 	if not _owner_can_use_weapon() or _state.reloading:

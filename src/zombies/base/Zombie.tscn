@@ -9,27 +9,27 @@
 [ext_resource type="Script" path="res://src/zombies/base/ZombieModelPresenter.gd" id="7_model"]
 
 [sub_resource type="CapsuleShape3D" id="BodyShape"]
-radius = 0.40
-height = 1.75
+radius = 0.36
+height = 1.62
 
 [sub_resource type="StandardMaterial3D" id="ZombieMaterial"]
-albedo_color = Color(0.28, 0.34, 0.27, 1)
+albedo_color = Color(0.24, 0.30, 0.23, 1)
 roughness = 0.9
 
 [sub_resource type="BoxMesh" id="TorsoMesh"]
-size = Vector3(0.72, 0.92, 0.46)
+size = Vector3(0.64, 0.56, 0.42)
 material = SubResource("ZombieMaterial")
 
 [sub_resource type="BoxMesh" id="HeadMesh"]
-size = Vector3(0.46, 0.46, 0.42)
+size = Vector3(0.40, 0.34, 0.36)
 material = SubResource("ZombieMaterial")
 
 [sub_resource type="BoxMesh" id="ArmMesh"]
-size = Vector3(0.24, 0.78, 0.26)
+size = Vector3(0.22, 0.52, 0.24)
 material = SubResource("ZombieMaterial")
 
 [sub_resource type="BoxMesh" id="LegMesh"]
-size = Vector3(0.28, 0.66, 0.30)
+size = Vector3(0.25, 0.46, 0.28)
 material = SubResource("ZombieMaterial")
 
 [sub_resource type="StandardMaterial3D" id="WoundMaterial"]
@@ -49,19 +49,19 @@ size = Vector3(0.22, 0.18, 0.25)
 material = SubResource("WoundMaterial")
 
 [sub_resource type="BoxShape3D" id="HeadShape"]
-size = Vector3(0.46, 0.46, 0.42)
+size = Vector3(0.40, 0.34, 0.36)
 
 [sub_resource type="BoxShape3D" id="ChestShape"]
-size = Vector3(0.78, 0.62, 0.40)
+size = Vector3(0.70, 0.54, 0.38)
 
 [sub_resource type="BoxShape3D" id="AbdomenShape"]
-size = Vector3(0.68, 0.50, 0.36)
+size = Vector3(0.60, 0.44, 0.34)
 
 [sub_resource type="BoxShape3D" id="ArmShape"]
-size = Vector3(0.24, 0.78, 0.26)
+size = Vector3(0.22, 0.52, 0.24)
 
 [sub_resource type="BoxShape3D" id="LegShape"]
-size = Vector3(0.28, 0.66, 0.30)
+size = Vector3(0.25, 0.46, 0.28)
 
 [node name="Zombie" type="CharacterBody3D" groups=["deadfall_zombie"]]
 collision_layer = 8
@@ -95,7 +95,7 @@ radius = 0.45
 avoidance_enabled = false
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
-position = Vector3(0, 0.875, 0)
+position = Vector3(0, 0.81, 0)
 shape = SubResource("BodyShape")
 
 [node name="VisualRoot" type="Node3D" parent="."]
@@ -103,27 +103,27 @@ shape = SubResource("BodyShape")
 [node name="PreparedRig" type="Node3D" parent="VisualRoot"]
 
 [node name="Torso" type="MeshInstance3D" parent="VisualRoot/PreparedRig"]
-position = Vector3(0, 1.02, 0)
+position = Vector3(0, 0.91, 0)
 mesh = SubResource("TorsoMesh")
 
 [node name="Head" type="MeshInstance3D" parent="VisualRoot/PreparedRig"]
-position = Vector3(0, 1.72, 0)
+position = Vector3(0, 1.43, 0)
 mesh = SubResource("HeadMesh")
 
 [node name="LeftArm" type="MeshInstance3D" parent="VisualRoot/PreparedRig"]
-position = Vector3(-0.54, 1.14, 0)
+position = Vector3(-0.49, 1.00, 0)
 mesh = SubResource("ArmMesh")
 
 [node name="RightArm" type="MeshInstance3D" parent="VisualRoot/PreparedRig"]
-position = Vector3(0.54, 1.14, 0)
+position = Vector3(0.49, 1.00, 0)
 mesh = SubResource("ArmMesh")
 
 [node name="LeftLeg" type="MeshInstance3D" parent="VisualRoot/PreparedRig"]
-position = Vector3(-0.21, 0.33, 0)
+position = Vector3(-0.19, 0.29, 0)
 mesh = SubResource("LegMesh")
 
 [node name="RightLeg" type="MeshInstance3D" parent="VisualRoot/PreparedRig"]
-position = Vector3(0.21, 0.33, 0)
+position = Vector3(0.19, 0.29, 0)
 mesh = SubResource("LegMesh")
 
 [node name="ModelPresenter" type="Node3D" parent="VisualRoot"]
@@ -134,39 +134,39 @@ variant = &"animated"
 [node name="Wounds" type="Node3D" parent="VisualRoot"]
 
 [node name="Head" type="MeshInstance3D" parent="VisualRoot/Wounds"]
-position = Vector3(0, 1.47, 0)
+position = Vector3(0, 1.24, 0)
 visible = false
 mesh = SubResource("HeadWoundMesh")
 
 [node name="LeftArm" type="MeshInstance3D" parent="VisualRoot/Wounds"]
-position = Vector3(-0.40, 1.34, 0)
+position = Vector3(-0.36, 1.18, 0)
 visible = false
 mesh = SubResource("ArmWoundMesh")
 
 [node name="RightArm" type="MeshInstance3D" parent="VisualRoot/Wounds"]
-position = Vector3(0.40, 1.34, 0)
+position = Vector3(0.36, 1.18, 0)
 visible = false
 mesh = SubResource("ArmWoundMesh")
 
 [node name="LeftLeg" type="MeshInstance3D" parent="VisualRoot/Wounds"]
-position = Vector3(-0.21, 0.68, 0)
+position = Vector3(-0.19, 0.55, 0)
 visible = false
 mesh = SubResource("LegWoundMesh")
 
 [node name="RightLeg" type="MeshInstance3D" parent="VisualRoot/Wounds"]
-position = Vector3(0.21, 0.68, 0)
+position = Vector3(0.19, 0.55, 0)
 visible = false
 mesh = SubResource("LegWoundMesh")
 
 [node name="StateLabel" type="Label3D" parent="."]
-position = Vector3(0, 2.35, 0)
+position = Vector3(0, 1.98, 0)
 text = "IDLE"
 font_size = 24
 
 [node name="Hitboxes" type="Node3D" parent="."]
 
 [node name="Head" type="Area3D" parent="Hitboxes"]
-position = Vector3(0, 1.72, 0)
+position = Vector3(0, 1.43, 0)
 collision_layer = 4
 collision_mask = 0
 script = ExtResource("3_hitbox")
@@ -177,7 +177,7 @@ body_part = 0
 shape = SubResource("HeadShape")
 
 [node name="Chest" type="Area3D" parent="Hitboxes"]
-position = Vector3(0, 1.22, 0)
+position = Vector3(0, 1.08, 0)
 collision_layer = 4
 collision_mask = 0
 script = ExtResource("3_hitbox")
@@ -188,7 +188,7 @@ body_part = 1
 shape = SubResource("ChestShape")
 
 [node name="Abdomen" type="Area3D" parent="Hitboxes"]
-position = Vector3(0, 0.68, 0)
+position = Vector3(0, 0.62, 0)
 collision_layer = 4
 collision_mask = 0
 script = ExtResource("3_hitbox")
@@ -199,7 +199,7 @@ body_part = 2
 shape = SubResource("AbdomenShape")
 
 [node name="LeftArm" type="Area3D" parent="Hitboxes"]
-position = Vector3(-0.54, 1.14, 0)
+position = Vector3(-0.49, 1.00, 0)
 collision_layer = 4
 collision_mask = 0
 script = ExtResource("3_hitbox")
@@ -210,7 +210,7 @@ body_part = 3
 shape = SubResource("ArmShape")
 
 [node name="RightArm" type="Area3D" parent="Hitboxes"]
-position = Vector3(0.54, 1.14, 0)
+position = Vector3(0.49, 1.00, 0)
 collision_layer = 4
 collision_mask = 0
 script = ExtResource("3_hitbox")
@@ -221,7 +221,7 @@ body_part = 4
 shape = SubResource("ArmShape")
 
 [node name="LeftLeg" type="Area3D" parent="Hitboxes"]
-position = Vector3(-0.21, 0.33, 0)
+position = Vector3(-0.19, 0.29, 0)
 collision_layer = 4
 collision_mask = 0
 script = ExtResource("3_hitbox")
@@ -232,7 +232,7 @@ body_part = 5
 shape = SubResource("LegShape")
 
 [node name="RightLeg" type="Area3D" parent="Hitboxes"]
-position = Vector3(0.21, 0.33, 0)
+position = Vector3(0.19, 0.29, 0)
 collision_layer = 4
 collision_mask = 0
 script = ExtResource("3_hitbox")

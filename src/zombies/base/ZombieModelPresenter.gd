@@ -4,7 +4,9 @@ extends Node3D
 const ExternalModels = preload("res://src/assets/ExternalModelCatalog.gd")
 const ModelNormalizer = preload("res://src/assets/ModelNormalizer.gd")
 const AnimationDriver = preload("res://src/assets/ImportedAnimationDriver.gd")
-const TARGET_VISUAL_HEIGHT := 1.95
+const ProceduralCharacters = preload("res://src/assets/ProceduralCharacterModel.gd")
+const TARGET_VISUAL_HEIGHT := 1.64
+const USE_EXTERNAL_MODELS := false
 const VISIBILITY_RANGE_BY_TIER := {
 	0: 52.0,
 	1: 72.0,
@@ -21,9 +23,12 @@ var _loaded_model: Node3D
 var _animation_status: Dictionary = {}
 var _semantic_state := StringName()
 var _animation_elapsed := 0.0
+var _procedural_elapsed := 0.0
+var _model_is_procedural := false
 var _visuals_enabled := true
 var _quality_tier := 1
 var _animation_overrides: Dictionary = {}
+var _gore_destroyed_parts: Dictionary = {}
 
 func _ready() -> void:
 	_prepared_rig = get_node_or_null(prepared_rig_path) as Node3D
@@ -39,6 +44,9 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if not _visuals_enabled or not has_external_model():
 		return
+	if _model_is_procedural:
+		_update_procedural_presentation(delta)
+		return
 	_animation_elapsed += delta
 	if _animation_elapsed < animation_update_interval:
 		return
@@ -49,6 +57,8 @@ func load_external_model() -> bool:
 	if not _visuals_enabled:
 		return false
 	_clear_loaded_model()
+	if not USE_EXTERNAL_MODELS:
+		return _load_procedural_model()
 	var config := ExternalModels.zombie(variant)
 	if not ExternalModels.model_exists(config):
 		_set_prepared_rig_visible(true)
@@ -62,6 +72,7 @@ func load_external_model() -> bool:
 	if _loaded_model == null:
 		_set_prepared_rig_visible(true)
 		return false
+	_model_is_procedural = false
 	var configured_scale: Vector3 = config.get("scale", Vector3.ONE)
 	var configured_rotation: Vector3 = config.get("rotation_degrees", Vector3.ZERO)
 	var configured_offset: Vector3 = config.get("offset", Vector3.ZERO)
@@ -84,9 +95,63 @@ func load_external_model() -> bool:
 		push_warning("DEADFALL expected animated zombie model has no usable runtime clip: %s" % String(config.get("source_name", variant)))
 	return true
 
+func _load_procedural_model() -> bool:
+	_loaded_model = ProceduralCharacters.create_zombie(variant)
+	if _loaded_model == null:
+		_set_prepared_rig_visible(true)
+		return false
+	_loaded_model.name = "ProceduralZombieModel"
+	add_child(_loaded_model)
+	_model_is_procedural = true
+	_set_prepared_rig_visible(false)
+	_apply_procedural_gore_state()
+	_semantic_state = &"idle"
+	_animation_status = {
+		"ok": true,
+		"source": "procedural",
+		"semantic": "idle",
+		"clip": "static_pose",
+	}
+	return true
+
+func _update_procedural_presentation(delta: float) -> void:
+	_procedural_elapsed += delta
+	if _loaded_model == null or not is_instance_valid(_loaded_model):
+		return
+	var zombie := get_parent() as CharacterBody3D
+	var moving := zombie != null and Vector2(zombie.velocity.x, zombie.velocity.z).length() > 0.18
+	var frequency := 8.0 if moving else 2.6
+	var amplitude := 0.008 if moving else 0.002
+	_loaded_model.position.y = sin(_procedural_elapsed * frequency) * amplitude
+	_loaded_model.rotation.z = sin(_procedural_elapsed * frequency * 0.38) * 0.012
+
+func apply_gore_visual(body_part: int) -> void:
+	_gore_destroyed_parts[body_part] = true
+	_apply_procedural_gore_state()
+
+func _apply_procedural_gore_state() -> void:
+	if not _model_is_procedural or _loaded_model == null or not is_instance_valid(_loaded_model):
+		return
+	var part_names := {
+		0: ["Head", "Jaw", "LeftEye", "RightEye"],
+		3: ["LeftArm"],
+		4: ["RightArm"],
+		5: ["LeftLeg"],
+		6: ["RightLeg"],
+	}
+	for body_part in _gore_destroyed_parts:
+		var names: Array = part_names.get(int(body_part), [])
+		for part_name in names:
+			var part := _loaded_model.get_node_or_null(String(part_name)) as MeshInstance3D
+			if part != null:
+				part.visible = false
+
 func fallback_to_prepared_rig() -> void:
 	_clear_loaded_model()
-	_set_prepared_rig_visible(true)
+	if _visuals_enabled and not USE_EXTERNAL_MODELS:
+		_load_procedural_model()
+	else:
+		_set_prepared_rig_visible(true)
 
 func has_external_model() -> bool:
 	return _loaded_model != null and is_instance_valid(_loaded_model)
@@ -187,6 +252,8 @@ func _clear_loaded_model() -> void:
 	_animation_status = {}
 	_semantic_state = StringName()
 	_animation_overrides = {}
+	_procedural_elapsed = 0.0
+	_model_is_procedural = false
 
 func _set_prepared_rig_visible(visible: bool) -> void:
 	if _prepared_rig != null:

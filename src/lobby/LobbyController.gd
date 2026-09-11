@@ -11,6 +11,7 @@ enum PartyMode {
 
 const SafeAreaScript = preload("res://src/mobile/SafeArea.gd")
 const CharacterCatalog = preload("res://src/lobby/CharacterCatalog.gd")
+const PartyAvatarScript = preload("res://src/lobby/LobbyPartyAvatar.gd")
 
 var selected_mode: PartyMode = PartyMode.SOLO
 var _safe_root: Control
@@ -20,6 +21,8 @@ var _username_setup_panel: PanelContainer
 var _status_label: Label
 var _mode_buttons: Dictionary = {}
 var _party_labels: Array[Label] = []
+var _party_avatars: Array[Control] = []
+var _party_title: Label
 var _character_panel: PanelContainer
 var _character_name: Label
 var _character_role: Label
@@ -171,7 +174,7 @@ func _build_character_stage() -> void:
 	camera.position = Vector3(0.0, 1.35, 4.8)
 	camera.fov = 42.0
 	root_3d.add_child(camera)
-	camera.look_at(Vector3(0.0, 1.0, 0.0))
+	camera.look_at(Vector3(0.0, 0.86, 0.0))
 	var key_light := DirectionalLight3D.new()
 	key_light.rotation_degrees = Vector3(-40, -28, 0)
 	key_light.light_energy = 1.2
@@ -187,10 +190,10 @@ func _build_character_stage() -> void:
 	_character_mesh = MeshInstance3D.new()
 	_character_mesh.name = "OperatorPlaceholder"
 	var body_mesh := CapsuleMesh.new()
-	body_mesh.radius = 0.48
-	body_mesh.height = 2.05
+	body_mesh.radius = 0.34
+	body_mesh.height = 1.72
 	_character_mesh.mesh = body_mesh
-	_character_mesh.position = Vector3(0, 1.02, 0)
+	_character_mesh.position = Vector3(0, 0.86, 0)
 	root_3d.add_child(_character_mesh)
 	var stage_floor := MeshInstance3D.new()
 	var floor_mesh := CylinderMesh.new()
@@ -229,29 +232,49 @@ func _build_party_rail() -> void:
 	rail.anchor_bottom = 0.78
 	rail.offset_left = 12.0
 	rail.offset_right = -28.0
-	rail.add_theme_stylebox_override("panel", _panel_style(Color(0.015, 0.019, 0.025, 0.90), Color(0.25, 0.27, 0.31, 0.52), 18))
+	rail.add_theme_stylebox_override("panel", _panel_style(Color(0.015, 0.019, 0.025, 0.92), Color(0.25, 0.27, 0.31, 0.62), 18))
 	_safe_root.add_child(rail)
 	var margin := MarginContainer.new()
 	_set_margins(margin, 16, 16, 18, 18)
 	rail.add_child(margin)
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 10)
+	vbox.add_theme_constant_override("separation", 8)
 	margin.add_child(vbox)
-	var title := Label.new()
-	title.text = "ESCUADRA"
-	title.add_theme_font_size_override("font_size", 20)
-	vbox.add_child(title)
+	_party_title = Label.new()
+	_party_title.text = "ESCUADRA"
+	_party_title.add_theme_font_size_override("font_size", 20)
+	vbox.add_child(_party_title)
+	var subtitle := Label.new()
+	subtitle.text = "MI EQUIPO · IDENTIDAD Y ESTADO"
+	subtitle.add_theme_font_size_override("font_size", 10)
+	subtitle.add_theme_color_override("font_color", Color(0.46, 0.50, 0.57))
+	vbox.add_child(subtitle)
 	for index in range(4):
 		var slot := PanelContainer.new()
-		slot.custom_minimum_size = Vector2(0, 76)
-		slot.add_theme_stylebox_override("panel", _panel_style(Color(0.025, 0.030, 0.038, 0.86), Color(0.23, 0.25, 0.29, 0.62), 12))
+		slot.name = "PartySlot%d" % (index + 1)
+		slot.custom_minimum_size = Vector2(0, 84)
+		slot.add_theme_stylebox_override("panel", _panel_style(Color(0.025, 0.030, 0.038, 0.88), Color(0.23, 0.25, 0.29, 0.62), 12))
 		vbox.add_child(slot)
 		var slot_margin := MarginContainer.new()
-		_set_margins(slot_margin, 14, 14, 10, 10)
+		_set_margins(slot_margin, 8, 8, 6, 6)
 		slot.add_child(slot_margin)
+		var slot_row := HBoxContainer.new()
+		slot_row.add_theme_constant_override("separation", 8)
+		slot_margin.add_child(slot_row)
+		var avatar := PartyAvatarScript.new()
+		avatar.name = "MemberAvatar%d" % (index + 1)
+		avatar.custom_minimum_size = Vector2(72, 72)
+		avatar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		slot_row.add_child(avatar)
+		_party_avatars.append(avatar)
 		var label := Label.new()
-		label.add_theme_font_size_override("font_size", 17)
-		slot_margin.add_child(label)
+		label.name = "MemberLabel%d" % (index + 1)
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		label.add_theme_font_size_override("font_size", 14)
+		slot_row.add_child(label)
 		_party_labels.append(label)
 
 func _build_bottom_bar() -> void:
@@ -292,7 +315,7 @@ func _build_bottom_bar() -> void:
 	row.add_child(character_button)
 	character_button.pressed.connect(_open_character_panel)
 	_start_button = Button.new()
-	_start_button.text = "INICIAR"
+	_start_button.text = "INICIAR SOLO"
 	_start_button.custom_minimum_size = Vector2(260, 74)
 	_start_button.add_theme_font_size_override("font_size", 23)
 	_apply_button_style(_start_button, true)
@@ -365,7 +388,7 @@ func _character_card(character: Dictionary) -> Control:
 	description.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vbox.add_child(description)
 	var model_state := Label.new()
-	model_state.text = "MODELO 3D: PENDIENTE DE IMPORTAR"
+	model_state.text = "MODELO 3D: PROPIO · ESCALA NORMALIZADA"
 	model_state.add_theme_font_size_override("font_size", 12)
 	model_state.add_theme_color_override("font_color", Color(0.54, 0.56, 0.60))
 	vbox.add_child(model_state)
@@ -409,18 +432,42 @@ func _refresh_mode() -> void:
 			button.add_theme_color_override("font_color", Color.WHITE)
 		else:
 			button.remove_theme_color_override("font_color")
+	var formation_name := "SOLO" if selected_mode == PartyMode.SOLO else ("DÚO" if selected_mode == PartyMode.DUO else "ESCUADRA")
+	if _party_title != null:
+		_party_title.text = formation_name
+	if _start_button != null:
+		_start_button.text = "INICIAR %s" % formation_name
 	for index in range(_party_labels.size()):
 		var label := _party_labels[index]
 		if index == 0:
 			label.text = "1  %s\n   LÍDER" % _display_username()
 			label.modulate = Color.WHITE
 		elif index < int(selected_mode):
-			label.text = "%d  INVITAR JUGADOR" % (index + 1)
+			label.text = "%d  ESPERANDO JUGADOR" % (index + 1)
 			label.modulate = Color(0.72, 0.74, 0.78)
 		else:
 			label.text = "%d  CERRADO" % (index + 1)
 			label.modulate = Color(0.38, 0.40, 0.44)
-	_status_label.text = "SOLO" if selected_mode == PartyMode.SOLO else ("DÚO · LÍDER LOCAL" if selected_mode == PartyMode.DUO else "ESCUADRA · LÍDER LOCAL")
+	update_party_members([], int(selected_mode))
+	_status_label.text = "SOLO" if selected_mode == PartyMode.SOLO else ("%s · FORMA TU EQUIPO" % formation_name)
+
+func update_party_members(members: Array, capacity: int) -> void:
+	var visible_members: Array = members.duplicate(true)
+	if visible_members.is_empty() and capacity > 0 and GuestIdentity.has_complete_profile():
+		visible_members.append({
+			"guest_id": GuestIdentity.guest_id,
+			"username": _display_username(),
+			"selected_character": _selected_character,
+			"leader": true,
+			"online": true,
+		})
+	for index in range(_party_avatars.size()):
+		var avatar := _party_avatars[index]
+		if index < visible_members.size():
+			var member := Dictionary(visible_members[index])
+			avatar.call("set_member", member, index)
+		else:
+			avatar.call("set_empty", index)
 
 func _refresh_identity() -> void:
 	if _username_label == null:
@@ -521,7 +568,7 @@ func _on_start_pressed() -> void:
 		_build_username_editor()
 		return
 	if selected_mode != PartyMode.SOLO:
-		_status_label.text = "CREA O COMPLETA TU %s ANTES DE INICIAR" % ("DÚO" if selected_mode == PartyMode.DUO else "ESCUADRA")
+		# LobbySocialOverlay is the single owner of online party start/admission.
 		return
 	_start_button.disabled = true
 	_status_label.text = "PREPARANDO PARTIDA..."

@@ -87,9 +87,19 @@ func request_start_match() -> void:
 		_set_status("ESPERANDO A QUE EL LÍDER INICIE LA PARTIDA")
 		return
 	var members: Array = Array(party.get("members", []))
+	var expected_capacity := int(_lobby.get("selected_mode"))
+	if int(party.get("capacity", expected_capacity)) != expected_capacity:
+		_set_status("LA FORMACIÓN CAMBIÓ · ACTUALIZANDO ESCUADRA")
+		SocialClient.refresh_party()
+		return
 	if members.size() < 2:
 		_set_status("SE NECESITA AL MENOS UN COMPAÑERO")
 		return
+	for member_value in members:
+		var member := Dictionary(member_value)
+		if not bool(member.get("online", true)):
+			_set_status("ESPERANDO A QUE %s VUELVA A CONECTARSE" % String(member.get("username", "JUGADOR")))
+			return
 	var match := Dictionary(party.get("match", {}))
 	if not match.is_empty():
 		var status := String(match.get("status", "")).to_upper()
@@ -562,11 +572,11 @@ func _update_lobby_party_labels(party: Dictionary) -> void:
 	if _lobby == null:
 		return
 	var labels_value = _lobby.get("_party_labels")
-	if typeof(labels_value) != TYPE_ARRAY:
-		return
-	var labels: Array = labels_value
+	var labels: Array = labels_value if typeof(labels_value) == TYPE_ARRAY else []
 	var members: Array = Array(party.get("members", [])) if not party.is_empty() else []
 	var capacity := int(party.get("capacity", int(_lobby.get("selected_mode")))) if not party.is_empty() else int(_lobby.get("selected_mode"))
+	if _lobby.has_method("update_party_members"):
+		_lobby.call("update_party_members", members, capacity)
 	for index in range(labels.size()):
 		var label := labels[index] as Label
 		if label == null:

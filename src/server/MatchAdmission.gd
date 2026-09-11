@@ -2,6 +2,8 @@ class_name DeadfallMatchAdmission
 extends RefCounted
 
 const SCHEMA_VERSION := 2
+const MATCH_UDP_PORT_MIN := 24600
+const MATCH_UDP_PORT_MAX := 24749
 
 var match_id := ""
 var party_code := ""
@@ -56,7 +58,8 @@ func load_from_file(path: String) -> bool:
 	return (
 		not match_id.is_empty()
 		and not party_code.is_empty()
-		and port > 0
+		and port >= MATCH_UDP_PORT_MIN
+		and port <= MATCH_UDP_PORT_MAX
 		and expected_members > 0
 		and not ready_path.is_empty()
 		and not heartbeat_path.is_empty()

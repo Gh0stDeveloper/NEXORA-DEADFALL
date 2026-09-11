@@ -246,17 +246,17 @@ func _ensure_decal_pool(count: int) -> void:
 		_decal_expiry.append(0.0)
 
 func _configure_limb_body(body: RigidBody3D, body_part: int) -> void:
-	var size := Vector3(0.72, 1.45, 0.46)
-	var mass := 20.0
+	var size := Vector3(0.64, 0.95, 0.42)
+	var mass := 16.0
 	match body_part:
 		DamageEventScript.BodyPart.HEAD:
-			size = Vector3(0.46, 0.46, 0.42)
+			size = Vector3(0.40, 0.34, 0.36)
 			mass = 4.5
 		DamageEventScript.BodyPart.LEFT_ARM, DamageEventScript.BodyPart.RIGHT_ARM:
-			size = Vector3(0.24, 0.78, 0.26)
+			size = Vector3(0.22, 0.52, 0.24)
 			mass = 4.0
 		DamageEventScript.BodyPart.LEFT_LEG, DamageEventScript.BodyPart.RIGHT_LEG:
-			size = Vector3(0.28, 0.70, 0.30)
+			size = Vector3(0.25, 0.48, 0.28)
 			mass = 7.0
 		_:
 			size = Vector3(0.72, 1.45, 0.46)
