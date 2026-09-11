@@ -91,6 +91,7 @@ func _drag_touch(index: int, screen_position: Vector2, delta: Vector2) -> void:
 		return
 	var route: Dictionary = _touch_routes[index]
 	var target := route.get("target") as Node
+	var kind := String(route.get("kind", ""))
 	if target == null or not is_instance_valid(target):
 		_touch_routes.erase(index)
 		return
