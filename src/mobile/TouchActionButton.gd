@@ -16,7 +16,7 @@ var _router_toggle_guard := false
 func _ready() -> void:
 	focus_mode = Control.FOCUS_NONE
 	text = ""
-	mouse_filter = Control.MOUSE_FILTER_STOP
+	mouse_filter = Control.MOUSE_FILTER_IGNORE if _mobile_runtime() else Control.MOUSE_FILTER_STOP
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	toggle_mode = toggle_action
 	pivot_offset = size * 0.5
@@ -133,6 +133,9 @@ func _refresh_rest_visual() -> void:
 	else:
 		modulate = Color.WHITE
 	queue_redraw()
+
+func _mobile_runtime() -> bool:
+	return OS.has_feature("mobile") or OS.has_feature("android") or OS.has_feature("ios")
 
 func _apply_theme() -> void:
 	add_theme_stylebox_override("normal", _circle_style(Color(0.018, 0.028, 0.036, 0.64), Color(0.55, 0.78, 0.82, 0.38), 2))

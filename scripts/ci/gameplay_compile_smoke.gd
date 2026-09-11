@@ -87,7 +87,7 @@ func _run() -> void:
 
 	var touch_router_file := FileAccess.open("res://src/mobile/TouchInputRouter.gd", FileAccess.READ)
 	var touch_router_text := touch_router_file.get_as_text() if touch_router_file != null else ""
-	for contract in ["register_action_button", "router_touch_down", "router_touch_drag", "set_input_as_handled"]:
+	for contract in ["register_action_button", "register_click_control", "register_passthrough_control", "router_touch_down", "router_touch_drag", "set_input_as_handled"]:
 		if not touch_router_text.contains(contract):
 			_fail("Explicit mobile touch router contract missing: %s" % contract)
 			return

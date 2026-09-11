@@ -225,6 +225,7 @@ func _build_weapon_selector() -> void:
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.pressed.connect(_on_weapon_button_pressed.bind(slot))
 		row.add_child(button)
+		_touch_router.call("register_click_control", button)
 		_weapon_buttons[slot] = button
 	_refresh_weapon_buttons(int(_loadout.get("active_slot")))
 
@@ -391,6 +392,7 @@ func _build_quick_settings() -> void:
 	_quick_settings_panel.visible = false
 	_quick_settings_panel.add_theme_stylebox_override("panel", _panel_style())
 	_controls_root.add_child(_quick_settings_panel)
+	_touch_router.call("register_passthrough_control", _quick_settings_panel)
 
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 24)

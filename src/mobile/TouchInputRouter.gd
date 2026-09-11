@@ -6,6 +6,8 @@ var enabled := true
 var _joystick: Node
 var _look_area: Node
 var _action_buttons: Array[Node] = []
+var _click_controls: Array[Node] = []
+var _passthrough_controls: Array[Node] = []
 var _touch_routes: Dictionary = {}
 
 func _ready() -> void:
@@ -27,6 +29,16 @@ func register_action_button(value: Node) -> void:
 	if value == null or value in _action_buttons:
 		return
 	_action_buttons.append(value)
+
+func register_click_control(value: Node) -> void:
+	if value == null or value in _click_controls:
+		return
+	_click_controls.append(value)
+
+func register_passthrough_control(value: Node) -> void:
+	if value == null or value in _passthrough_controls:
+		return
+	_passthrough_controls.append(value)
 
 func _input(event: InputEvent) -> void:
 	if not enabled:
@@ -58,6 +70,14 @@ func _begin_touch(index: int, screen_position: Vector2) -> void:
 			if joystick_accepted:
 				_touch_routes[index] = {"kind": "joystick", "target": joystick}
 		return
+	var click_control := _find_control(_click_controls, screen_position)
+	if click_control != null:
+		_touch_routes[index] = {"kind": "click", "target": click_control}
+		_consume()
+		return
+	if _contains_control(_passthrough_controls, screen_position):
+		# Let normal Godot UI controls such as HSlider receive the touch.
+		return
 	var look_area := _visible_control(_look_area)
 	if look_area != null and look_area.get_global_rect().has_point(screen_position):
 		if look_area.has_method("router_touch_down"):
@@ -79,6 +99,8 @@ func _drag_touch(index: int, screen_position: Vector2, delta: Vector2) -> void:
 	match kind:
 		"action":
 			accepted = true
+		"click":
+			accepted = true
 		"joystick":
 			if target.has_method("router_touch_drag"):
 				accepted = bool(target.call("router_touch_drag", index, screen_position))
@@ -96,7 +118,10 @@ func _end_touch(index: int) -> void:
 	var target := route.get("target") as Node
 	if target == null or not is_instance_valid(target):
 		return
-	if target.has_method("router_touch_up"):
+	if kind == "click":
+		if target is BaseButton and not (target as BaseButton).disabled:
+			target.emit_signal("pressed")
+	elif target.has_method("router_touch_up"):
 		target.call("router_touch_up", index)
 	_consume()
 
@@ -107,12 +132,18 @@ func _release_all_touches() -> void:
 	_touch_routes.clear()
 
 func _find_action_button(screen_position: Vector2) -> Node:
-	for reverse_index in range(_action_buttons.size()):
-		var index := _action_buttons.size() - 1 - reverse_index
-		var button := _visible_control(_action_buttons[index])
-		if button != null and button.get_global_rect().has_point(screen_position):
-			return button
+	return _find_control(_action_buttons, screen_position)
+
+func _find_control(collection: Array[Node], screen_position: Vector2) -> Node:
+	for reverse_index in range(collection.size()):
+		var index := collection.size() - 1 - reverse_index
+		var control := _visible_control(collection[index])
+		if control != null and control.get_global_rect().has_point(screen_position):
+			return control
 	return null
+
+func _contains_control(collection: Array[Node], screen_position: Vector2) -> bool:
+	return _find_control(collection, screen_position) != null
 
 func _visible_control(value: Node) -> Control:
 	var control := value as Control
