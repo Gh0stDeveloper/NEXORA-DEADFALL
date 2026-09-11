@@ -96,6 +96,27 @@ run_android_template_patch_gate(){
   log "Validando sanitización reproducible del template Android/Manifest Merger..."
   bash "$DEADFALL_ROOT/scripts/ci/android_template_patch_smoke.sh"
 }
+validate_portal_routes(){
+  local base_url="$1"
+  curl -fsS --max-time 5 "$base_url/" | grep -Fq "DEADFALL."
+  curl -fsS --max-time 5 "$base_url/versiones" | grep -Fq "Historial de versiones."
+  local current_version
+  current_version="$(jq -r '.current // empty' "$DEADFALL_PUBLIC_DIR/releases.json")"
+  [[ -n "$current_version" ]] || die "El historial público no declara current."
+  curl -fsS --max-time 5 "$base_url/releases.json" | jq -e --arg current "$current_version" '.schema_version == 1 and .current == $current and ([.releases[] | select(.version == $current)] | length) == 1' >/dev/null ||     die "El endpoint público de historial no coincide con current."
+  curl -fsS --max-time 5 "$base_url/versiones/$current_version" | grep -Fq "Integridad del archivo"
+  local invalid_status
+  invalid_status="$(curl -sS --max-time 5 -o /dev/null -w '%{http_code}' "$base_url/versiones/no-existe")"
+  [[ "$invalid_status" == "404" ]] || die "El portal no devuelve 404 para una versión inexistente."
+  if [[ -f "$DEADFALL_PUBLIC_DIR/release.json" ]]; then
+    local public_sha
+    public_sha="$(jq -r '.sha256 // empty' "$DEADFALL_PUBLIC_DIR/release.json")"
+    if [[ -n "$public_sha" ]]; then
+      curl -fsS --max-time 5 "$base_url/versiones/$current_version" | grep -Fq "$public_sha" ||         die "El SHA-256 publicado no aparece en la ficha actual del portal."
+    fi
+  fi
+}
+
 
 if [[ "$NETWORK_ONLY" -eq 1 ]]; then
   prepare_validation_project
@@ -117,6 +138,7 @@ if [[ "$TESTS_ONLY" -eq 1 ]]; then
   run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/smoke.gd
   run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/beta_hardening_smoke.gd
   run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/phase11_smoke.gd
+  bash "$DEADFALL_ROOT/scripts/ci/download_portal_smoke.sh"
   trap - EXIT
   log "Gates de validación completados: $NEW (sin portal, APK ni cambio de estado de despliegue)."
   exit 0
@@ -129,7 +151,9 @@ else
   grep -Eq '^(project\.godot|export_presets\.cfg|\.gitmodules$|vendor/Objetos3D($|/)|src/|assets/|android/|scripts/assets/)' <<<"$CHANGED" && { APP=1; SERVER=1; }
   grep -Eq '^(src/(server|network|core|horde|zombies|campaign|identity|lobby|social|login|assets|player)/|scripts/server/)' <<<"$CHANGED" && SERVER=1
   grep -Eq '^web/download-site/' <<<"$CHANGED" && WEB=1
-  grep -Eq '^(deploy/(systemd|vps|nginx)/|scripts/build/)' <<<"$CHANGED" && { DEPLOY=1; APP=1; SERVER=1; WEB=1; }
+  grep -Eq '^deploy/(systemd|vps|nginx)/' <<<"$CHANGED" && { DEPLOY=1; APP=1; SERVER=1; WEB=1; }
+  grep -Eq '^scripts/build/(build_android_vps\.sh|patch_android_template\.py|deadfall_android_init\.gradle)$' <<<"$CHANGED" && { APP=1; SERVER=1; }
+  grep -Eq '^scripts/build/build_download_site\.sh$' <<<"$CHANGED" && WEB=1
 fi
 log "Cambios detectados: app=$APP server=$SERVER web=$WEB deploy=$DEPLOY"
 
@@ -182,12 +206,16 @@ if [[ "$WEB" -eq 1 || "$APP" -eq 1 ]]; then
     sleep 1
   done
   [[ "$PORTAL_OK" -eq 1 ]] || die "El portal Next.js no responde en 127.0.0.1:3100. Revisa: journalctl -u nexora-deadfall-download -n 100 --no-pager"
+  validate_portal_routes "http://127.0.0.1:3100"
 
   if [[ -n "${DEADFALL_DOMAIN:-}" && "${DEADFALL_DOMAIN:-}" != "_" ]]; then
     CERT="/etc/letsencrypt/live/$DEADFALL_DOMAIN/fullchain.pem"
     if [[ -f "$CERT" ]]; then
       curl -kfsS --max-time 8 --resolve "$DEADFALL_DOMAIN:443:127.0.0.1" "https://$DEADFALL_DOMAIN/" >/dev/null || \
         die "Nginx HTTPS no está sirviendo DEADFALL para $DEADFALL_DOMAIN. Revisa el vhost 443 activo."
+      PUBLIC_CURRENT_VERSION="$(jq -r '.current // empty' "$DEADFALL_PUBLIC_DIR/releases.json")"
+      curl -kfsS --max-time 8 --resolve "$DEADFALL_DOMAIN:443:127.0.0.1" "https://$DEADFALL_DOMAIN/releases.json" |         jq -e --arg current "$PUBLIC_CURRENT_VERSION" '.schema_version == 1 and .current == $current and ([.releases[] | select(.version == $current)] | length) == 1' >/dev/null ||         die "Nginx HTTPS no está publicando un historial válido."
+      curl -kfsS --max-time 8 --resolve "$DEADFALL_DOMAIN:443:127.0.0.1" "https://$DEADFALL_DOMAIN/versiones/$PUBLIC_CURRENT_VERSION" |         grep -Fq "Integridad del archivo" || die "La ficha current no está disponible detrás de HTTPS."
       if ! curl -fsS --max-time 5 -H "Host: $DEADFALL_DOMAIN" http://127.0.0.1/ >/dev/null; then
         warn "El puerto HTTP/80 local no pertenece a DEADFALL (puede estar ocupado por otro servicio). HTTPS está correcto y será la ruta pública prioritaria."
       fi
@@ -204,6 +232,9 @@ fi
 
 if [[ "$APP" -eq 1 ]]; then
   "$DEADFALL_ROOT/scripts/build/build_android_vps.sh"
+fi
+if [[ "$WEB" -eq 1 || "$APP" -eq 1 ]]; then
+  validate_portal_routes "http://127.0.0.1:3100"
 fi
 if [[ "$SERVER" -eq 1 ]]; then
   systemctl restart nexora-deadfall

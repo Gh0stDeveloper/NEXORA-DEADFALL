@@ -14,6 +14,7 @@ ANDROID_PATCHER="$DEADFALL_ROOT/scripts/build/patch_android_template.py"
 ANDROID_GRADLE_INIT="$DEADFALL_ROOT/scripts/build/deadfall_android_init.gradle"
 GRADLE_INIT_DIR="$DEADFALL_HOME/.gradle/init.d"
 ACTIVE_GRADLE_INIT="$GRADLE_INIT_DIR/deadfall_android_init.gradle"
+HISTORY_PUBLISHER="$DEADFALL_ROOT/web/download-site/scripts/publish_release_history.py"
 cleanup(){ rm -f "$BUILD_KEYSTORE" "$TMP" "$ACTIVE_GRADLE_INIT"; }
 trap cleanup EXIT
 
@@ -35,10 +36,7 @@ fi
 if [[ ! -f "$ANDROID_BUILD_DIR/build.gradle" ]]; then
   rm -rf "$ANDROID_BUILD_DIR"
   log "Android Gradle build template ausente; instalándolo antes de exportar Release..."
-  run_deadfall_home env \
-    ANDROID_HOME="$ANDROID_HOME" \
-    JAVA_HOME="$JAVA_HOME" \
-    godot --headless --path "$DEADFALL_ROOT" --install-android-build-template --quit
+  run_deadfall_home env     ANDROID_HOME="$ANDROID_HOME"     JAVA_HOME="$JAVA_HOME"     godot --headless --path "$DEADFALL_ROOT" --install-android-build-template --quit
   test -f "$ANDROID_BUILD_DIR/build.gradle"
 fi
 
@@ -48,22 +46,10 @@ log "Aplicando compatibilidad reproducible al template Android generado..."
 python3 "$ANDROID_PATCHER" "$ANDROID_BUILD_DIR"
 chown -R "$DEADFALL_USER:$DEADFALL_GROUP" "$ANDROID_BUILD_DIR"
 
-# Godot may refresh src/release/AndroidManifest.xml immediately before invoking
-# Gradle. Gradle automatically loads init scripts from $HOME/.gradle/init.d;
-# install a temporary scoped hook so the four redundant tools:replace markers
-# are removed immediately before processStandardReleaseMainManifest.
 install -d -m 0755 -o "$DEADFALL_USER" -g "$DEADFALL_GROUP" "$GRADLE_INIT_DIR"
 install -m 0644 -o "$DEADFALL_USER" -g "$DEADFALL_GROUP" "$ANDROID_GRADLE_INIT" "$ACTIVE_GRADLE_INIT"
 
-run_deadfall_home env \
-  ANDROID_HOME="$ANDROID_HOME" \
-  JAVA_HOME="$JAVA_HOME" \
-  DEADFALL_ROOT="$DEADFALL_ROOT" \
-  GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$BUILD_KEYSTORE" \
-  GODOT_ANDROID_KEYSTORE_RELEASE_USER="$DEADFALL_KEYSTORE_ALIAS" \
-  GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="$DEADFALL_KEYSTORE_PASSWORD" \
-  godot --verbose --headless --path "$DEADFALL_ROOT" \
-  --export-release "Android Closed Beta APK" "$TMP"
+run_deadfall_home env   ANDROID_HOME="$ANDROID_HOME"   JAVA_HOME="$JAVA_HOME"   DEADFALL_ROOT="$DEADFALL_ROOT"   GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$BUILD_KEYSTORE"   GODOT_ANDROID_KEYSTORE_RELEASE_USER="$DEADFALL_KEYSTORE_ALIAS"   GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="$DEADFALL_KEYSTORE_PASSWORD"   godot --verbose --headless --path "$DEADFALL_ROOT"   --export-release "Android Closed Beta APK" "$TMP"
 
 test -s "$TMP"
 APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n1)"
@@ -87,6 +73,7 @@ p.write_text(json.dumps({
     'download':'/downloads/NEXORA-DEADFALL-latest.apk'
 },indent=2)+'\n')
 PY
-chown www-data:www-data "$PUBLISHED" "$DEADFALL_PUBLIC_DIR/release.json"
-chmod 0644 "$PUBLISHED" "$DEADFALL_PUBLIC_DIR/release.json"
-log "APK Release verificada y publicada: $PUBLISHED ($VERSION)"
+python3 "$HISTORY_PUBLISHER"   --source "$DEADFALL_ROOT/web/download-site/src/data/releases.json"   --current "$DEADFALL_PUBLIC_DIR/release.json"   --output "$DEADFALL_PUBLIC_DIR/releases.json"
+chown www-data:www-data "$PUBLISHED" "$DEADFALL_PUBLIC_DIR/release.json" "$DEADFALL_PUBLIC_DIR/releases.json"
+chmod 0644 "$PUBLISHED" "$DEADFALL_PUBLIC_DIR/release.json" "$DEADFALL_PUBLIC_DIR/releases.json"
+log "APK Release verificada, publicada e incorporada al historial: $PUBLISHED ($VERSION)"

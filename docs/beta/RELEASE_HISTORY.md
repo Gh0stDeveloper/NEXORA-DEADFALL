@@ -1,6 +1,6 @@
 # NEXORA: DEADFALL — Closed Beta Release History
 
-Last updated: 2026-08-17.
+Last updated: 2026-09-11.
 
 This file is the human-readable release-history index used by maintainers and as the planning source for the future public version-history page.
 
@@ -160,6 +160,18 @@ signature verification result
 VPS gates result
 physical acceptance status
 ```
+
+## Structured portal registry
+
+The durable source record for the public portal is tracked at:
+
+`web/download-site/src/data/releases.json`
+
+The VPS build automation validates that schema, merges the verified current `release.json` fields without discarding the tracked history, and publishes:
+
+`/var/www/nexora-deadfall/releases.json`
+
+The portal does not scrape this Markdown file at runtime. Beta.2 and beta.3 remain intentionally absent from the public detailed registry until their exact notes are reconstructed.
 
 ## Portal integration
 

@@ -1,6 +1,6 @@
 # NEXORA: DEADFALL — Current Status
 
-Last updated: 2026-08-17.
+Last updated: 2026-09-11.
 
 This file is the short operational source of truth for the project. For the complete development sequence read `docs/ROADMAP.md`; for a new-chat continuation read `docs/HANDOFF_BETA_5.md`.
 
@@ -260,6 +260,20 @@ The current home page reads `/var/www/nexora-deadfall/release.json` dynamically 
 - Android/Closed Beta notice.
 
 This works, but it is intentionally simple and is scheduled for a product/UI upgrade. See `docs/DOWNLOAD_PORTAL_PLAN.md`.
+
+### Phase 13 source implementation (not yet deployed)
+
+The active branch now contains the contained portal/history implementation:
+
+- tracked structured release records at `web/download-site/src/data/releases.json`;
+- schema validation and atomic publication of `/var/www/nexora-deadfall/releases.json`;
+- shared responsive header with hamburger drawer;
+- current-release home card, version timeline, version detail routes, compatibility and beta information routes;
+- Current/Superseded/Withdrawn status presentation, changelog sections, APK size and SHA-256 fields;
+- web-only download-portal smoke covering build, routes, clean 404 and history uniqueness;
+- updater classification keeps `web/download-site/**` and `build_download_site.sh` independent from Android rebuilds.
+
+This source pass is not a new Android runtime deployment. The VPS web-only build, HTTPS route check and mobile-browser validation remain pending.
 
 ## Current presentation patch
 

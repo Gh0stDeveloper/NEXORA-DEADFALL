@@ -22,10 +22,17 @@ for file in \
   web/download-site/package.json \
   web/download-site/next.config.ts \
   web/download-site/src/app/page.tsx \
+  web/download-site/src/app/versions/page.tsx \
+  web/download-site/src/app/versions/[version]/page.tsx \
+  web/download-site/src/data/releases.json \
+  web/download-site/src/lib/releases.ts \
+  web/download-site/scripts/publish_release_history.py \
+  scripts/ci/download_portal_smoke.sh \
   assets/branding/deadfall_icon.svg \
   scripts/build/patch_android_template.py \
   scripts/build/deadfall_android_init.gradle \
-  scripts/ci/android_template_patch_smoke.sh; do
+  scripts/ci/android_template_patch_smoke.sh \
+  scripts/ci/download_portal_smoke.sh; do
   test -s "$file"
 done
 
@@ -52,6 +59,12 @@ grep -Fq 'last_deploy_status=failed' deploy/vps/update.sh
 grep -Fq 'last_deploy_status=success' deploy/vps/update.sh
 grep -Fq "volverá a ejecutar los gates/builds" deploy/vps/update.sh
 grep -Fq 'Portal Next.js validado en localhost y HTTPS' deploy/vps/update.sh
+grep -Fq 'validate_portal_routes' deploy/vps/update.sh
+grep -Fq 'download_portal_smoke.sh' deploy/vps/update.sh
+grep -Fq 'releases.json' scripts/build/build_download_site.sh
+grep -Fq 'publish_release_history.py' scripts/build/build_android_vps.sh
+grep -Fq '/releases.json' deploy/vps/lib/common.sh
+grep -Fq '/releases.json' deploy/nginx/nexora-deadfall.conf.template
 grep -Fq 'El puerto HTTP/80 local no pertenece a DEADFALL' deploy/vps/update.sh
 grep -Fq 'http://127.0.0.1:3100/' deploy/vps/update.sh
 grep -Fq -- '--resolve "$DEADFALL_DOMAIN:443:127.0.0.1"' deploy/vps/update.sh
@@ -98,7 +111,8 @@ grep -Fq 'proxy_pass http://127.0.0.1:3100' deploy/nginx/nexora-deadfall.conf.te
 grep -Fq '24560/udp' docs/VPS_INSTALLER.md
 grep -Fq '24561/tcp' docs/VPS_INSTALLER.md
 
-python3 - <<'PY'
+python3 -m py_compile web/download-site/scripts/publish_release_history.py
+python3 - <<'PY
 import json
 from pathlib import Path
 p=json.load(open('web/download-site/package.json'))
@@ -112,6 +126,13 @@ release=Path('.github/workflows/closed-beta-release.yml').read_text()
 assert 'Resolve release identity from BuildInfo' in release
 assert 'DEADFALL_VERSION: "0.9.0-beta.1"' not in release
 assert 'build-tools;36.1.0' in release
+assert 'download_portal_smoke.sh' in update
+assert 'scripts/build/build_download_site\\.sh' in update
+history = json.load(open('web/download-site/src/data/releases.json', encoding='utf-8'))
+assert history['schema_version'] == 1
+assert history['current'] == '0.9.0-beta.5'
+assert sum(item['version'] == history['current'] for item in history['releases']) == 1
+assert any(item['status'] == 'superseded' for item in history['releases'])
 PY
 
 echo 'NEXORA: DEADFALL Phase 10 VPS installer smoke passed'

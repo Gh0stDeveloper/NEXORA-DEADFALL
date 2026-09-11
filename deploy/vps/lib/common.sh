@@ -64,6 +64,13 @@ server {
         add_header Content-Disposition "attachment; filename=NEXORA-DEADFALL-latest.apk" always;
     }
 
+    location = /releases.json {
+        alias /var/www/nexora-deadfall/releases.json;
+        default_type application/json;
+        add_header Cache-Control "no-cache" always;
+        add_header X-Content-Type-Options "nosniff" always;
+    }
+
     location /api/deadfall/ {
         proxy_pass http://127.0.0.1:24562/;
         proxy_http_version 1.1;

@@ -1,6 +1,6 @@
 # NEXORA: DEADFALL — Master Roadmap
 
-Last updated: 2026-08-17.
+Last updated: 2026-09-11.
 
 Legend:
 
@@ -350,20 +350,20 @@ This is the current priority.
 
 ## Phase 13 — Download portal / release history upgrade
 
-Do this after physical blockers are addressed. If beta.5 physical testing is clean, this can be the next contained implementation block.
+The source implementation is now on `agent/bootstrap-deadfall`; production web and mobile-browser acceptance are still pending.
 
-- [ ] Durable structured release-history source.
-- [ ] Preserve/merge history during deployments.
-- [ ] Hamburger mobile menu.
-- [ ] Inicio/current release.
-- [ ] Version history page/timeline.
-- [ ] Version detail route.
-- [ ] Added/changed/fixed/known-issues sections.
-- [ ] Compatibility information.
-- [ ] Integrity/SHA-256 presentation.
-- [ ] Current/superseded/withdrawn states.
+- [x] Durable structured release-history source.
+- [x] Preserve/merge history during deployments.
+- [x] Hamburger mobile menu.
+- [x] Inicio/current release.
+- [x] Version history page/timeline.
+- [x] Version detail route.
+- [x] Added/changed/fixed/known-issues sections.
+- [x] Compatibility information.
+- [x] Integrity/SHA-256 presentation.
+- [x] Current/superseded/withdrawn states.
 - [ ] Reconstruct exact beta.2/beta.3 notes from Git history before public detailed display.
-- [ ] Next.js production/build/schema gates.
+- [x] Next.js production/build/schema gates.
 - [ ] HTTPS/mobile-browser validation.
 
 Detailed design: `docs/DOWNLOAD_PORTAL_PLAN.md`.
