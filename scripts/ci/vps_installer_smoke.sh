@@ -112,7 +112,7 @@ grep -Fq '24560/udp' docs/VPS_INSTALLER.md
 grep -Fq '24561/tcp' docs/VPS_INSTALLER.md
 
 python3 -m py_compile web/download-site/scripts/publish_release_history.py
-python3 - <<'PY
+python3 - <<'PY'
 import json
 from pathlib import Path
 p=json.load(open('web/download-site/package.json'))
