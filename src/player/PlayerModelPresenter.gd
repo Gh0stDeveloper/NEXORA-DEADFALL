@@ -112,12 +112,20 @@ func _load_procedural_model() -> bool:
 	}
 	return true
 
+func _owner_body() -> CharacterBody3D:
+	var visual_root := get_parent()
+	return visual_root.get_parent() as CharacterBody3D if visual_root != null else null
+
 func _update_procedural_presentation(delta: float) -> void:
 	_procedural_elapsed += delta
 	if _loaded_model == null or not is_instance_valid(_loaded_model):
 		return
-	var owner := get_parent() as CharacterBody3D
+	var owner := _owner_body()
 	var moving := owner != null and Vector2(owner.velocity.x, owner.velocity.z).length() > 0.18
+	var stance_value = owner.get("stance") if owner != null else null
+	var stance := int(stance_value) if stance_value != null else 0
+	var height_scale := 1.0 if stance == 0 else (0.70 if stance == 1 else 0.45)
+	_loaded_model.scale = _loaded_model.scale.lerp(Vector3(1.0, height_scale, 1.0), clampf(delta * 10.0, 0.0, 1.0))
 	var frequency := 7.0 if moving else 2.2
 	var amplitude := 0.006 if moving else 0.002
 	_loaded_model.position.y = sin(_procedural_elapsed * frequency) * amplitude
@@ -176,7 +184,7 @@ func _update_semantic_animation() -> void:
 		_animation_status = result
 
 func _desired_semantic_state() -> StringName:
-	var owner := get_parent() as CharacterBody3D
+	var owner := _owner_body()
 	if owner == null:
 		return &"idle"
 	var life_state := owner.get_node_or_null("LifeState")

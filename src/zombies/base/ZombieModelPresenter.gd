@@ -118,7 +118,7 @@ func _update_procedural_presentation(delta: float) -> void:
 	_procedural_elapsed += delta
 	if _loaded_model == null or not is_instance_valid(_loaded_model):
 		return
-	var zombie := get_parent() as CharacterBody3D
+	var zombie := _owner_body()
 	var moving := zombie != null and Vector2(zombie.velocity.x, zombie.velocity.z).length() > 0.18
 	var frequency := 8.0 if moving else 2.6
 	var amplitude := 0.008 if moving else 0.002
@@ -221,8 +221,12 @@ func _play_semantic(semantic: StringName, blend_seconds: float, speed: float) ->
 		push_warning("DEADFALL zombie exact animation mapping missing at runtime: %s -> %s" % [String(semantic), String(mapped_name)])
 	return AnimationDriver.play_semantic(_loaded_model, semantic, blend_seconds, speed)
 
+func _owner_body() -> CharacterBody3D:
+	var visual_root := get_parent()
+	return visual_root.get_parent() as CharacterBody3D if visual_root != null else null
+
 func _desired_semantic_state() -> StringName:
-	var zombie := get_parent() as CharacterBody3D
+	var zombie := _owner_body()
 	if zombie == null:
 		return &"idle"
 	var state_value = zombie.get("state")
