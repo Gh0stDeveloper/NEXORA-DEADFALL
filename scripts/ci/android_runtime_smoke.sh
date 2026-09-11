@@ -31,12 +31,14 @@ fi
 
 echo "DEADFALL Android process: $PID"
 
-adb shell input tap 1886 966   # RUN
-adb shell input tap 2268 966   # JUMP
+adb shell input tap 1886 966   # SPRINT
+adb shell input tap 2268 966   # FIRE
 adb shell input tap 2088 966   # CROUCH
-adb shell input tap 1905 891   # REVIVE / INTERACT
+adb shell input tap 1949 777   # FLASHLIGHT
+adb shell input tap 2267 837   # RELOAD
+adb shell input tap 1905 891   # INTERACT
 adb shell input tap 2088 891   # PRONE
-adb shell input tap 2268 891   # CAM
+adb shell input tap 2268 891   # CAMERA
 adb shell input swipe 228 898 360 898 450   # joystick
 adb shell input swipe 1250 450 1600 450 450 # look area
 sleep 3
@@ -73,6 +75,9 @@ grep -Fq "DEADFALL_TOUCH_ACTION crouch" "$LOG"
 grep -Fq "DEADFALL_TOUCH_ACTION interact" "$LOG"
 grep -Fq "DEADFALL_TOUCH_ACTION prone" "$LOG"
 grep -Fq "DEADFALL_TOUCH_ACTION camera_cycle" "$LOG"
+grep -Fq "DEADFALL_TOUCH_ACTION flashlight" "$LOG"
+grep -Fq "DEADFALL_TOUCH_ACTION reload" "$LOG"
+grep -Fq "DEADFALL_TOUCH_ACTION fire" "$LOG"
 grep -Fq "DEADFALL_TOUCH_JOYSTICK active" "$LOG"
 grep -Fq "DEADFALL_TOUCH_LOOK active" "$LOG"
 
