@@ -161,6 +161,9 @@ func reset_hud_layout() -> void:
 	hud_layout_changed.emit(&"*", {})
 	_save_settings()
 
+func save_configuration() -> void:
+	_save_settings()
+
 func _load_settings() -> void:
 	if not FileAccess.file_exists(SETTINGS_PATH):
 		return

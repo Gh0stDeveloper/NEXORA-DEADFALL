@@ -58,6 +58,13 @@ func _run() -> void:
 			_fail("Android performance contract missing: %s" % token)
 			return
 
+	var hud_source := _read_text("res://src/mobile/MobileHUD.gd")
+	for token in ["CrosshairScript", "HUDLayoutEditorScript", "player_status", "move_hud_element", "EDITAR HUD Y GUARDAR"]:
+		if not hud_source.contains(token):
+			lobby.free()
+			_fail("Mobile HUD customization/aim contract missing: %s" % token)
+			return
+
 	var settings_source := _read_text("res://src/autoload/Settings.gd")
 	for token in ["\"render_scale\": 0.65", "\"render_scale\": 0.90", "QualityTier.ULTRA", "QualityTier.ULTRA_HD"]:
 		if not settings_source.contains(token):

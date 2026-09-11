@@ -6,6 +6,8 @@ const JoystickScript = preload("res://src/mobile/TouchJoystick.gd")
 const LookAreaScript = preload("res://src/mobile/TouchLookArea.gd")
 const ActionButtonScript = preload("res://src/mobile/TouchActionButton.gd")
 const TouchRouterScript = preload("res://src/mobile/TouchInputRouter.gd")
+const CrosshairScript = preload("res://src/mobile/Crosshair.gd")
+const HUDLayoutEditorScript = preload("res://src/mobile/HUDLayoutEditor.gd")
 
 @export var player_path := NodePath("../Player")
 @export var show_on_desktop := false
@@ -25,6 +27,9 @@ var _weapon_name_label: Label
 var _weapon_buttons: Dictionary = {}
 var _quick_settings_panel: PanelContainer
 var _sensitivity_value_label: Label
+var _hud_layout_editor: Control
+var _hud_elements: Dictionary = {}
+var _hud_defaults: Dictionary = {}
 var _gameplay_controls_enabled := true
 
 func _ready() -> void:
@@ -67,6 +72,8 @@ func bind_weapon(weapon: Node) -> void:
 
 func set_gameplay_controls_enabled(enabled: bool) -> void:
 	_gameplay_controls_enabled = enabled
+	if not enabled and _hud_layout_editor != null and is_instance_valid(_hud_layout_editor) and _hud_layout_editor.visible:
+		_hud_layout_editor.call("close_editor")
 	if _controls_root != null:
 		_controls_root.visible = enabled
 		_controls_root.mouse_filter = Control.MOUSE_FILTER_IGNORE if enabled else Control.MOUSE_FILTER_STOP
@@ -79,6 +86,8 @@ func are_gameplay_controls_enabled() -> bool:
 	return _gameplay_controls_enabled
 
 func _build_hud() -> void:
+	_hud_elements.clear()
+	_hud_defaults.clear()
 	_safe_root = SafeAreaScript.new()
 	_safe_root.name = "SafeArea"
 	add_child(_safe_root)
@@ -118,6 +127,7 @@ func _build_hud() -> void:
 	joystick.offset_right = 322.0
 	joystick.offset_bottom = -42.0
 	_controls_root.add_child(joystick)
+	_register_hud_element(&"move_joystick", joystick)
 	_touch_router.call("register_joystick", joystick)
 	_touch_router.call("register_look_area", look_area)
 
@@ -133,16 +143,23 @@ func _build_hud() -> void:
 
 	_build_player_status()
 	_build_weapon_selector()
+	_build_crosshair()
 	_build_quick_settings()
+	_build_hud_editor()
+	call_deferred("_finalize_hud_layout")
 	set_gameplay_controls_enabled(_gameplay_controls_enabled)
 
 func _build_player_status() -> void:
 	var panel := PanelContainer.new()
 	panel.name = "PlayerStatus"
-	panel.anchor_left = 0.34
-	panel.anchor_top = 0.018
-	panel.anchor_right = 0.66
-	panel.anchor_bottom = 0.155
+	panel.anchor_left = 0.5
+	panel.anchor_top = 1.0
+	panel.anchor_right = 0.5
+	panel.anchor_bottom = 1.0
+	panel.offset_left = -270.0
+	panel.offset_top = -184.0
+	panel.offset_right = 270.0
+	panel.offset_bottom = -112.0
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_theme_stylebox_override("panel", _status_panel_style())
 	_safe_root.add_child(panel)
@@ -188,6 +205,7 @@ func _build_player_status() -> void:
 	_weapon_name_label.add_theme_color_override("font_color", Color(0.54, 0.83, 0.86))
 	_weapon_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	vbox.add_child(_weapon_name_label)
+	_register_hud_element(&"player_status", panel)
 
 func _build_weapon_selector() -> void:
 	if _loadout == null:
@@ -228,6 +246,7 @@ func _build_weapon_selector() -> void:
 		_touch_router.call("register_click_control", button)
 		_weapon_buttons[slot] = button
 	_refresh_weapon_buttons(int(_loadout.get("active_slot")))
+	_register_hud_element(&"weapon_selector", panel)
 
 func _bind_status_sources() -> void:
 	if _health != null and _health.has_signal("health_changed"):
@@ -329,36 +348,177 @@ func _add_action_button(
 	button.offset_right = rect.position.x + rect.size.x
 	button.offset_bottom = rect.position.y + rect.size.y
 	button.modulate = Color(1.0, 1.0, 1.0, 0.90)
-	_apply_saved_layout(button, control_id, rect, anchor)
 	_controls_root.add_child(button)
+	_register_hud_element(control_id, button)
 	_touch_router.call("register_action_button", button)
 	return button
 
-func _apply_saved_layout(button: Control, control_id: StringName, fallback_rect: Rect2, fallback_anchor: Vector2) -> void:
+func _register_hud_element(element_id: StringName, control: Control) -> void:
+	if control == null:
+		return
+	control.set_meta("deadfall_hud_element_id", String(element_id))
+	_hud_elements[element_id] = control
+
+func _finalize_hud_layout() -> void:
+	if _safe_root == null or not is_instance_valid(_safe_root):
+		return
+	for value in _hud_elements.keys():
+		var element_id: StringName = StringName(value)
+		var control: Control = _hud_elements.get(value) as Control
+		if control == null or not is_instance_valid(control):
+			continue
+		control.pivot_offset = control.size * 0.5
+		if not _hud_defaults.has(element_id):
+			_hud_defaults[element_id] = _capture_hud_layout(control)
+		_apply_saved_hud_layout(element_id, control)
+	if _hud_layout_editor != null and is_instance_valid(_hud_layout_editor):
+		_hud_layout_editor.call("configure", self, _safe_root, _hud_elements)
+
+func _capture_hud_layout(control: Control) -> Dictionary:
+	if control == null or _safe_root == null:
+		return {}
+	var safe_rect: Rect2 = _safe_root.get_global_rect()
+	var control_rect: Rect2 = control.get_global_rect()
+	var center: Vector2 = control_rect.position + control_rect.size * 0.5
+	var safe_size: Vector2 = safe_rect.size
+	var color: Color = control.modulate
+	return {
+		"x": clampf((center.x - safe_rect.position.x) / maxf(1.0, safe_size.x), 0.0, 1.0),
+		"y": clampf((center.y - safe_rect.position.y) / maxf(1.0, safe_size.y), 0.0, 1.0),
+		"scale": clampf(control.scale.x, 0.55, 1.75),
+		"opacity": clampf(color.a, 0.15, 1.0),
+		"visible": control.visible,
+	}
+
+func _apply_saved_hud_layout(element_id: StringName, control: Control) -> void:
 	if Settings == null or not Settings.has_method("get_hud_element"):
 		return
-	var fallback := {
-		"x": fallback_anchor.x,
-		"y": fallback_anchor.y,
-		"scale": 1.0,
-		"opacity": 0.90,
-		"visible": true,
-	}
-	var stored: Dictionary = Settings.get_hud_element(control_id, fallback)
-	if Settings.hud_layout.has(String(control_id)):
-		button.anchor_left = float(stored.get("x", fallback_anchor.x))
-		button.anchor_top = float(stored.get("y", fallback_anchor.y))
-		button.anchor_right = button.anchor_left
-		button.anchor_bottom = button.anchor_top
-		button.offset_left = -button.size.x * 0.5
-		button.offset_top = -button.size.y * 0.5
-		button.offset_right = button.size.x * 0.5
-		button.offset_bottom = button.size.y * 0.5
-	button.scale = Vector2.ONE * float(stored.get("scale", 1.0))
-	var color := button.modulate
-	color.a = float(stored.get("opacity", 0.90))
-	button.modulate = color
-	button.visible = bool(stored.get("visible", true))
+	if not Settings.hud_layout.has(String(element_id)):
+		return
+	var fallback: Dictionary = _hud_defaults.get(element_id, _capture_hud_layout(control))
+	var stored: Dictionary = Settings.get_hud_element(element_id, fallback)
+	_apply_hud_layout(control, stored)
+
+func _apply_hud_layout(control: Control, value: Dictionary) -> void:
+	if control == null:
+		return
+	var normalized_x: float = clampf(float(value.get("x", 0.5)), 0.02, 0.98)
+	var normalized_y: float = clampf(float(value.get("y", 0.5)), 0.02, 0.98)
+	var size: Vector2 = control.size
+	control.anchor_left = normalized_x
+	control.anchor_top = normalized_y
+	control.anchor_right = normalized_x
+	control.anchor_bottom = normalized_y
+	control.offset_left = -size.x * 0.5
+	control.offset_top = -size.y * 0.5
+	control.offset_right = size.x * 0.5
+	control.offset_bottom = size.y * 0.5
+	control.pivot_offset = size * 0.5
+	control.scale = Vector2.ONE * clampf(float(value.get("scale", 1.0)), 0.55, 1.75)
+	var color: Color = control.modulate
+	color.a = clampf(float(value.get("opacity", color.a)), 0.15, 1.0)
+	control.modulate = color
+	control.visible = bool(value.get("visible", true))
+
+func _set_hud_element_center(element_id: StringName, normalized_x: float, normalized_y: float) -> void:
+	var control: Control = _hud_elements.get(element_id) as Control
+	if control == null:
+		return
+	var value: Dictionary = _capture_hud_layout(control)
+	value["x"] = clampf(normalized_x, 0.02, 0.98)
+	value["y"] = clampf(normalized_y, 0.02, 0.98)
+	_apply_hud_layout(control, value)
+
+func move_hud_element(element_id: StringName, delta: Vector2) -> void:
+	var control: Control = _hud_elements.get(element_id) as Control
+	if control == null or _safe_root == null:
+		return
+	var safe_rect: Rect2 = _safe_root.get_global_rect()
+	var control_rect: Rect2 = control.get_global_rect()
+	var half_size: Vector2 = control_rect.size * 0.5
+	var center: Vector2 = control_rect.position + half_size + delta
+	var safe_end: Vector2 = safe_rect.position + safe_rect.size
+	var min_center: Vector2 = safe_rect.position + Vector2(maxf(16.0, half_size.x * 0.55), maxf(16.0, half_size.y * 0.55))
+	var max_center: Vector2 = safe_end - Vector2(maxf(16.0, half_size.x * 0.55), maxf(16.0, half_size.y * 0.55))
+	center.x = clampf(center.x, min_center.x, max_center.x)
+	center.y = clampf(center.y, min_center.y, max_center.y)
+	var normalized_x: float = (center.x - safe_rect.position.x) / maxf(1.0, safe_rect.size.x)
+	var normalized_y: float = (center.y - safe_rect.position.y) / maxf(1.0, safe_rect.size.y)
+	_set_hud_element_center(element_id, normalized_x, normalized_y)
+	_save_hud_element(element_id)
+
+func resize_hud_element(element_id: StringName, amount: float) -> void:
+	var control: Control = _hud_elements.get(element_id) as Control
+	if control == null:
+		return
+	var next_scale: float = clampf(control.scale.x + amount, 0.55, 1.75)
+	control.scale = Vector2.ONE * next_scale
+	control.pivot_offset = control.size * 0.5
+	_save_hud_element(element_id)
+
+func get_hud_element_scale(element_id: StringName) -> float:
+	var control: Control = _hud_elements.get(element_id) as Control
+	return control.scale.x if control != null else 1.0
+
+func save_hud_layout() -> void:
+	for value in _hud_elements.keys():
+		var element_id: StringName = StringName(value)
+		_save_hud_element(element_id)
+	if Settings != null and Settings.has_method("save_configuration"):
+		Settings.call("save_configuration")
+
+func _save_hud_element(element_id: StringName) -> void:
+	if Settings == null or not Settings.has_method("set_hud_element"):
+		return
+	var control: Control = _hud_elements.get(element_id) as Control
+	if control == null:
+		return
+	Settings.set_hud_element(element_id, _capture_hud_layout(control))
+
+func reset_hud_layout_to_defaults() -> void:
+	if Settings != null and Settings.has_method("reset_hud_layout"):
+		Settings.call("reset_hud_layout")
+	for value in _hud_elements.keys():
+		var element_id: StringName = StringName(value)
+		var control: Control = _hud_elements.get(value) as Control
+		var fallback: Dictionary = _hud_defaults.get(element_id, {})
+		if control != null and not fallback.is_empty():
+			_apply_hud_layout(control, fallback)
+	if _hud_layout_editor != null and is_instance_valid(_hud_layout_editor):
+		_hud_layout_editor.call("configure", self, _safe_root, _hud_elements)
+
+func _build_crosshair() -> void:
+	var crosshair: Control = CrosshairScript.new()
+	crosshair.name = "Crosshair"
+	crosshair.anchor_left = 0.5
+	crosshair.anchor_top = 0.5
+	crosshair.anchor_right = 0.5
+	crosshair.anchor_bottom = 0.5
+	crosshair.offset_left = -24.0
+	crosshair.offset_top = -24.0
+	crosshair.offset_right = 24.0
+	crosshair.offset_bottom = 24.0
+	crosshair.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_safe_root.add_child(crosshair)
+	_register_hud_element(&"crosshair", crosshair)
+
+func _build_hud_editor() -> void:
+	_hud_layout_editor = HUDLayoutEditorScript.new()
+	_hud_layout_editor.name = "HUDLayoutEditor"
+	_safe_root.add_child(_hud_layout_editor)
+	if _hud_layout_editor.has_signal("close_requested"):
+		_hud_layout_editor.connect("close_requested", Callable(self, "_on_hud_editor_closed"))
+	_hud_layout_editor.call("configure", self, _safe_root, _hud_elements)
+
+func _open_hud_editor() -> void:
+	if _quick_settings_panel != null:
+		_quick_settings_panel.visible = false
+	if _hud_layout_editor == null or not is_instance_valid(_hud_layout_editor):
+		return
+	if _touch_router != null and _touch_router.has_method("set_enabled"):
+		_touch_router.call("set_enabled", false)
+	if _hud_layout_editor.has_method("open_editor"):
+		_hud_layout_editor.call("open_editor")
 
 func _build_quick_settings() -> void:
 	var settings_button: DeadfallTouchActionButton = ActionButtonScript.new()
@@ -376,6 +536,7 @@ func _build_quick_settings() -> void:
 	settings_button.offset_bottom = 282.0
 	settings_button.modulate = Color(1.0, 1.0, 1.0, 0.90)
 	_controls_root.add_child(settings_button)
+	_register_hud_element(&"settings", settings_button)
 	_touch_router.call("register_action_button", settings_button)
 	settings_button.pressed.connect(_toggle_quick_settings)
 
@@ -388,7 +549,7 @@ func _build_quick_settings() -> void:
 	_quick_settings_panel.offset_left = -270.0
 	_quick_settings_panel.offset_top = 82.0
 	_quick_settings_panel.offset_right = 270.0
-	_quick_settings_panel.offset_bottom = 218.0
+	_quick_settings_panel.offset_bottom = 300.0
 	_quick_settings_panel.visible = false
 	_quick_settings_panel.add_theme_stylebox_override("panel", _panel_style())
 	_controls_root.add_child(_quick_settings_panel)
@@ -427,13 +588,33 @@ func _build_quick_settings() -> void:
 	slider.value_changed.connect(_on_sensitivity_changed)
 	_update_sensitivity_label(float(slider.value))
 
+	var editor_button := Button.new()
+	editor_button.name = "EditHudButton"
+	editor_button.text = "EDITAR HUD Y GUARDAR"
+	editor_button.focus_mode = Control.FOCUS_NONE
+	editor_button.custom_minimum_size = Vector2(0, 42)
+	vbox.add_child(editor_button)
+	_touch_router.call("register_click_control", editor_button)
+	editor_button.pressed.connect(_open_hud_editor)
+
+	var persistence_hint := Label.new()
+	persistence_hint.text = "Sensibilidad y HUD se guardan en este dispositivo."
+	persistence_hint.add_theme_font_size_override("font_size", 12)
+	persistence_hint.add_theme_color_override("font_color", Color(0.62, 0.75, 0.77))
+	vbox.add_child(persistence_hint)
+
 func _toggle_quick_settings() -> void:
 	if _quick_settings_panel != null:
 		_quick_settings_panel.visible = not _quick_settings_panel.visible
 
 func _on_sensitivity_changed(value: float) -> void:
-	Settings.set_camera_sensitivity(value)
+	if Settings != null and Settings.has_method("set_camera_sensitivity"):
+		Settings.set_camera_sensitivity(value)
 	_update_sensitivity_label(value)
+
+func _on_hud_editor_closed() -> void:
+	if _touch_router != null and _touch_router.has_method("set_enabled"):
+		_touch_router.call("set_enabled", _gameplay_controls_enabled)
 
 func _update_sensitivity_label(value: float) -> void:
 	if _sensitivity_value_label != null:

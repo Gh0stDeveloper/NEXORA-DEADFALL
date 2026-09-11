@@ -128,4 +128,8 @@ static func _material(color: Color, roughness: float) -> StandardMaterial3D:
 	material.albedo_color = color
 	material.roughness = clampf(roughness, 0.0, 1.0)
 	material.metallic = 0.02
+	# Low-power self-lighting keeps hand-built walls readable at night without flattening the scene.
+	material.emission_enabled = true
+	material.emission = color.lightened(0.08)
+	material.emission_energy_multiplier = 0.06
 	return material

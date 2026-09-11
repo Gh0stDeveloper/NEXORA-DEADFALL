@@ -198,8 +198,22 @@ func _can_see_target(target: Node3D) -> bool:
 	var origin := global_position + Vector3.UP * (0.55 if _crawler_mode else 1.35)
 	var destination := target.global_position + Vector3.UP
 	var query := PhysicsRayQueryParameters3D.create(origin, destination, visibility_mask)
-	query.exclude = [get_rid()]; query.collide_with_areas = false; query.collide_with_bodies = true
-	return get_world_3d().direct_space_state.intersect_ray(query).is_empty()
+	query.exclude = [get_rid()]
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+	var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(query)
+	if hit.is_empty():
+		return true
+	var collider: Node = hit.get("collider") as Node
+	return _is_target_collider(collider, target)
+
+func _is_target_collider(collider: Node, target: Node3D) -> bool:
+	var current: Node = collider
+	while current != null:
+		if current == target:
+			return true
+		current = current.get_parent()
+	return false
 
 func _set_target(value: Node3D) -> void:
 	if _target == value: return

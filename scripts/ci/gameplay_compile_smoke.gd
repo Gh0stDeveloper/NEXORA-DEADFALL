@@ -120,7 +120,7 @@ func _run() -> void:
 
 	var environment_art_file := FileAccess.open("res://src/maps/campaign/ProceduralEnvironmentArt.gd", FileAccess.READ)
 	var environment_art_text := environment_art_file.get_as_text() if environment_art_file != null else ""
-	for contract in ["ProceduralModel", "CornerPier", "WindowGlass", "Rubble", "StaticBody3D"]:
+	for contract in ["ProceduralModel", "CornerPier", "WindowGlass", "Rubble", "StaticBody3D", "emission_enabled"]:
 		if not environment_art_text.contains(contract):
 			_fail("Procedural environment art contract missing: %s" % contract)
 			return

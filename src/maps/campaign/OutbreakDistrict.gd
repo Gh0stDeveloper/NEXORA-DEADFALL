@@ -73,19 +73,19 @@ func _build_environment() -> void:
 	environment_node.name = "WorldEnvironment"
 	var environment := Environment.new()
 	environment.background_mode = Environment.BG_COLOR
-	environment.background_color = Color(0.045, 0.055, 0.075)
+	environment.background_color = Color(0.09, 0.13, 0.18)
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = Color(0.42, 0.47, 0.58)
-	environment.ambient_light_energy = 0.64
-	environment.ambient_light_sky_contribution = 0.0
-	environment.tonemap_exposure = 1.25
+	environment.ambient_light_color = Color(0.58, 0.64, 0.74)
+	environment.ambient_light_energy = 0.96
+	environment.ambient_light_sky_contribution = 0.18
+	environment.tonemap_exposure = 1.38
 	environment.adjustment_enabled = true
-	environment.adjustment_brightness = 1.10
-	environment.adjustment_contrast = 1.02
+	environment.adjustment_brightness = 1.16
+	environment.adjustment_contrast = 1.04
 	environment.fog_enabled = true
-	environment.fog_light_color = Color(0.12, 0.15, 0.19)
-	environment.fog_light_energy = 0.42
-	environment.fog_density = 0.006
+	environment.fog_light_color = Color(0.20, 0.24, 0.29)
+	environment.fog_light_energy = 0.58
+	environment.fog_density = 0.0035
 	environment.fog_sky_affect = 0.20
 	environment_node.environment = environment
 	add_child(environment_node)
@@ -93,8 +93,8 @@ func _build_environment() -> void:
 	var moon := DirectionalLight3D.new()
 	moon.name = "MoonLight"
 	moon.rotation_degrees = Vector3(-48, -32, 0)
-	moon.light_color = Color(0.60, 0.70, 0.92)
-	moon.light_energy = 0.72
+	moon.light_color = Color(0.62, 0.75, 1.0)
+	moon.light_energy = 0.92
 	moon.shadow_enabled = true
 	moon.shadow_blur = 1.35
 	add_child(moon)
@@ -102,8 +102,8 @@ func _build_environment() -> void:
 	var fill := DirectionalLight3D.new()
 	fill.name = "ColdStreetFill"
 	fill.rotation_degrees = Vector3(-24, 142, 0)
-	fill.light_color = Color(0.24, 0.31, 0.42)
-	fill.light_energy = 0.20
+	fill.light_color = Color(0.34, 0.42, 0.54)
+	fill.light_energy = 0.34
 	fill.shadow_enabled = false
 	add_child(fill)
 

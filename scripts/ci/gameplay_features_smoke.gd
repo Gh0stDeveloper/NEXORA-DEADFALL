@@ -117,8 +117,16 @@ func _run() -> void:
 	var player_status: Node = mobile_hud.get_node_or_null("SafeArea/PlayerStatus")
 	var selector: Node = mobile_hud.get_node_or_null("SafeArea/GameplayControls/WeaponSelector")
 	var sprint_button: Node = mobile_hud.get_node_or_null("SafeArea/GameplayControls/SprintButton")
-	if player_status == null or selector == null:
-		_fail("HP/ammo status or weapon selector is missing from MobileHUD")
+	var crosshair: Node = mobile_hud.get_node_or_null("SafeArea/Crosshair")
+	var hud_editor: Node = mobile_hud.get_node_or_null("SafeArea/HUDLayoutEditor")
+	if player_status == null or selector == null or crosshair == null or hud_editor == null:
+		_fail("HP/ammo status, selector, crosshair or HUD editor is missing from MobileHUD")
+		return
+	if float(player_status.get("anchor_top")) < 0.90 or float(player_status.get("anchor_bottom")) < 0.90:
+		_fail("Player health status is not anchored to the lower HUD")
+		return
+	if not hud_editor.has_method("open_editor") or not hud_editor.has_method("close_editor"):
+		_fail("HUD editor does not expose its touch lifecycle")
 		return
 	if sprint_button == null or not bool(sprint_button.get("toggle_action")):
 		_fail("Sprint mobile control is not configured as a toggle")

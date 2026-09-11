@@ -128,10 +128,11 @@ func _play_release_feedback() -> void:
 	_feedback_tween.finished.connect(_refresh_rest_visual)
 
 func _refresh_rest_visual() -> void:
+	var alpha: float = clampf(modulate.a, 0.15, 1.0)
 	if toggle_action and button_pressed:
-		modulate = Color(1.0, 0.96, 0.96, 1.0)
+		modulate = Color(1.0, 0.96, 0.96, alpha)
 	else:
-		modulate = Color.WHITE
+		modulate = Color(1.0, 1.0, 1.0, alpha)
 	queue_redraw()
 
 func _mobile_runtime() -> bool:

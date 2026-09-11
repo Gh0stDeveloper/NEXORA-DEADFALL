@@ -114,28 +114,28 @@ func _apply_lighting() -> void:
 	# 0.00 sunrise, 0.25 noon, 0.50 sunset, 0.75 midnight.
 	var solar_height := sin(normalized_time * TAU)
 	var daylight := smoothstep(-0.14, 0.20, solar_height)
-	var sun_strength := clampf(maxf(0.0, solar_height) * 0.92 + daylight * 0.30, 0.0, 1.0)
+	var sun_strength := clampf(maxf(0.0, solar_height) * 1.05 + daylight * 0.34, 0.0, 1.0)
 	var moon_strength := clampf(1.0 - daylight, 0.0, 1.0)
 	var horizon_factor := clampf(1.0 - absf(solar_height) * 3.0, 0.0, 1.0)
 
 	_sun.rotation_degrees = Vector3(normalized_time * 360.0 - 105.0, -28.0, 0.0)
-	_sun.light_energy = 0.05 + sun_strength * 1.18
-	_sun.light_color = Color(1.0, 0.66, 0.42).lerp(Color(1.0, 0.94, 0.80), sun_strength)
+	_sun.light_energy = 0.14 + sun_strength * 1.30
+	_sun.light_color = Color(1.0, 0.70, 0.48).lerp(Color(1.0, 0.95, 0.84), sun_strength)
 	_sun.shadow_enabled = _dynamic_sun_shadows and daylight > 0.18
 
 	_moon.rotation_degrees = Vector3(normalized_time * 360.0 + 75.0, 148.0, 0.0)
-	_moon.light_energy = 0.10 + moon_strength * 0.48
-	_moon.light_color = Color(0.48, 0.64, 0.94)
+	_moon.light_energy = 0.30 + moon_strength * 0.66
+	_moon.light_color = Color(0.56, 0.70, 1.0)
 	_moon.shadow_enabled = _dynamic_moon_shadows and moon_strength > 0.34
 
-	var night_bg := Color(0.018, 0.030, 0.052)
-	var day_bg := Color(0.33, 0.55, 0.66)
-	var sunset_bg := Color(0.52, 0.20, 0.13)
+	var night_bg := Color(0.055, 0.085, 0.125)
+	var day_bg := Color(0.42, 0.64, 0.75)
+	var sunset_bg := Color(0.58, 0.25, 0.16)
 	var background := night_bg.lerp(day_bg, daylight)
 	background = background.lerp(sunset_bg, horizon_factor * (1.0 - sun_strength) * 0.48)
 	_environment.background_color = background
-	_environment.ambient_light_color = Color(0.22, 0.31, 0.48).lerp(Color(0.72, 0.78, 0.74), daylight)
-	_environment.ambient_light_energy = lerpf(0.46, 0.92, daylight)
-	_environment.tonemap_exposure = lerpf(1.18, 1.05, daylight)
-	_environment.adjustment_brightness = lerpf(1.12, 1.04, daylight)
+	_environment.ambient_light_color = Color(0.38, 0.46, 0.60).lerp(Color(0.82, 0.86, 0.82), daylight)
+	_environment.ambient_light_energy = lerpf(0.72, 1.18, daylight)
+	_environment.tonemap_exposure = lerpf(1.34, 1.10, daylight)
+	_environment.adjustment_brightness = lerpf(1.18, 1.07, daylight)
 	time_changed.emit(normalized_time, daylight)
