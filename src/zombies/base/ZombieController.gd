@@ -53,7 +53,7 @@ func _ready() -> void:
 		if gore.has_signal("attack_capability_changed"): gore.connect("attack_capability_changed", Callable(self, "_on_attack_capability_changed"))
 		if gore.has_signal("head_destroyed"): gore.connect("head_destroyed", Callable(self, "_on_head_destroyed"))
 	navigation_agent.path_desired_distance = 0.35
-	navigation_agent.target_desired_distance = maxf(0.8, _effective_attack_range() * 0.75)
+	navigation_agent.target_desired_distance = maxf(0.45, _effective_attack_range() * 0.55)
 	navigation_agent.radius = 0.45
 	navigation_agent.avoidance_enabled = false
 	state_label.visible = OS.is_debug_build() and DisplayServer.get_name() != "headless"
@@ -86,7 +86,7 @@ func get_attack_cooldown_multiplier() -> float: return _attack_cooldown_multipli
 func perform_melee_attack(target: Node3D) -> bool:
 	if not has_simulation_authority() or state != State.ATTACK: return false
 	if target == null or not _target_is_alive(target): return false
-	if global_position.distance_to(target.global_position) > _effective_attack_range() * 1.15: return false
+	if not _is_target_in_attack_range(target, 1.25): return false
 	var target_health := target.get_node_or_null("Health")
 	if target_health == null: return false
 	var victim_id := int(target_health.get("entity_id"))
@@ -131,14 +131,14 @@ func _process_chase(delta: float) -> void:
 	else:
 		_sight_lost_elapsed += delta
 		if _sight_lost_elapsed >= _cfg_float(&"sight_memory_seconds", 1.0): _transition_to(State.SEARCH, "line_of_sight_lost"); return
-	if distance <= _effective_attack_range() and _can_see_target(_target): _transition_to(State.ATTACK, "target_in_attack_range"); return
+	if _is_target_in_attack_range(_target, 1.0) and _can_see_target(_target): _transition_to(State.ATTACK, "target_in_attack_range"); return
 	_move_towards_destination(_target.global_position)
 
 func _process_attack() -> void:
 	_stop_horizontal()
 	if not _target_is_alive(_target): _set_target(null); _transition_to(State.IDLE, "target_invalid"); return
 	_face_position(_target.global_position)
-	if global_position.distance_to(_target.global_position) > _effective_attack_range() * 1.15: _transition_to(State.CHASE, "target_left_attack_range"); return
+	if not _is_target_in_attack_range(_target, 1.25): _transition_to(State.CHASE, "target_left_attack_range"); return
 	if not _can_see_target(_target): _transition_to(State.CHASE, "attack_line_of_sight_lost"); return
 	var now_usec := Time.get_ticks_usec()
 	if now_usec >= _next_attack_usec:
@@ -244,7 +244,7 @@ func _on_crawler_required(_event) -> void:
 	var capsule := collision_shape.shape as CapsuleShape3D
 	if capsule != null:
 		var crawler_height := maxf(capsule.radius * 2.0, _cfg_float(&"crawler_height", 0.85)); capsule.height = crawler_height; collision_shape.position.y = crawler_height * 0.5
-	navigation_agent.radius = 0.35; navigation_agent.target_desired_distance = maxf(0.65, _effective_attack_range() * 0.75)
+	navigation_agent.radius = 0.35; navigation_agent.target_desired_distance = maxf(0.40, _effective_attack_range() * 0.55)
 	visual_root.rotation_degrees.x = -58.0; visual_root.position.y = 0.58; state_label.position.y = 1.35
 	crawler_mode_changed.emit(true); _update_debug_label()
 
@@ -312,6 +312,15 @@ func _effective_attack_range() -> float:
 	var result := _cfg_float(&"attack_range", 1.55)
 	if _crawler_mode: result *= _cfg_float(&"crawler_attack_range_multiplier", 0.82)
 	return result
+
+func _is_target_in_attack_range(target: Node3D, multiplier: float = 1.0) -> bool:
+	if target == null:
+		return false
+	var offset: Vector3 = target.global_position - global_position
+	var vertical_distance: float = absf(offset.y)
+	offset.y = 0.0
+	var horizontal_range: float = _effective_attack_range() * maxf(0.5, multiplier)
+	return vertical_distance <= 2.2 and offset.length() <= horizontal_range
 func _get_active_authority():
 	if authority_override != null: return authority_override
 	if get_tree() == null: return null
