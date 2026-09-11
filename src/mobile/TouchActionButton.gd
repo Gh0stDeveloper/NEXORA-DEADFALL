@@ -10,6 +10,7 @@ var toggle_action := false
 var haptic_feedback := true
 
 var _feedback_tween: Tween
+var _layout_scale := 1.0
 var _router_touch_index := -1
 var _router_toggle_guard := false
 
@@ -20,6 +21,7 @@ func _ready() -> void:
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	toggle_mode = toggle_action
 	pivot_offset = size * 0.5
+	_layout_scale = clampf(scale.x, 0.55, 1.75)
 	_apply_theme()
 	button_down.connect(_on_button_down)
 	button_up.connect(_on_button_up)
@@ -39,6 +41,13 @@ func set_latched(active: bool) -> void:
 	button_pressed = active
 	_apply_mobile_action(active)
 	_refresh_rest_visual()
+
+func set_layout_scale(value: float) -> void:
+	_layout_scale = clampf(value, 0.55, 1.75)
+	scale = Vector2.ONE * _layout_scale
+
+func get_layout_scale() -> float:
+	return _layout_scale
 
 func is_latched() -> bool:
 	return toggle_action and button_pressed
@@ -115,7 +124,7 @@ func _play_press_feedback() -> void:
 		_feedback_tween.kill()
 	_feedback_tween = create_tween()
 	_feedback_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	_feedback_tween.tween_property(self, "scale", Vector2(0.88, 0.88), 0.055)
+	_feedback_tween.tween_property(self, "scale", Vector2.ONE * _layout_scale * 0.88, 0.055)
 	_feedback_tween.parallel().tween_property(self, "rotation", deg_to_rad(-2.0), 0.055)
 
 func _play_release_feedback() -> void:
@@ -123,7 +132,7 @@ func _play_release_feedback() -> void:
 		_feedback_tween.kill()
 	_feedback_tween = create_tween()
 	_feedback_tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_feedback_tween.tween_property(self, "scale", Vector2.ONE, 0.13)
+	_feedback_tween.tween_property(self, "scale", Vector2.ONE * _layout_scale, 0.13)
 	_feedback_tween.parallel().tween_property(self, "rotation", 0.0, 0.13)
 	_feedback_tween.finished.connect(_refresh_rest_visual)
 

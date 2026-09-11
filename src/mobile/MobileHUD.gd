@@ -385,7 +385,7 @@ func _capture_hud_layout(control: Control) -> Dictionary:
 	return {
 		"x": clampf((center.x - safe_rect.position.x) / maxf(1.0, safe_size.x), 0.0, 1.0),
 		"y": clampf((center.y - safe_rect.position.y) / maxf(1.0, safe_size.y), 0.0, 1.0),
-		"scale": clampf(control.scale.x, 0.55, 1.75),
+		"scale": clampf(float(control.call("get_layout_scale")) if control.has_method("get_layout_scale") else control.scale.x, 0.55, 1.75),
 		"opacity": clampf(color.a, 0.15, 1.0),
 		"visible": control.visible,
 	}
@@ -414,7 +414,11 @@ func _apply_hud_layout(control: Control, value: Dictionary) -> void:
 	control.offset_right = size.x * 0.5
 	control.offset_bottom = size.y * 0.5
 	control.pivot_offset = size * 0.5
-	control.scale = Vector2.ONE * clampf(float(value.get("scale", 1.0)), 0.55, 1.75)
+	var layout_scale: float = clampf(float(value.get("scale", 1.0)), 0.55, 1.75)
+	if control.has_method("set_layout_scale"):
+		control.call("set_layout_scale", layout_scale)
+	else:
+		control.scale = Vector2.ONE * layout_scale
 	var color: Color = control.modulate
 	color.a = clampf(float(value.get("opacity", color.a)), 0.15, 1.0)
 	control.modulate = color
@@ -451,14 +455,20 @@ func resize_hud_element(element_id: StringName, amount: float) -> void:
 	var control: Control = _hud_elements.get(element_id) as Control
 	if control == null:
 		return
-	var next_scale: float = clampf(control.scale.x + amount, 0.55, 1.75)
-	control.scale = Vector2.ONE * next_scale
+	var current_scale: float = float(control.call("get_layout_scale")) if control.has_method("get_layout_scale") else control.scale.x
+	var next_scale: float = clampf(current_scale + amount, 0.55, 1.75)
+	if control.has_method("set_layout_scale"):
+		control.call("set_layout_scale", next_scale)
+	else:
+		control.scale = Vector2.ONE * next_scale
 	control.pivot_offset = control.size * 0.5
 	_save_hud_element(element_id)
 
 func get_hud_element_scale(element_id: StringName) -> float:
 	var control: Control = _hud_elements.get(element_id) as Control
-	return control.scale.x if control != null else 1.0
+	if control == null:
+		return 1.0
+	return float(control.call("get_layout_scale")) if control.has_method("get_layout_scale") else control.scale.x
 
 func save_hud_layout() -> void:
 	for value in _hud_elements.keys():
