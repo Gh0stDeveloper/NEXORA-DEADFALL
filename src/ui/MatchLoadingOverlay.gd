@@ -18,17 +18,19 @@ func _ready() -> void:
 	set_process(true)
 
 func _process(delta: float) -> void:
-	_progress_value = move_toward(_progress_value, _target_progress, maxf(0.08, delta * 0.75))
+	_progress_value = move_toward(_progress_value, _target_progress, maxf(0.0, delta) * 0.75)
 	if _progress != null:
 		_progress.value = _progress_value * 100.0
 
-func begin(endpoint: String) -> void:
+func begin(_endpoint: String) -> void:
 	_progress_value = 0.04
 	_target_progress = 0.16
+	if _progress != null:
+		_progress.value = _progress_value * 100.0
 	if _status_label != null:
 		_status_label.text = "CARGANDO…"
 	if _detail_label != null:
-		_detail_label.text = "Preparando partida dedicada · %s" % endpoint
+		_detail_label.text = "Preparando tu partida…"
 	if _return_button != null:
 		_return_button.visible = false
 

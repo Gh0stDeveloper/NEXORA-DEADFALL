@@ -22,6 +22,7 @@ var _username_edit: LineEdit
 var _status: Label
 var _busy := false
 var _last_error := ""
+var _registration_recovery_attempted := false
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -30,6 +31,7 @@ func _ready() -> void:
 	_build_ui()
 	SocialClient.login_succeeded.connect(_on_login_succeeded)
 	SocialClient.login_failed.connect(_on_login_failed)
+	SocialClient.auth_stage_changed.connect(_on_auth_stage_changed)
 	_show_stage(Stage.TAP_TO_START)
 
 func _gui_input(event: InputEvent) -> void:
@@ -229,6 +231,7 @@ func _build_username_panel() -> void:
 func _begin_login_flow() -> void:
 	if _busy:
 		return
+	_registration_recovery_attempted = false
 	if GuestIdentity.has_complete_profile():
 		_busy = true
 		_show_stage(Stage.CONNECTING)
@@ -238,6 +241,8 @@ func _begin_login_flow() -> void:
 		_show_stage(Stage.ACCOUNT_CHOICE)
 
 func _on_guest_account_pressed() -> void:
+	if _busy:
+		return
 	_show_stage(Stage.USERNAME)
 	_username_edit.grab_focus()
 
@@ -253,6 +258,17 @@ func _submit_username() -> void:
 	_status.text = "VERIFICANDO DISPONIBILIDAD DEL NOMBRE..."
 	SocialClient.register_guest(username)
 
+func _on_auth_stage_changed(stage: String) -> void:
+	if not _busy:
+		return
+	match stage:
+		"register":
+			_status.text = "CREANDO TU CUENTA..."
+		"challenge":
+			_status.text = "CONECTANDO CON TU CUENTA..."
+		"verify":
+			_status.text = "VERIFICANDO TU IDENTIDAD..."
+
 func _on_login_succeeded(account: Dictionary) -> void:
 	_busy = false
 	_status.text = "CUENTA VERIFICADA"
@@ -261,18 +277,22 @@ func _on_login_succeeded(account: Dictionary) -> void:
 func _on_login_failed(reason: String) -> void:
 	_busy = false
 	_last_error = reason
-	if reason == "unknown_guest" and GuestIdentity.has_complete_profile():
+	if reason == "unknown_guest" and GuestIdentity.has_complete_profile() and not _registration_recovery_attempted:
+		_registration_recovery_attempted = true
 		_busy = true
 		_show_stage(Stage.CONNECTING)
 		_status.text = "REGISTRANDO CUENTA EN EL SERVIDOR..."
 		SocialClient.register_guest(GuestIdentity.username)
 		return
+	if reason in ["username_taken", "invalid_username"]:
+		_show_stage(Stage.USERNAME)
+		_status.text = "ESE NOMBRE YA ESTÁ EN USO · ELIGE OTRO" if reason == "username_taken" else "NOMBRE INVÁLIDO"
+		if _username_edit.text.is_empty() and GuestIdentity.has_complete_profile():
+			_username_edit.text = GuestIdentity.username
+		_username_edit.grab_focus()
+		return
 	_show_stage(Stage.ERROR)
 	match reason:
-		"username_taken":
-			_status.text = "ESE NOMBRE YA ESTÁ EN USO"
-		"invalid_username":
-			_status.text = "NOMBRE INVÁLIDO"
 		"credential_mismatch":
 			_status.text = "LA CUENTA LOCAL NO COINCIDE CON EL SERVIDOR"
 		_:

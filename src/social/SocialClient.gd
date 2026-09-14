@@ -3,6 +3,7 @@ extends Node
 
 signal login_succeeded(account: Dictionary)
 signal login_failed(reason: String)
+signal auth_stage_changed(stage: String)
 signal party_updated(party: Dictionary)
 signal match_ready(match: Dictionary)
 signal friends_updated(snapshot: Dictionary)
@@ -106,6 +107,13 @@ func _request_json(operation: String, method: int, path: String, payload: Dictio
 	if authenticated and not has_session():
 		request_failed.emit(operation, "not_authenticated")
 		return false
+	match operation:
+		"register":
+			auth_stage_changed.emit("register")
+		"auth_challenge":
+			auth_stage_changed.emit("challenge")
+		"auth_verify":
+			auth_stage_changed.emit("verify")
 	var request := HTTPRequest.new()
 	request.name = "Request_%s_%d" % [operation, Time.get_ticks_msec()]
 	add_child(request)
@@ -120,7 +128,7 @@ func _request_json(operation: String, method: int, path: String, payload: Dictio
 	if error != OK:
 		_pending_operations.erase(operation)
 		request.queue_free()
-		request_failed.emit(operation, "request_start_failed:%s" % error_string(error))
+		_fail_operation(operation, "request_start_failed:%s" % error_string(error))
 		return false
 	return true
 
@@ -144,9 +152,13 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 func _handle_success(operation: String, response: Dictionary, context: Dictionary) -> void:
 	match operation:
 		"register":
-			_adopt_session(response)
+			if not _adopt_session(response):
+				login_failed.emit("invalid_session")
+				return
 			var accepted_username := String(context.get("username", ""))
 			if not GuestIdentity.set_username(accepted_username):
+				session_token = ""
+				session_expires_unix = 0
 				login_failed.emit("local_username_commit_failed")
 				return
 			current_account = Dictionary(response.get("account", {})).duplicate(true)
@@ -159,7 +171,9 @@ func _handle_success(operation: String, response: Dictionary, context: Dictionar
 				return
 			_request_json("auth_verify", HTTPClient.METHOD_POST, "/guest/verify", {"guest_id": GuestIdentity.guest_id, "nonce": nonce, "proof": proof}, false)
 		"auth_verify":
-			_adopt_session(response)
+			if not _adopt_session(response):
+				login_failed.emit("invalid_session")
+				return
 			current_account = Dictionary(response.get("account", {})).duplicate(true)
 			login_succeeded.emit(current_account)
 		"profile":
@@ -199,9 +213,26 @@ func _adopt_party(party: Dictionary) -> void:
 		_emitted_match_id = match_id
 		match_ready.emit(match.duplicate(true))
 
-func _adopt_session(response: Dictionary) -> void:
-	session_token = String(response.get("session_token", ""))
-	session_expires_unix = int(response.get("expires_unix", 0))
+func _adopt_session(response: Dictionary) -> bool:
+	# A successful HTTP response must contain a usable session for this guest.
+	# Validate before mutating state or reporting the account as verified.
+	var token_value: Variant = response.get("session_token")
+	var expiry_value: Variant = response.get("expires_unix")
+	var account_value: Variant = response.get("account")
+	if typeof(token_value) != TYPE_STRING or typeof(expiry_value) not in [TYPE_INT, TYPE_FLOAT]:
+		return false
+	if typeof(account_value) != TYPE_DICTIONARY:
+		return false
+	var token := String(token_value).strip_edges()
+	var expires := int(expiry_value)
+	var account: Dictionary = account_value
+	if token.is_empty() or expires <= int(Time.get_unix_time_from_system()):
+		return false
+	if GuestIdentity.guest_id.is_empty() or account.get("guest_id") != GuestIdentity.guest_id:
+		return false
+	session_token = token
+	session_expires_unix = expires
+	return true
 
 func _fail_operation(operation: String, reason: String) -> void:
 	if operation in ["register", "auth_challenge", "auth_verify"]:

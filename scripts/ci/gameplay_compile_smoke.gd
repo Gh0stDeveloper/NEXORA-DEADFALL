@@ -153,6 +153,12 @@ func _run() -> void:
 		await process_frame
 
 	if not _run_child_smoke(
+		"res://scripts/ci/login_loading_recovery_smoke.gd",
+		"NEXORA: DEADFALL login/loading recovery smoke passed",
+		"Login/loading recovery"
+	):
+		return
+	if not _run_child_smoke(
 		"res://scripts/ci/gameplay_features_smoke.gd",
 		"NEXORA: DEADFALL gameplay features smoke passed",
 		"Gameplay feature regression"
@@ -172,6 +178,7 @@ func _run() -> void:
 		return
 
 	print("NEXORA: DEADFALL strict gameplay compile smoke passed")
+	print("NEXORA: DEADFALL login/loading recovery smoke passed")
 	print("NEXORA: DEADFALL gameplay features smoke passed")
 	print("NEXORA: DEADFALL lobby/mobile presentation smoke passed")
 	print("NEXORA: DEADFALL beta.5 match lifecycle smoke passed")

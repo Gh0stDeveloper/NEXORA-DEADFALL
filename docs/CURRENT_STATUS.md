@@ -1,6 +1,6 @@
 # NEXORA: DEADFALL — Current Status
 
-Last updated: 2026-09-11.
+Last updated: 2026-09-14.
 
 This file is the short operational source of truth for the project. For the complete development sequence read `docs/ROADMAP.md`; for a new-chat continuation read `docs/HANDOFF_BETA_5.md`.
 
@@ -16,6 +16,12 @@ This file is the short operational source of truth for the project. For the comp
 - Network protocol: `2`.
 - Content version: `1`.
 - Maximum party size: `4`.
+
+## Access/loading recovery checkpoint — source only
+
+Guest login now recovers from immediate request-start failures, validates session responses before reporting success, returns rejected names to the editable input and limits automatic missing-account recovery. Match loading animation uses elapsed time and resets visibly on retry. A new login/loading regression is wired into the strict compile gate.
+
+The full requested tactical presentation redesign was not uploaded before the local execution environment became unavailable. These reconstructed fixes have received source review but have not been run in Godot or exported to Android. See `docs/HANDOFF_PRESENTATION_RECOVERY.md` for the exact scope, remaining work and recovery details. This does not change the last verified production deployment or physical beta acceptance status.
 
 ## Last verified production deployment
 
