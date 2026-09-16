@@ -25,6 +25,7 @@ var _presence_elapsed := 0.0
 var _request_in_flight := false
 var _request_started_usec := 0
 var _overlay_label: Label
+var _ping_panel: PanelContainer
 
 func _ready() -> void:
 	if DisplayServer.get_name() == "headless" or "--server" in OS.get_cmdline_user_args():
@@ -168,6 +169,7 @@ func _build_overlay() -> void:
 	layer.layer = 190
 	add_child(layer)
 	var panel := PanelContainer.new()
+	_ping_panel = panel
 	panel.anchor_left = 1.0
 	panel.anchor_top = 0.0
 	panel.anchor_right = 1.0
@@ -194,6 +196,19 @@ func _build_overlay() -> void:
 	_overlay_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(_overlay_label)
 	_refresh_overlay()
+
+func set_frontend_mode(frontend: bool) -> void:
+	if _ping_panel == null:
+		return
+	_ping_panel.anchor_left = 0.97 if frontend else 1.0
+	_ping_panel.anchor_right = _ping_panel.anchor_left
+	_ping_panel.anchor_top = 0.105 if frontend else 0.0
+	_ping_panel.anchor_bottom = _ping_panel.anchor_top
+	_ping_panel.offset_left = -220.0 if frontend else -190.0
+	_ping_panel.offset_right = 0.0 if frontend else -18.0
+	_ping_panel.offset_top = 0.0 if frontend else 18.0
+	_ping_panel.offset_bottom = 42.0 if frontend else 62.0
+	_overlay_label.add_theme_font_size_override("font_size", 18 if frontend else 14)
 
 func _refresh_overlay() -> void:
 	if _overlay_label == null:

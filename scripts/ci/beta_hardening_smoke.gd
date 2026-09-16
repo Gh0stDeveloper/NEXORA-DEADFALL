@@ -13,6 +13,10 @@ const LIFECYCLE_SESSION_PATH := "res://src/network/LifecycleMtuSafeNetworkSessio
 const MTU_SAFE_CHUNK_BYTES := 900
 
 func _initialize() -> void:
+	call_deferred("_run")
+
+func _run() -> void:
+
 	if not _test_build_compatibility(): return
 	if not _test_abuse_guard(): return
 	if not _test_command_shape(): return

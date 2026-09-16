@@ -1,4 +1,6 @@
-[gd_scene load_steps=23 format=3]
+[gd_scene load_steps=24 format=3]
+
+[ext_resource type="Script" path="res://src/audio/ActorAudio.gd" id="audio"]
 
 [ext_resource type="Script" path="res://src/zombies/base/ZombieController.gd" id="1_controller"]
 [ext_resource type="Script" path="res://src/core/health/HealthComponent.gd" id="2_health"]
@@ -241,3 +243,7 @@ body_part = 6
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Hitboxes/RightLeg"]
 shape = SubResource("LegShape")
+
+[node name="ActorAudio" type="Node" parent="."]
+script = ExtResource("audio")
+infected = true

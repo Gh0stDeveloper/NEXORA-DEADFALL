@@ -32,10 +32,12 @@ func _ready() -> void:
 	_input_source = get_node_or_null(input_path)
 	_camera_rig = get_node_or_null(camera_rig_path)
 	if DisplayServer.get_name() != "headless" and not OS.has_feature("dedicated_server"):
-		_build_view_model()
+		call_deferred("_build_view_model")
 	if _camera_rig != null and _camera_rig.has_signal("camera_mode_changed"):
 		_camera_rig.connect("camera_mode_changed", Callable(self, "_on_camera_mode_changed"))
 	_refresh_view_visibility()
+	attack_started.connect(func() -> void: AudioDirector.play_at(&"melee", global_position, 0, 1, get_instance_id()))
+	attack_hit.connect(func(_victim: int, _damage: float) -> void: AudioDirector.play_at(&"impact", global_position, 0, 1, get_instance_id()))
 
 func _process(_delta: float) -> void:
 	if not input_enabled or _input_source == null or not _owner_can_use_weapon():
@@ -69,6 +71,8 @@ func get_authoritative_state() -> Dictionary:
 func apply_authoritative_state(snapshot: Dictionary) -> void:
 	if snapshot.is_empty():
 		return
+	if int(snapshot.get("last_sequence", 0)) > _last_presented_sequence and not input_enabled:
+		AudioDirector.play_at(&"melee", global_position, 0, 1, get_instance_id())
 	var remaining := maxi(0, int(snapshot.get("cooldown_remaining_usec", 0)))
 	if remaining > 0:
 		_next_attack_usec = maxi(_next_attack_usec, Time.get_ticks_usec() + remaining)
@@ -144,16 +148,20 @@ func _resolve_authoritative_melee(sequence: int, simulation_tick: int) -> void:
 		print("DEADFALL_MACHETE_HIT seq=%d victim=%d" % [sequence, event.victim_id])
 
 func _build_view_model() -> void:
+	if is_instance_valid(_view_model):
+		return
 	if _camera_rig == null:
 		return
 	var camera := _camera_rig.call("get_aim_camera") as Camera3D if _camera_rig.has_method("get_aim_camera") else null
 	if camera == null:
 		return
 	_view_model = ProceduralWeapons.create_view_model(&"machete")
+	ProceduralWeapons.add_first_person_hands(_view_model, &"machete")
 	_view_model.name = "ProceduralMacheteViewModel"
 	_view_model.position = _base_view_position
 	_view_model.rotation = _base_view_rotation
 	camera.add_child(_view_model)
+	_refresh_view_visibility()
 
 func _animate_swing() -> void:
 	if _view_model == null or not is_instance_valid(_view_model):

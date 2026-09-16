@@ -1,232 +1,102 @@
 class_name DeadfallLoginGate
 extends Control
-
 signal login_complete(account: Dictionary)
-
+const UI = preload("res://src/ui/TacticalTheme.gd")
+const Backdrop = preload("res://src/ui/TacticalBackdrop.gd")
+const StageView = preload("res://src/lobby/TacticalStage.gd")
 const SafeAreaScript = preload("res://src/mobile/SafeArea.gd")
-
-enum Stage {
-	TAP_TO_START,
-	ACCOUNT_CHOICE,
-	USERNAME,
-	CONNECTING,
-	ERROR,
-}
+enum Stage { TAP_TO_START, ACCOUNT_CHOICE, USERNAME, CONNECTING, ERROR }
 
 var _stage: Stage = Stage.TAP_TO_START
 var _safe_root: Control
-var _tap_layer: Control
-var _account_panel: PanelContainer
-var _username_panel: PanelContainer
 var _username_edit: LineEdit
 var _status: Label
 var _busy := false
 var _last_error := ""
+var _panel: PanelContainer
+var _body: VBoxContainer
+var _progress: ProgressBar
+var _elapsed := 0.0
 var _registration_recovery_attempted := false
+var _candidate_username := ""
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	_build_background()
-	_build_ui()
+	UI.apply(self)
+	add_child(Backdrop.new())
+	_safe_root = SafeAreaScript.new()
+	add_child(_safe_root)
+	_safe_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var stage := StageView.new()
+	UI.place(stage, _safe_root, Rect2(0.50, 0.14, 0.48, 0.72))
+	stage.set_members([{"selected_character": GuestIdentity.selected_character}], 1)
+	var brand := UI.label("N E X O R A", 38, UI.AMBER)
+	UI.place(brand, _safe_root, Rect2(0.06, 0.09, 0.42, 0.06))
+	UI.place(UI.label("DEADFALL", 110), _safe_root, Rect2(0.055, 0.14, 0.5, 0.15))
+	UI.place(UI.label("SOBREVIVE A LA CAÍDA.", 30, UI.MUTED), _safe_root, Rect2(0.06, 0.29, 0.44, 0.06))
+	_panel = PanelContainer.new()
+	_panel.add_theme_stylebox_override("panel", UI.style())
+	UI.place(_panel, _safe_root, Rect2(0.06, 0.43, 0.40, 0.37))
+	_body = UI.column(_panel, 14)
+	_body.alignment = BoxContainer.ALIGNMENT_CENTER
+	_status = UI.label("", 24, UI.CYAN)
+	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UI.place(_status, _safe_root, Rect2(0.06, 0.83, 0.68, 0.07))
+	UI.place(UI.label("GHOST DEVELOPER  /  CLOSED BETA", 20, UI.MUTED), _safe_root, Rect2(0.06, 0.94, 0.8, 0.04))
 	SocialClient.login_succeeded.connect(_on_login_succeeded)
 	SocialClient.login_failed.connect(_on_login_failed)
-	SocialClient.auth_stage_changed.connect(_on_auth_stage_changed)
+	SocialClient.auth_stage_changed.connect(_on_auth_stage)
+	AudioDirector.set_context(&"lobby")
+	NetworkTelemetry.set_frontend_mode(true)
 	_show_stage(Stage.TAP_TO_START)
 
-func _gui_input(event: InputEvent) -> void:
-	if _stage not in [Stage.TAP_TO_START, Stage.ERROR] or _busy:
-		return
-	if event is InputEventScreenTouch and event.pressed:
-		_begin_login_flow()
-		accept_event()
-	elif event is InputEventMouseButton and event.pressed:
-		_begin_login_flow()
-		accept_event()
-	elif event is InputEventKey and event.pressed:
-		_begin_login_flow()
-		accept_event()
-
-func _build_background() -> void:
-	var background := ColorRect.new()
-	background.name = "LoginBackground"
-	background.color = Color(0.008, 0.011, 0.016, 1.0)
-	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(background)
-
-	var horizon := ColorRect.new()
-	horizon.color = Color(0.48, 0.025, 0.035, 0.18)
-	horizon.anchor_left = 0.0
-	horizon.anchor_top = 0.58
-	horizon.anchor_right = 1.0
-	horizon.anchor_bottom = 1.0
-	horizon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	background.add_child(horizon)
-
-	var center_glow := ColorRect.new()
-	center_glow.color = Color(0.20, 0.022, 0.030, 0.24)
-	center_glow.anchor_left = 0.30
-	center_glow.anchor_top = 0.0
-	center_glow.anchor_right = 0.70
-	center_glow.anchor_bottom = 1.0
-	center_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	background.add_child(center_glow)
-
-func _build_ui() -> void:
-	_safe_root = SafeAreaScript.new()
-	_safe_root.name = "SafeArea"
-	_safe_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_safe_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(_safe_root)
-
-	var brand := VBoxContainer.new()
-	brand.anchor_left = 0.5
-	brand.anchor_top = 0.22
-	brand.anchor_right = 0.5
-	brand.anchor_bottom = 0.22
-	brand.offset_left = -430.0
-	brand.offset_right = 430.0
-	brand.offset_bottom = 180.0
-	brand.alignment = BoxContainer.ALIGNMENT_CENTER
-	brand.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_safe_root.add_child(brand)
-
-	var title := Label.new()
-	title.text = "NEXORA: DEADFALL"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 54)
-	title.add_theme_color_override("font_color", Color(0.93, 0.94, 0.96))
-	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	brand.add_child(title)
-
-	var subtitle := Label.new()
-	subtitle.text = "SURVIVE THE FALL"
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.add_theme_font_size_override("font_size", 17)
-	subtitle.add_theme_color_override("font_color", Color(0.68, 0.09, 0.11))
-	subtitle.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	brand.add_child(subtitle)
-
-	_tap_layer = Control.new()
-	_tap_layer.name = "TapToStart"
-	_tap_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_tap_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_safe_root.add_child(_tap_layer)
-	var tap := Label.new()
-	tap.text = "TOCA PARA INICIAR"
-	tap.anchor_left = 0.5
-	tap.anchor_top = 0.76
-	tap.anchor_right = 0.5
-	tap.anchor_bottom = 0.76
-	tap.offset_left = -260.0
-	tap.offset_top = -30.0
-	tap.offset_right = 260.0
-	tap.offset_bottom = 30.0
-	tap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	tap.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	tap.add_theme_font_size_override("font_size", 24)
-	tap.add_theme_color_override("font_color", Color(0.88, 0.89, 0.92))
-	tap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_tap_layer.add_child(tap)
-
-	_status = Label.new()
-	_status.anchor_left = 0.5
-	_status.anchor_top = 0.86
-	_status.anchor_right = 0.5
-	_status.anchor_bottom = 0.86
-	_status.offset_left = -420.0
-	_status.offset_top = -24.0
-	_status.offset_right = 420.0
-	_status.offset_bottom = 30.0
-	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_status.add_theme_font_size_override("font_size", 15)
-	_status.add_theme_color_override("font_color", Color(0.62, 0.64, 0.68))
-	_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_safe_root.add_child(_status)
-
-	_build_account_choice()
-	_build_username_panel()
-
-func _build_account_choice() -> void:
-	_account_panel = PanelContainer.new()
-	_account_panel.name = "AccountChoice"
-	_account_panel.anchor_left = 0.5
-	_account_panel.anchor_top = 0.54
-	_account_panel.anchor_right = 0.5
-	_account_panel.anchor_bottom = 0.54
-	_account_panel.offset_left = -300.0
-	_account_panel.offset_top = -95.0
-	_account_panel.offset_right = 300.0
-	_account_panel.offset_bottom = 115.0
-	_account_panel.add_theme_stylebox_override("panel", _panel_style())
-	_safe_root.add_child(_account_panel)
-
-	var margin := MarginContainer.new()
-	_set_margins(margin, 26, 26, 22, 22)
-	_account_panel.add_child(margin)
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 15)
-	margin.add_child(vbox)
-	var title := Label.new()
-	title.text = "INICIAR SESIÓN"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 25)
-	vbox.add_child(title)
-	var hint := Label.new()
-	hint.text = "Selecciona una cuenta para continuar"
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hint.add_theme_color_override("font_color", Color(0.62, 0.64, 0.68))
-	vbox.add_child(hint)
-	var guest := Button.new()
-	guest.text = "CUENTA DE INVITADO"
-	guest.custom_minimum_size = Vector2(0, 62)
-	_apply_primary_button(guest)
-	vbox.add_child(guest)
-	guest.pressed.connect(_on_guest_account_pressed)
-
-func _build_username_panel() -> void:
-	_username_panel = PanelContainer.new()
-	_username_panel.name = "UsernameSetup"
-	_username_panel.anchor_left = 0.5
-	_username_panel.anchor_top = 0.55
-	_username_panel.anchor_right = 0.5
-	_username_panel.anchor_bottom = 0.55
-	_username_panel.offset_left = -330.0
-	_username_panel.offset_top = -125.0
-	_username_panel.offset_right = 330.0
-	_username_panel.offset_bottom = 145.0
-	_username_panel.add_theme_stylebox_override("panel", _panel_style())
-	_safe_root.add_child(_username_panel)
-
-	var margin := MarginContainer.new()
-	_set_margins(margin, 28, 28, 24, 24)
-	_username_panel.add_child(margin)
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 13)
-	margin.add_child(vbox)
-	var title := Label.new()
-	title.text = "CREA TU IDENTIDAD"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 25)
-	vbox.add_child(title)
-	var hint := Label.new()
-	hint.text = "Nombre único · máximo 12 caracteres · letras, números o _"
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hint.add_theme_color_override("font_color", Color(0.62, 0.64, 0.68))
-	vbox.add_child(hint)
-	_username_edit = LineEdit.new()
-	_username_edit.max_length = 12
-	_username_edit.placeholder_text = "Nombre de superviviente"
-	_username_edit.custom_minimum_size = Vector2(0, 58)
-	vbox.add_child(_username_edit)
-	var confirm := Button.new()
-	confirm.text = "CONFIRMAR"
-	confirm.custom_minimum_size = Vector2(0, 60)
-	_apply_primary_button(confirm)
-	vbox.add_child(confirm)
-	confirm.pressed.connect(_submit_username)
-	_username_edit.text_submitted.connect(func(_value: String) -> void: _submit_username())
+func _show_stage(stage: Stage) -> void:
+	_stage = stage
+	if is_instance_valid(_username_edit):
+		_candidate_username = _username_edit.text
+	for child in _body.get_children():
+		child.free()
+	_username_edit = null
+	_progress = null
+	match stage:
+		Stage.TAP_TO_START, Stage.ERROR:
+			_body.add_child(UI.label("TU PRÓXIMA MISIÓN TE ESPERA" if stage == Stage.TAP_TO_START else "RECUPERAR CONEXIÓN", 30))
+			var hint := UI.label("Entra con tu cuenta de superviviente." if GuestIdentity.has_complete_profile() else "Crea tu identidad y reúne a tu equipo.", 24, UI.MUTED)
+			hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			_body.add_child(hint)
+			_body.add_child(UI.button("TOCA PARA INICIAR" if stage == Stage.TAP_TO_START else "REINTENTAR", _begin_login_flow, true, "play"))
+			if stage == Stage.TAP_TO_START:
+				_status.text = "CAMPAÑA  /  SOLO · DÚO · ESCUADRA"
+		Stage.ACCOUNT_CHOICE:
+			_body.add_child(UI.label("BIENVENIDO, SUPERVIVIENTE", 30))
+			var hint := UI.label("Tu cuenta de invitado se guarda en este dispositivo. Conserva los datos de la aplicación para mantener el acceso.", 24, UI.MUTED)
+			hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			_body.add_child(hint)
+			_body.add_child(UI.button("CREAR CUENTA DE INVITADO", _on_guest_account_pressed, true, "shield"))
+			_status.text = "UN NOMBRE. UN EQUIPO. UNA OPORTUNIDAD."
+		Stage.USERNAME:
+			_body.add_child(UI.label("ELIGE TU NOMBRE", 32))
+			_body.add_child(UI.label("Hasta 12 letras, números o guion bajo.", 24, UI.MUTED))
+			_username_edit = LineEdit.new()
+			_username_edit.placeholder_text = "Nombre de superviviente"
+			_username_edit.max_length = 12
+			_username_edit.text = _candidate_username
+			_username_edit.custom_minimum_size.y = 64
+			_body.add_child(_username_edit)
+			_username_edit.text_submitted.connect(func(_value: String) -> void: _submit_username())
+			_body.add_child(UI.button("CONFIRMAR IDENTIDAD", _submit_username, true, "shield"))
+			_status.text = "El nombre debe estar disponible."
+		Stage.CONNECTING:
+			_elapsed = 0
+			_body.add_child(UI.label("VERIFICANDO TU CUENTA", 34))
+			_body.add_child(UI.label("Conectando con DEADFALL", 26, UI.MUTED))
+			_progress = ProgressBar.new()
+			_progress.indeterminate = true
+			_progress.show_percentage = false
+			_progress.custom_minimum_size.y = 8
+			_body.add_child(_progress)
+			_body.add_child(UI.label("Tu identidad se valida antes de entrar.", 24, UI.MUTED))
 
 func _begin_login_flow() -> void:
 	if _busy:
@@ -235,7 +105,6 @@ func _begin_login_flow() -> void:
 	if GuestIdentity.has_complete_profile():
 		_busy = true
 		_show_stage(Stage.CONNECTING)
-		_status.text = "VERIFICANDO CUENTA DE INVITADO..."
 		SocialClient.authenticate_current_guest()
 	else:
 		_show_stage(Stage.ACCOUNT_CHOICE)
@@ -251,94 +120,54 @@ func _submit_username() -> void:
 		return
 	var username := _username_edit.text.strip_edges()
 	if not GuestIdentity.is_valid_username(username):
-		_status.text = "NOMBRE INVÁLIDO"
+		_status.text = "Usa de 1 a 12 letras, números o guion bajo."
 		return
 	_busy = true
 	_show_stage(Stage.CONNECTING)
-	_status.text = "VERIFICANDO DISPONIBILIDAD DEL NOMBRE..."
 	SocialClient.register_guest(username)
 
-func _on_auth_stage_changed(stage: String) -> void:
+func _on_auth_stage(stage: String) -> void:
 	if not _busy:
 		return
-	match stage:
-		"register":
-			_status.text = "CREANDO TU CUENTA..."
-		"challenge":
-			_status.text = "CONECTANDO CON TU CUENTA..."
-		"verify":
-			_status.text = "VERIFICANDO TU IDENTIDAD..."
+	_status.text = {
+		"challenge": "Conectando con el servicio de cuentas…",
+		"verify": "Validando tu identidad…",
+		"register": "Comprobando disponibilidad del nombre…",
+	}.get(stage, "Preparando tu cuenta…")
 
 func _on_login_succeeded(account: Dictionary) -> void:
+	if not _busy:
+		return
 	_busy = false
 	_status.text = "CUENTA VERIFICADA"
+	AudioDirector.play_ui(&"ui_confirm")
 	login_complete.emit(account)
 
 func _on_login_failed(reason: String) -> void:
+	if not _busy:
+		return
 	_busy = false
 	_last_error = reason
 	if reason == "unknown_guest" and GuestIdentity.has_complete_profile() and not _registration_recovery_attempted:
 		_registration_recovery_attempted = true
 		_busy = true
-		_show_stage(Stage.CONNECTING)
-		_status.text = "REGISTRANDO CUENTA EN EL SERVIDOR..."
 		SocialClient.register_guest(GuestIdentity.username)
 		return
 	if reason in ["username_taken", "invalid_username"]:
+		if _candidate_username.is_empty():
+			_candidate_username = GuestIdentity.username
 		_show_stage(Stage.USERNAME)
-		_status.text = "ESE NOMBRE YA ESTÁ EN USO · ELIGE OTRO" if reason == "username_taken" else "NOMBRE INVÁLIDO"
-		if _username_edit.text.is_empty() and GuestIdentity.has_complete_profile():
-			_username_edit.text = GuestIdentity.username
+		_status.text = "Ese nombre ya está en uso. Elige otro." if reason == "username_taken" else "Revisa el nombre e inténtalo de nuevo."
 		_username_edit.grab_focus()
-		return
-	_show_stage(Stage.ERROR)
-	match reason:
-		"credential_mismatch":
-			_status.text = "LA CUENTA LOCAL NO COINCIDE CON EL SERVIDOR"
-		_:
-			_status.text = "NO SE PUDO CONECTAR · TOCA PARA REINTENTAR"
+	else:
+		_show_stage(Stage.ERROR)
+		_status.text = "No se pudo conectar. Revisa tu conexión y vuelve a intentar."
+		if reason == "credential_mismatch":
+			_status.text = "La identidad guardada no coincide con esta cuenta."
+	AudioDirector.play_ui(&"ui_error")
 
-func _show_stage(stage: Stage) -> void:
-	_stage = stage
-	_tap_layer.visible = stage == Stage.TAP_TO_START or stage == Stage.ERROR
-	_account_panel.visible = stage == Stage.ACCOUNT_CHOICE
-	_username_panel.visible = stage == Stage.USERNAME
-	if stage == Stage.TAP_TO_START:
-		_status.text = "CLOSED BETA"
-	elif stage == Stage.ACCOUNT_CHOICE:
-		_status.text = "NO SE DETECTÓ UNA CUENTA CONFIGURADA"
-	elif stage == Stage.USERNAME:
-		_status.text = "EL SERVIDOR VALIDARÁ QUE EL NOMBRE ESTÉ DISPONIBLE"
-	elif stage == Stage.CONNECTING:
-		_account_panel.visible = false
-		_username_panel.visible = false
-	elif stage == Stage.ERROR:
-		_tap_layer.visible = true
-
-func _set_margins(container: MarginContainer, left: int, right: int, top: int, bottom: int) -> void:
-	container.add_theme_constant_override("margin_left", left)
-	container.add_theme_constant_override("margin_right", right)
-	container.add_theme_constant_override("margin_top", top)
-	container.add_theme_constant_override("margin_bottom", bottom)
-
-func _panel_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.014, 0.019, 0.026, 0.97)
-	style.border_color = Color(0.58, 0.06, 0.08, 0.82)
-	style.set_border_width_all(1)
-	style.corner_radius_top_left = 20
-	style.corner_radius_top_right = 20
-	style.corner_radius_bottom_left = 20
-	style.corner_radius_bottom_right = 20
-	return style
-
-func _apply_primary_button(button: Button) -> void:
-	var normal := _panel_style()
-	normal.bg_color = Color(0.60, 0.035, 0.045, 0.96)
-	var pressed := _panel_style()
-	pressed.bg_color = Color(0.42, 0.020, 0.030, 1.0)
-	button.add_theme_stylebox_override("normal", normal)
-	button.add_theme_stylebox_override("hover", normal)
-	button.add_theme_stylebox_override("pressed", pressed)
-	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-	button.add_theme_font_size_override("font_size", 19)
+func _process(delta: float) -> void:
+	if _busy:
+		_elapsed += delta
+		if _elapsed > 9.0:
+			_status.text = "La conexión está tardando. Esperando respuesta…"

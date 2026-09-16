@@ -3,6 +3,8 @@ extends Control
 
 signal online_match_ready(match: Dictionary)
 
+const UI = preload("res://src/ui/TacticalTheme.gd")
+
 const POLL_SECONDS := 1.25
 const DEFAULT_MISSION := "mission_01_first_signal"
 
@@ -119,9 +121,9 @@ func _build_top_actions() -> void:
 	var row := HBoxContainer.new()
 	row.name = "SocialActions"
 	row.anchor_left = 0.68
-	row.anchor_top = 0.035
-	row.anchor_right = 0.985
-	row.anchor_bottom = 0.11
+	row.anchor_top = 0.028
+	row.anchor_right = 0.97
+	row.anchor_bottom = 0.085
 	row.add_theme_constant_override("separation", 8)
 	_safe_root.add_child(row)
 	row.add_child(_small_button("EQUIPO", _open_party_management))
@@ -132,10 +134,10 @@ func _build_top_actions() -> void:
 func _build_party_code_panel() -> void:
 	var panel := PanelContainer.new()
 	panel.name = "SquadCodePanel"
-	panel.anchor_left = 0.015
-	panel.anchor_top = 0.80
-	panel.anchor_right = 0.19
-	panel.anchor_bottom = 0.985
+	panel.anchor_left = 0.03
+	panel.anchor_top = 0.78
+	panel.anchor_right = 0.20
+	panel.anchor_bottom = 0.97
 	panel.add_theme_stylebox_override("panel", _panel_style(Color(0.014, 0.019, 0.026, 0.94), Color(0.30, 0.32, 0.36, 0.62), 14))
 	_safe_root.add_child(panel)
 	var margin := MarginContainer.new()
@@ -145,17 +147,17 @@ func _build_party_code_panel() -> void:
 	vbox.add_theme_constant_override("separation", 5)
 	margin.add_child(vbox)
 	_party_code_label = Label.new()
-	_party_code_label.text = "CÓDIGO DE EQUIPO: —"
-	_party_code_label.add_theme_font_size_override("font_size", 13)
+	_party_code_label.text = "CÓDIGO: —"
+	_party_code_label.add_theme_font_size_override("font_size", 20)
 	vbox.add_child(_party_code_label)
 	_join_code_edit = LineEdit.new()
 	_join_code_edit.max_length = 6
 	_join_code_edit.placeholder_text = "CÓDIGO"
-	_join_code_edit.custom_minimum_size = Vector2(0, 40)
+	_join_code_edit.custom_minimum_size = Vector2(0, 54)
 	vbox.add_child(_join_code_edit)
 	var join := Button.new()
 	join.text = "UNIRSE"
-	join.custom_minimum_size = Vector2(0, 40)
+	join.custom_minimum_size = Vector2(0, 54)
 	_apply_button_style(join, true)
 	vbox.add_child(join)
 	join.pressed.connect(_join_by_code)
@@ -165,13 +167,17 @@ func _build_modal() -> void:
 	_modal = PanelContainer.new()
 	_modal.name = "SocialModal"
 	_modal.anchor_left = 0.20
-	_modal.anchor_top = 0.12
+	_modal.anchor_top = 0.14
 	_modal.anchor_right = 0.97
-	_modal.anchor_bottom = 0.84
+	_modal.anchor_bottom = 0.79
 	_modal.visible = false
 	_modal.mouse_filter = Control.MOUSE_FILTER_STOP
 	_modal.add_theme_stylebox_override("panel", _panel_style(Color(0.010, 0.014, 0.020, 0.985), Color(0.58, 0.06, 0.08, 0.82), 20))
 	_safe_root.add_child(_modal)
+	_modal.visibility_changed.connect(func() -> void:
+		if is_instance_valid(_lobby):
+			_lobby.call("set_stage_covered", _modal.visible)
+	)
 	var margin := MarginContainer.new()
 	_set_margins(margin, 24, 24, 20, 20)
 	_modal.add_child(margin)
@@ -191,13 +197,19 @@ func _build_modal() -> void:
 	_apply_button_style(close, false)
 	header.add_child(close)
 	close.pressed.connect(func() -> void: _modal.visible = false)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	vbox.add_child(scroll)
 	_modal_body = VBoxContainer.new()
+	_modal_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_modal_body.name = "Body"
 	_modal_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_modal_body.add_theme_constant_override("separation", 10)
-	vbox.add_child(_modal_body)
+	scroll.add_child(_modal_body)
 
 func _open_party_management() -> void:
+	_lobby.call("_close_character_panel")
 	_modal.visible = true
 	_modal_title.text = "ESCUADRA"
 	_render_party_management(SocialClient.current_party)
@@ -244,7 +256,7 @@ func _render_party_management(party: Dictionary) -> void:
 
 	if not match.is_empty():
 		var match_label := Label.new()
-		match_label.text = "PARTIDA  %s · %s:%d" % [String(match.get("status", "STARTING")), String(match.get("host", "")), int(match.get("port", 0))]
+		match_label.text = "PREPARANDO LA PARTIDA DE TU EQUIPO"
 		match_label.add_theme_color_override("font_color", Color(0.80, 0.20, 0.22))
 		_modal_body.add_child(match_label)
 
@@ -325,6 +337,7 @@ func _party_member_row(member: Dictionary, local_is_leader: bool, match_locked: 
 	return panel
 
 func _open_profile() -> void:
+	_lobby.call("_close_character_panel")
 	_modal.visible = true
 	_modal_title.text = "PERFIL"
 	_clear_modal_body()
@@ -361,6 +374,7 @@ func _on_profile_loaded(profile: Dictionary) -> void:
 	)
 
 func _open_friends() -> void:
+	_lobby.call("_close_character_panel")
 	_modal.visible = true
 	_modal_title.text = "AMIGOS"
 	_clear_modal_body()
@@ -455,6 +469,7 @@ func _friend_row(profile: Dictionary) -> Control:
 
 func _open_party_chat() -> void:
 	_chat_friend_id = ""
+	_lobby.call("_close_character_panel")
 	_modal.visible = true
 	_modal_title.text = "CHAT DE ESCUADRA"
 	_build_chat_body()
@@ -464,6 +479,7 @@ func _open_party_chat() -> void:
 
 func _open_friend_chat(guest_id: String, username: String) -> void:
 	_chat_friend_id = guest_id
+	_lobby.call("_close_character_panel")
 	_modal.visible = true
 	_modal_title.text = "CHAT · %s" % username
 	_build_chat_body()
@@ -538,13 +554,13 @@ func _join_by_code() -> void:
 
 func _on_party_updated(party: Dictionary) -> void:
 	if party.is_empty():
-		_party_code_label.text = "CÓDIGO DE EQUIPO: —"
+		_party_code_label.text = "CÓDIGO: —"
 		_update_lobby_party_labels({})
 		if _modal.visible and _modal_title.text == "ESCUADRA":
 			_render_party_management({})
 		return
 	var code := String(party.get("code", ""))
-	_party_code_label.text = "CÓDIGO DE EQUIPO: %s" % code
+	_party_code_label.text = "CÓDIGO: %s" % code
 	var capacity := int(party.get("capacity", 4))
 	if _lobby != null and int(_lobby.get("selected_mode")) != capacity:
 		_lobby.set("selected_mode", capacity)
@@ -589,16 +605,16 @@ func _update_lobby_party_labels(party: Dictionary) -> void:
 			continue
 		if index < members.size():
 			var member := Dictionary(members[index])
-			var leader_text := "\n   LÍDER" if bool(member.get("leader", false)) else ""
+			var leader_text := " · LÍDER" if bool(member.get("leader", false)) else ""
 			var ping := int(member.get("ping_ms", 999))
 			var ping_text := str(ping) if bool(member.get("online", false)) and ping < 999 else "+999"
-			label.text = "%d  %s%s\n   PING %s" % [index + 1, String(member.get("username", "Jugador")), leader_text, ping_text]
+			label.text = "%s%s\n%s ms" % [String(member.get("username", "Jugador")), leader_text, ping_text]
 			label.modulate = Color.WHITE
 		elif index < capacity:
-			label.text = "%d  ESPERANDO JUGADOR" % (index + 1)
+			label.text = "PLAZA LIBRE\nInvita por código"
 			label.modulate = Color(0.66, 0.68, 0.72)
 		else:
-			label.text = "%d  CERRADO" % (index + 1)
+			label.text = ""
 			label.modulate = Color(0.38, 0.40, 0.44)
 
 func _poll_social_state() -> void:
@@ -617,7 +633,7 @@ func _on_request_failed(operation: String, reason: String) -> void:
 		"profile_not_found": _set_status("NO SE ENCONTRÓ ESA CUENTA")
 		"match_capacity_reached", "match_ports_exhausted": _set_status("SERVIDORES OCUPADOS · INTENTA DE NUEVO")
 		"rate_limited": _set_status("DEMASIADAS SOLICITUDES · INTENTA DE NUEVO")
-		_: _set_status("ERROR SOCIAL · %s · %s" % [operation.to_upper(), reason.to_upper()])
+		_: _set_status("NO SE PUDO COMPLETAR LA SOLICITUD · VUELVE A INTENTARLO")
 
 func _set_status(text: String) -> void:
 	if _lobby == null:
@@ -637,8 +653,9 @@ func _clear_modal_body() -> void:
 func _small_button(text: String, callback: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
+	button.add_theme_font_size_override("font_size", 22)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.custom_minimum_size = Vector2(0, 48)
+	button.custom_minimum_size = Vector2(0, 56)
 	_apply_button_style(button, false)
 	button.pressed.connect(callback)
 	return button
@@ -650,21 +667,7 @@ func _set_margins(container: MarginContainer, left: int, right: int, top: int, b
 	container.add_theme_constant_override("margin_bottom", bottom)
 
 func _panel_style(background: Color, border: Color, radius: int) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = background
-	style.border_color = border
-	style.set_border_width_all(1)
-	style.corner_radius_top_left = radius
-	style.corner_radius_top_right = radius
-	style.corner_radius_bottom_left = radius
-	style.corner_radius_bottom_right = radius
-	return style
+	return UI.style(background, Color(0.35, 0.58, 0.65, 0.5), 0)
 
 func _apply_button_style(button: Button, primary: bool) -> void:
-	var normal_bg := Color(0.62, 0.035, 0.045, 0.94) if primary else Color(0.035, 0.042, 0.052, 0.94)
-	var hover_bg := Color(0.74, 0.045, 0.055, 1.0) if primary else Color(0.060, 0.068, 0.080, 1.0)
-	var border := Color(0.88, 0.12, 0.14, 0.82) if primary else Color(0.28, 0.31, 0.36, 0.72)
-	button.add_theme_stylebox_override("normal", _panel_style(normal_bg, border, 10))
-	button.add_theme_stylebox_override("hover", _panel_style(hover_bg, border, 10))
-	button.add_theme_stylebox_override("pressed", _panel_style(Color(0.48, 0.025, 0.035, 1.0), Color(1.0, 0.20, 0.22, 0.90), 10))
-	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	UI.skin_button(button, primary)

@@ -3,11 +3,17 @@ extends SceneTree
 const DamageEventScript = preload("res://src/core/damage/DamageEvent.gd")
 const LocalAuthorityScript = preload("res://src/core/authority/LocalAuthority.gd")
 const DedicatedAuthorityScript = preload("res://src/core/authority/DedicatedAuthority.gd")
-const ZombieControllerScript = preload("res://src/zombies/base/ZombieController.gd")
-const PlayerScene = preload("res://src/player/Player.tscn")
-const ZombieScene = preload("res://src/zombies/base/Zombie.tscn")
+var ZombieControllerScript: Script
+var PlayerScene: PackedScene
+var ZombieScene: PackedScene
 
 func _initialize() -> void:
+	call_deferred("_run")
+
+func _run() -> void:
+	ZombieControllerScript = load("res://src/zombies/base/ZombieController.gd")
+	PlayerScene = load("res://src/player/Player.tscn")
+	ZombieScene = load("res://src/zombies/base/Zombie.tscn")
 	var dedicated_authority = DedicatedAuthorityScript.new()
 	dedicated_authority.start()
 	if not bool(dedicated_authority.get("active")):

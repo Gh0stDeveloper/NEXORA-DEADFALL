@@ -10,6 +10,7 @@ var _model: Node3D
 var _empty_badge: Label
 var _active := false
 var _slot_index := 0
+var _appearance_key := ""
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -17,6 +18,10 @@ func _ready() -> void:
 	_build_viewport()
 
 func set_member(member: Dictionary, slot_index: int) -> void:
+	var key := str([member.get("selected_character", "operator_01"), slot_index])
+	if _active and key == _appearance_key:
+		return
+	_appearance_key = key
 	_slot_index = slot_index
 	_active = true
 	_clear_model()
@@ -28,6 +33,9 @@ func set_member(member: Dictionary, slot_index: int) -> void:
 	_empty_badge.visible = false
 
 func set_empty(slot_index: int) -> void:
+	if not _active and _model == null:
+		return
+	_appearance_key = ""
 	_slot_index = slot_index
 	_active = false
 	_clear_model()
@@ -45,6 +53,7 @@ func _build_viewport() -> void:
 	_viewport = SubViewport.new()
 	_viewport.name = "AvatarViewport"
 	_viewport.size = AVATAR_VIEWPORT_SIZE
+	_viewport.own_world_3d = true
 	_viewport.transparent_bg = true
 	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	container.add_child(_viewport)

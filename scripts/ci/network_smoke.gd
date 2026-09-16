@@ -1,19 +1,31 @@
 extends SceneTree
 
+var _game: Node
+
 const NetworkAuthorityScript = preload("res://src/core/authority/NetworkAuthority.gd")
 const HealthScript = preload("res://src/core/health/HealthComponent.gd")
 const DamageEventScript = preload("res://src/core/damage/DamageEvent.gd")
 const PlayerCommandScript = preload("res://src/network/PlayerCommand.gd")
 const RoomCodeScript = preload("res://src/network/RoomCodeService.gd")
 const BuildInfoScript = preload("res://src/release/BuildInfo.gd")
-const SessionScript = preload("res://src/network/DuoNetworkSession.gd")
-const DedicatedServerScript = preload("res://src/server/DedicatedServer.gd")
-const PlayerScene = preload("res://src/player/Player.tscn")
-const PlayerControllerScript = preload("res://src/player/PlayerController.gd")
-const SquadArenaScene = preload("res://src/maps/duo/DuoArena.tscn")
-const MtuSafeSessionScript = preload("res://src/network/MtuSafeClosedBetaNetworkSession.gd")
+var SessionScript: Script
+var DedicatedServerScript: Script
+var PlayerScene: PackedScene
+var PlayerControllerScript: Script
+var SquadArenaScene: PackedScene
+var MtuSafeSessionScript: Script
 
 func _initialize() -> void:
+	call_deferred("_run")
+
+func _run() -> void:
+	_game = root.get_node("Game")
+	SessionScript = load("res://src/network/DuoNetworkSession.gd")
+	DedicatedServerScript = load("res://src/server/DedicatedServer.gd")
+	PlayerScene = load("res://src/player/Player.tscn")
+	PlayerControllerScript = load("res://src/player/PlayerController.gd")
+	SquadArenaScene = load("res://src/maps/duo/DuoArena.tscn")
+	MtuSafeSessionScript = load("res://src/network/MtuSafeClosedBetaNetworkSession.gd")
 	if not _test_network_authority(): return
 	if not _test_command_validation(): return
 	if not _test_room_codes(): return
@@ -81,7 +93,7 @@ func _test_squad_capacity_contract() -> bool:
 	return true
 
 func _test_player_command_and_weapon_sequence() -> bool:
-	Game.start_dedicated_server_session()
+	_game.start_dedicated_server_session()
 	var player := PlayerScene.instantiate()
 	player.set("control_mode", PlayerControllerScript.ControlMode.SERVER_REMOTE)
 	player.set("player_entity_id", 101)
@@ -104,7 +116,7 @@ func _test_player_command_and_weapon_sequence() -> bool:
 	if bool(weapon.call("server_try_reload", 1)): return _fail("Server accepted duplicate reload request sequence")
 	if bool(weapon.call("server_try_fire", 3, 1)): return _fail("Server allowed fire while authoritative reload is active")
 	player.free()
-	Game.stop_session()
+	_game.stop_session()
 	return true
 
 func _test_squad_arena_contract() -> bool:
@@ -119,7 +131,7 @@ func _test_squad_arena_contract() -> bool:
 
 func _fail(message: String) -> bool:
 	push_error(message)
-	if Game.session_mode != Game.SessionMode.NONE:
-		Game.stop_session()
+	if _game.session_mode != _game.SessionMode.NONE:
+		_game.stop_session()
 	quit(1)
 	return false

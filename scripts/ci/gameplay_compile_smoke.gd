@@ -1,6 +1,12 @@
 extends SceneTree
 
 const REQUIRED_SCRIPTS := [
+	"res://src/main/Boot.gd",
+	"res://src/audio/AudioDirector.gd",
+	"res://src/audio/ActorAudio.gd",
+	"res://src/assets/SkinnedOperatorRig.gd",
+	"res://src/assets/SkinnedZombieRig.gd",
+	"res://src/lobby/TacticalStage.gd",
 	"res://src/main/Main.gd",
 	"res://src/network/MtuSafeClosedBetaNetworkSession.gd",
 	"res://src/network/LifecycleMtuSafeNetworkSession.gd",
@@ -177,6 +183,9 @@ func _run() -> void:
 	):
 		return
 
+	if not _run_child_smoke("res://scripts/ci/presentation_assets_smoke.gd", "NEXORA: DEADFALL presentation assets smoke passed", "Presentation geometry/audio"):
+		return
+	print("NEXORA: DEADFALL presentation assets smoke passed")
 	print("NEXORA: DEADFALL strict gameplay compile smoke passed")
 	print("NEXORA: DEADFALL login/loading recovery smoke passed")
 	print("NEXORA: DEADFALL gameplay features smoke passed")

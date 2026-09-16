@@ -1,6 +1,6 @@
 # NEXORA: DEADFALL — Master Roadmap
 
-Last updated: 2026-09-11.
+Last updated: 2026-09-16.
 
 Legend:
 
@@ -370,9 +370,10 @@ Detailed design: `docs/DOWNLOAD_PORTAL_PLAN.md`.
 
 ## Phase 14 — Settings, HUD customization and audio
 
-- [ ] Full main-menu settings UI.
-- [ ] Master/music/SFX/UI/ambience buses.
-- [ ] Persistent volume controls.
+- [x] Main-menu audio, sensitivity and quality settings UI.
+- [~] Device listening/touch/performance validation of the new presentation.
+- [x] Master/music/SFX/UI/ambience buses.
+- [x] Persistent volume controls.
 - [ ] HUD editor.
 - [ ] Drag controls.
 - [ ] Scale controls.
@@ -380,11 +381,27 @@ Detailed design: `docs/DOWNLOAD_PORTAL_PLAN.md`.
 - [ ] Visibility.
 - [ ] Individual/all reset.
 - [ ] Bounds/safe-area recovery.
-- [ ] Gunshot audio.
-- [ ] Zombie vocals.
-- [ ] Environment ambience.
-- [ ] Music.
-- [ ] UI feedback audio.
+- [x] Gunshot audio.
+- [x] Zombie vocals.
+- [x] Environment ambience.
+- [x] Music.
+- [x] UI feedback audio.
+
+### Tactical presentation delivery — 2026-09-16
+
+- [x] Visual threaded boot and verified-account loading/retry.
+- [x] Original hangar art, amber/cyan theme, icons and licensed font.
+- [x] Shared Solo/Duo/Squad 3D staging and integrated social/arsenal/operator panels.
+- [x] Correct skinned-model normalization and fitted tactical equipment.
+- [x] Procedural operator locomotion/poses and weapon-grip IK.
+- [x] Detailed rifle/pistol/machete, first-person hands and firing feedback.
+- [x] Zombie variants, verified locomotion/attack clips and persistent gore.
+- [x] Original audio bank, music/ambience and bounded spatial mixing.
+- [x] Sixteen local regression/integration gates and rendered account-to-combat flow.
+- [~] Fresh Android export and physical acceptance of this source phase.
+
+See `docs/HANDOFF_TACTICAL_PRESENTATION.md`. Source completion does not replace
+physical acceptance or the remaining authored-animation/environment work below.
 
 ## Phase 15 — Art/animation/content pass
 
@@ -440,5 +457,5 @@ Do not prioritize voice chat ahead of stable core co-op, physical performance an
 4. 4-player.
 5. Fix any blocker first.
 6. Record compatibility/performance.
-7. Implement Phase 13 portal/history if no critical blocker remains.
+7. Validate the Phase 13 portal/history implementation over HTTPS/mobile.
 8. Continue Phase 14/15 according to physical feedback.

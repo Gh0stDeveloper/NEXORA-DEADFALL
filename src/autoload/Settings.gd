@@ -26,6 +26,7 @@ var target_fps: int = 60
 var camera_sensitivity: float = CAMERA_SENSITIVITY_DEFAULT
 var master_volume: float = 1.0
 var music_volume: float = 0.75
+var audio_volumes := {"SFX": 1.0, "UI": 0.7, "Ambience": 0.7}
 var hud_layout: Dictionary = {}
 
 # Android remains the limiting renderer/device class. Phase 7 extends each
@@ -180,6 +181,10 @@ func _load_settings() -> void:
 	camera_sensitivity = clampf(float(data.get("camera_sensitivity", CAMERA_SENSITIVITY_DEFAULT)), CAMERA_SENSITIVITY_MIN, CAMERA_SENSITIVITY_MAX)
 	master_volume = clampf(float(data.get("master_volume", master_volume)), 0.0, 1.0)
 	music_volume = clampf(float(data.get("music_volume", music_volume)), 0.0, 1.0)
+	var stored_audio = data.get("audio_volumes", {})
+	if stored_audio is Dictionary:
+		for bus in audio_volumes:
+			audio_volumes[bus] = clampf(float(stored_audio.get(bus, audio_volumes[bus])), 0.0, 1.0)
 	var stored_hud: Variant = data.get("hud_layout", {})
 	if typeof(stored_hud) == TYPE_DICTIONARY:
 		hud_layout = stored_hud.duplicate(true)
@@ -197,9 +202,25 @@ func _save_settings() -> void:
 		"master_volume": master_volume,
 		"music_volume": music_volume,
 		"hud_layout": hud_layout,
+		"audio_volumes": audio_volumes,
 	}, "\t"))
 
+func apply_audio_settings() -> void:
+	_apply_audio_settings()
+
+func get_audio_volume(bus: String) -> float:
+	return float(audio_volumes.get(bus, 1.0))
+
+func set_audio_volume(value: float, bus: String) -> void:
+	if not audio_volumes.has(bus):
+		return
+	audio_volumes[bus] = clampf(value, 0, 1)
+	_apply_bus_volume(bus, audio_volumes[bus])
+	_save_settings()
+
 func _apply_audio_settings() -> void:
+	for bus in audio_volumes:
+		_apply_bus_volume(bus, audio_volumes[bus])
 	_apply_bus_volume("Master", master_volume)
 	_apply_bus_volume("Music", music_volume)
 

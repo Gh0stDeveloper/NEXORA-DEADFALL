@@ -98,6 +98,7 @@ func _boot_lobby(mission_id: StringName) -> void:
 	var existing := get_node_or_null("Lobby")
 	if existing != null:
 		return
+	AudioDirector.set_context(&"lobby")
 	var lobby := LobbyScene.instantiate()
 	lobby.name = "Lobby"
 	add_child(lobby)
@@ -110,8 +111,15 @@ func _on_lobby_start_requested(mode: int, lobby: Node, mission_id: StringName) -
 	if mode != 1:
 		return
 	Game.start_local_session()
+	lobby.hide()
+	_begin_match_loading("")
+	_set_match_loading_stage("Preparando el distrito del brote…", 0.3)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_boot_local_campaign(mission_id)
+	await get_tree().process_frame
+	_clear_match_loading()
 	lobby.queue_free()
-	call_deferred("_boot_local_campaign", mission_id)
 
 func _on_lobby_online_match_ready(match: Dictionary, lobby: Node) -> void:
 	var host := String(match.get("host", "")).strip_edges()
@@ -124,7 +132,7 @@ func _on_lobby_online_match_ready(match: Dictionary, lobby: Node) -> void:
 		push_error("Invalid orchestrated match assignment")
 		return
 	if _is_loopback_host(host):
-		_set_lobby_status(lobby, "EL SERVIDOR PUBLICÓ UNA DIRECCIÓN LOCAL · REVISA DEADFALL_PUBLIC_HOST")
+		_set_lobby_status(lobby, "EL SERVIDOR DE PARTIDA NO ESTÁ DISPONIBLE. INTÉNTALO MÁS TARDE.")
 		push_error("Orchestrated match advertised loopback host to a remote client: %s" % host)
 		return
 	if _pending_network_session != null or _active_network_session != null:
@@ -151,11 +159,15 @@ func _on_lobby_online_match_ready(match: Dictionary, lobby: Node) -> void:
 	call_deferred("_boot_network_arena_client", host, port, GuestIdentity.username, "", true, mission_id, ticket, false)
 
 func _boot_local_test_range() -> void:
+	AudioDirector.set_context(&"gameplay")
+	NetworkTelemetry.set_frontend_mode(false)
 	var test_range := TestRangeScene.instantiate()
 	test_range.name = "TestRange"
 	add_child(test_range)
 
 func _boot_local_campaign(mission_id: StringName) -> void:
+	AudioDirector.set_context(&"gameplay")
+	NetworkTelemetry.set_frontend_mode(false)
 	var arena := CampaignArenaScene.instantiate()
 	arena.name = "CampaignArena"
 	arena.set("mission_id", mission_id)
@@ -199,6 +211,8 @@ func _boot_network_arena_client(
 	match_ticket: String = "",
 	reconnecting: bool = false
 ) -> void:
+	AudioDirector.set_context(&"gameplay")
+	NetworkTelemetry.set_frontend_mode(false)
 	var arena := CampaignArenaScene.instantiate() if campaign_mode else SquadArenaScene.instantiate()
 	arena.name = "CampaignArena" if campaign_mode else "DuoArena"
 	if campaign_mode:
@@ -231,7 +245,7 @@ func _boot_network_arena_client(
 			if not session.is_connected("match_finished", result_callable):
 				session.connect("match_finished", result_callable)
 		_set_match_loading_stage(
-			"Reconectando con tu entidad y estado autoritativo…" if reconnecting else "Conectando por ENet al servidor dedicado…",
+			"Recuperando tu partida…" if reconnecting else "Conectando con tu equipo…",
 			0.48 if reconnecting else 0.42
 		)
 	var error := int(session.call("start_client", host, port, name_value, resume, match_ticket))
@@ -247,7 +261,7 @@ func _boot_network_arena_client(
 	if not match_ticket.is_empty():
 		_start_match_timeout(MATCH_RECONNECT_ATTEMPT_TIMEOUT_SECONDS if reconnecting else MATCH_CONNECT_TIMEOUT_SECONDS, reconnecting)
 		_set_match_loading_stage(
-			"Validando ticket privado y restaurando estado…" if reconnecting else "Validando versión, ticket privado y escuadra…",
+			"Recuperando tu superviviente…" if reconnecting else "Comprobando el acceso de tu equipo…",
 			0.66 if reconnecting else 0.58
 		)
 	_boot_android_diagnostics()
@@ -262,7 +276,7 @@ func _on_orchestrated_joined(entity_id: int, _resume_token: String, room_code: S
 	_pending_network_session = null
 	_reconnect_in_progress = false
 	_set_match_loading_stage(
-		"Reconexión completada · jugador %d restaurado" % entity_id if reconnecting else "Jugador %d admitido · escuadra %s · sincronizando mundo…" % [entity_id, room_code],
+		"Reconexión completada. Bienvenido de vuelta." if reconnecting else "Equipo reunido. Entrando en la zona…",
 		0.92 if reconnecting else 0.88
 	)
 	if _match_loading != null and _match_loading.has_method("complete"):
@@ -277,7 +291,7 @@ func _on_orchestrated_joined(entity_id: int, _resume_token: String, room_code: S
 	print("DEADFALL_MATCH_CLIENT_ACTIVE match=%s entity=%d reconnect=%s" % [String(_active_match_context.get("match_id", "")), entity_id, str(reconnecting)])
 
 func _on_orchestrated_first_snapshot(_snapshot: Dictionary) -> void:
-	_set_match_loading_stage("Estado autoritativo recibido · preparando HUD…", 0.95)
+	_set_match_loading_stage("Preparando tu equipo y controles…", 0.95)
 
 func _on_orchestrated_join_failed(reason: String, session: Node, reconnecting: bool) -> void:
 	if reconnecting:

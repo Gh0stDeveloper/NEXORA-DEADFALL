@@ -23,8 +23,6 @@ func _run() -> void:
 		"SafeArea/OperatorStage/CharacterViewportContainer/CharacterViewport",
 		"SafeArea/PartyRail",
 		"SafeArea/MatchControls",
-		"CharacterPreviewBridge",
-		"VisualPolish",
 	]:
 		if lobby.get_node_or_null(node_path) == null:
 			lobby.free()
@@ -37,20 +35,37 @@ func _run() -> void:
 		_fail("Lobby character viewport is below the presentation budget")
 		return
 
-	var preview_source := _read_text("res://src/lobby/LobbyCharacterPreviewBridge.gd")
-	for token in ["LobbyCharacterTurntable", "AnimationDriver.play_semantic", "rotation.y", "ModelNormalizer.normalize_visual", "ProceduralCharacters.create_operator", "USE_EXTERNAL_MODELS := false", "PREVIEW_HEIGHT := 1.64"]:
-		if not preview_source.contains(token):
-			lobby.free()
-			_fail("Lobby animated preview contract missing: %s" % token)
-			return
-
-	var polish_source := _read_text("res://src/lobby/LobbyVisualPolish.gd")
-	for token in ["OUTBREAK RESPONSE  //  ACTIVE", "TealFill", "COLOR_CYAN", "custom_minimum_size"]:
-		if not polish_source.contains(token):
-			lobby.free()
-			_fail("Lobby 2.0 visual polish contract missing: %s" % token)
-			return
-
+	if not viewport.own_world_3d:
+		_fail("Lobby stage must isolate its 3D world")
+		return
+	var stage := lobby.get_node("SafeArea/OperatorStage")
+	var members := [{"guest_id": "preview_a", "selected_character": "operator_01"}, {"guest_id": "preview_b", "selected_character": "operator_02"}]
+	stage.call("set_members", members, 2)
+	var models: Array = stage.get("_models")
+	if models.size() != 2:
+		_fail("Duo must show both members together")
+		return
+	var first_id: int = models[0].get_instance_id()
+	members[0]["ping_ms"] = 82
+	stage.call("set_members", members, 2)
+	if stage.get("_models")[0].get_instance_id() != first_id:
+		_fail("Presence refresh must reuse existing geometry")
+		return
+	stage.call("set_members", members, 4)
+	if stage.get("_models").size() != 4:
+		_fail("Squad must display four slots")
+		return
+	stage.hide()
+	if viewport.render_target_update_mode != SubViewport.UPDATE_DISABLED:
+		_fail("Hidden stages must stop rendering")
+		return
+	stage.show()
+	lobby.call("_open_settings")
+	lobby.call("_close_character_panel")
+	lobby.call("_open_armory")
+	lobby.call("_close_character_panel")
+	lobby.call("_open_character_panel")
+	lobby.call("_close_character_panel")
 	var tuner_source := _read_text("res://src/mobile/MobilePerformanceTuner.gd")
 	for token in ["FPS_BY_TIER", "MESH_LOD_THRESHOLD_BY_TIER", "MSAA_BY_TIER", "scaling_3d_scale", "mesh_lod_threshold", "msaa_3d"]:
 		if not tuner_source.contains(token):

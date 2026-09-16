@@ -96,7 +96,10 @@ func load_external_model() -> bool:
 	return true
 
 func _load_procedural_model() -> bool:
-	_loaded_model = ProceduralCharacters.create_zombie(variant)
+	var zombie := _owner_body()
+	var data = zombie.get("zombie_data") if zombie != null else null
+	var archetype := StringName(String(data.get("archetype_id"))) if data != null else variant
+	_loaded_model = ProceduralCharacters.create_zombie(archetype)
 	if _loaded_model == null:
 		_set_prepared_rig_visible(true)
 		return false
@@ -105,6 +108,7 @@ func _load_procedural_model() -> bool:
 	_model_is_procedural = true
 	_set_prepared_rig_visible(false)
 	_apply_procedural_gore_state()
+	_apply_quality_visibility()
 	_semantic_state = &"idle"
 	_animation_status = {
 		"ok": true,
@@ -116,14 +120,21 @@ func _load_procedural_model() -> bool:
 
 func _update_procedural_presentation(delta: float) -> void:
 	_procedural_elapsed += delta
-	if _loaded_model == null or not is_instance_valid(_loaded_model):
+	if _loaded_model == null:
 		return
 	var zombie := _owner_body()
-	var moving := zombie != null and Vector2(zombie.velocity.x, zombie.velocity.z).length() > 0.18
-	var frequency := 8.0 if moving else 2.6
-	var amplitude := 0.008 if moving else 0.002
-	_loaded_model.position.y = sin(_procedural_elapsed * frequency) * amplitude
-	_loaded_model.rotation.z = sin(_procedural_elapsed * frequency * 0.38) * 0.012
+	if zombie == null:
+		return
+	var camera := get_viewport().get_camera_3d()
+	if camera != null and camera.global_position.distance_squared_to(zombie.global_position) > 2304:
+		return
+	_semantic_state = _desired_semantic_state()
+	var speed := Vector2(zombie.velocity.x, zombie.velocity.z).length()
+	_loaded_model.rotation.y = PI
+	if _loaded_model.has_method("animate_pose"):
+		# Controller owns crawler/death transforms on VisualRoot already.
+		_loaded_model.call("animate_pose", _procedural_elapsed, speed, _semantic_state)
+	_animation_status = {"ok": true, "semantic": _semantic_state, "source": "procedural", "clip": "articulated_pose"}
 
 func apply_gore_visual(body_part: int) -> void:
 	_gore_destroyed_parts[body_part] = true
@@ -131,6 +142,9 @@ func apply_gore_visual(body_part: int) -> void:
 
 func _apply_procedural_gore_state() -> void:
 	if not _model_is_procedural or _loaded_model == null or not is_instance_valid(_loaded_model):
+		return
+	if _loaded_model.has_method("set_destroyed_parts"):
+		_loaded_model.call("set_destroyed_parts", _gore_destroyed_parts.keys())
 		return
 	var part_names := {
 		0: ["Head", "Jaw", "LeftEye", "RightEye"],
@@ -142,11 +156,15 @@ func _apply_procedural_gore_state() -> void:
 	for body_part in _gore_destroyed_parts:
 		var names: Array = part_names.get(int(body_part), [])
 		for part_name in names:
-			var part := _loaded_model.get_node_or_null(String(part_name)) as MeshInstance3D
+			var part := _loaded_model.get_node_or_null(String(part_name)) as Node3D
 			if part != null:
 				part.visible = false
 
 func fallback_to_prepared_rig() -> void:
+	# Both presentation rigs already support limbs. Rebuilding on every hit
+	# wastes meshes and briefly resurrects destroyed parts during snapshots.
+	if _model_is_procedural and is_instance_valid(_loaded_model):
+		return
 	_clear_loaded_model()
 	if _visuals_enabled and not USE_EXTERNAL_MODELS:
 		_load_procedural_model()

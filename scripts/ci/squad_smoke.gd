@@ -1,20 +1,31 @@
 extends SceneTree
 
+var _game: Node
+
 const DamageEventScript = preload("res://src/core/damage/DamageEvent.gd")
 const HordeRulesScript = preload("res://src/horde/HordeRules.gd")
-const SessionScript = preload("res://src/network/DuoNetworkSession.gd")
-const DedicatedServerScript = preload("res://src/server/DedicatedServer.gd")
-const PlayerControllerScript = preload("res://src/player/PlayerController.gd")
-const PlayerScene = preload("res://src/player/Player.tscn")
-const ArenaScene = preload("res://src/maps/duo/DuoArena.tscn")
+var SessionScript: Script
+var DedicatedServerScript: Script
+var PlayerControllerScript: Script
+var PlayerScene: PackedScene
+var ArenaScene: PackedScene
 
 func _initialize() -> void:
-	Game.start_dedicated_server_session()
+	call_deferred("_run")
+
+func _run() -> void:
+	_game = root.get_node("Game")
+	SessionScript = load("res://src/network/DuoNetworkSession.gd")
+	DedicatedServerScript = load("res://src/server/DedicatedServer.gd")
+	PlayerControllerScript = load("res://src/player/PlayerController.gd")
+	PlayerScene = load("res://src/player/Player.tscn")
+	ArenaScene = load("res://src/maps/duo/DuoArena.tscn")
+	_game.start_dedicated_server_session()
 	if not _test_capacity_and_budgets(): return
 	if not _test_downed_revive_and_weapon_lock(): return
 	if not _test_bleedout(): return
 	if not _test_server_revive_hold(): return
-	Game.stop_session()
+	_game.stop_session()
 	print("NEXORA: DEADFALL Squad smoke test passed")
 	quit(0)
 
@@ -66,8 +77,8 @@ func _test_downed_revive_and_weapon_lock() -> bool:
 	var health := player.get_node("Health")
 	var life := player.get_node("LifeState")
 	var weapon := player.get_node("PrimaryWeapon")
-	var lethal := _damage_event(501, 999.0)
-	if not Game.authority.resolve_damage(lethal):
+	var lethal = _damage_event(501, 999.0)
+	if not _game.authority.resolve_damage(lethal):
 		return _fail("Authority rejected Squad lethal damage")
 	if not bool(life.call("is_downed")) or bool(health.call("is_dead")) or float(health.get("current_health")) <= 0.0:
 		return _fail("Eligible lethal damage did not enter DOWNED")
@@ -80,9 +91,9 @@ func _test_downed_revive_and_weapon_lock() -> bool:
 		return _fail("Authoritative revive failed")
 	if not bool(life.call("is_alive")) or float(health.get("current_health")) < 30.0:
 		return _fail("Revive did not restore ALIVE state and health")
-	if not Game.authority.resolve_damage(_damage_event(501, 999.0)):
+	if not _game.authority.resolve_damage(_damage_event(501, 999.0)):
 		return _fail("Second lethal damage failed to down player")
-	if not Game.authority.resolve_damage(_damage_event(501, 20.0)):
+	if not _game.authority.resolve_damage(_damage_event(501, 20.0)):
 		return _fail("Damage to DOWNED player was rejected")
 	if not bool(life.call("is_dead")) or not bool(health.call("is_dead")):
 		return _fail("DOWNED player did not transition to DEAD after lethal follow-up")
@@ -94,7 +105,7 @@ func _test_bleedout() -> bool:
 	if player == null:
 		return _fail("Unable to spawn bleedout player")
 	var life := player.get_node("LifeState")
-	if not Game.authority.resolve_damage(_damage_event(502, 999.0)):
+	if not _game.authority.resolve_damage(_damage_event(502, 999.0)):
 		return _fail("Bleedout setup damage failed")
 	if not bool(life.call("is_downed")):
 		return _fail("Bleedout player did not enter DOWNED")
@@ -115,7 +126,7 @@ func _test_server_revive_hold() -> bool:
 		return _fail("Squad server revive test could not spawn players")
 	var target_health := target.get_node("Health")
 	var target_life := target.get_node("LifeState")
-	if not Game.authority.resolve_damage(_damage_event(602, 999.0)):
+	if not _game.authority.resolve_damage(_damage_event(602, 999.0)):
 		return _fail("Server revive target could not be downed")
 	if not bool(target_life.call("is_downed")):
 		return _fail("Server revive target is not DOWNED")
@@ -157,6 +168,6 @@ func _damage_event(victim_id: int, amount: float):
 
 func _fail(message: String) -> bool:
 	push_error(message)
-	Game.stop_session()
+	_game.stop_session()
 	quit(1)
 	return false

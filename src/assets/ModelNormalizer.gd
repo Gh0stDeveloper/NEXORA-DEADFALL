@@ -2,7 +2,7 @@ class_name DeadfallModelNormalizer
 extends RefCounted
 
 const MIN_VALID_HEIGHT := 0.01
-const MAX_SCALE_FACTOR := 100.0
+const MAX_SCALE_FACTOR := 1000.0
 
 static func normalize_visual(model: Node3D, reference_root: Node3D, target_height: float) -> Dictionary:
 	if model == null or reference_root == null or target_height <= 0.0 or not model.is_inside_tree():
@@ -15,7 +15,9 @@ static func normalize_visual(model: Node3D, reference_root: Node3D, target_heigh
 	var source_height := initial_max.y - initial_min.y
 	if source_height < MIN_VALID_HEIGHT:
 		return {"ok": false, "reason": "invalid_height", "height": source_height}
-	var factor := clampf(target_height / source_height, 1.0 / MAX_SCALE_FACTOR, MAX_SCALE_FACTOR)
+	var factor := target_height / source_height
+	if not is_finite(factor) or factor < 1.0 / MAX_SCALE_FACTOR or factor > MAX_SCALE_FACTOR:
+		return {"ok": false, "reason": "unsafe_scale", "height": source_height}
 	model.scale = model.scale * factor
 
 	var adjusted := _visual_bounds(reference_root, model)
@@ -47,6 +49,15 @@ static func _visual_bounds(reference_root: Node3D, model: Node3D) -> Dictionary:
 	for mesh_instance in meshes:
 		if mesh_instance.mesh == null:
 			continue
+		# Imported skin vertices can be in centimeters or bind space. The mesh
+		# AABB alone does not describe the visible, skeleton-deformed character.
+		var points := _skinned_points(mesh_instance, reference_root)
+		if not points.is_empty():
+			for point in points:
+				minimum = minimum.min(point)
+				maximum = maximum.max(point)
+				has_point = true
+			continue
 		var local_bounds := mesh_instance.mesh.get_aabb()
 		for endpoint_index in range(8):
 			var world_point := mesh_instance.to_global(local_bounds.get_endpoint(endpoint_index))
@@ -59,6 +70,41 @@ static func _visual_bounds(reference_root: Node3D, model: Node3D) -> Dictionary:
 			maximum.z = maxf(maximum.z, point.z)
 			has_point = true
 	return {"min": minimum, "max": maximum} if has_point else {}
+
+static func _skinned_points(instance: MeshInstance3D, reference_root: Node3D) -> PackedVector3Array:
+	var points := PackedVector3Array()
+	var skin := instance.skin
+	var skeleton := instance.get_node_or_null(instance.skeleton) as Skeleton3D
+	if skin == null or skeleton == null or skin.get_bind_count() == 0:
+		return points
+	var transforms: Array[Transform3D] = []
+	for bind in range(skin.get_bind_count()):
+		var bone := skin.get_bind_bone(bind)
+		if bone < 0:
+			bone = skeleton.find_bone(skin.get_bind_name(bind))
+		if bone < 0 or bone >= skeleton.get_bone_count():
+			return PackedVector3Array()
+		transforms.append(skeleton.get_bone_global_pose(bone) * skin.get_bind_pose(bind))
+	var to_reference := reference_root.global_transform.affine_inverse() * skeleton.global_transform
+	for surface in range(instance.mesh.get_surface_count()):
+		var arrays := instance.mesh.surface_get_arrays(surface)
+		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var bones: PackedInt32Array = arrays[Mesh.ARRAY_BONES]
+		var weights: PackedFloat32Array = arrays[Mesh.ARRAY_WEIGHTS]
+		if vertices.is_empty() or bones.is_empty() or bones.size() != weights.size():
+			return PackedVector3Array()
+		var influences := int(bones.size() / vertices.size())
+		for vertex_index in range(vertices.size()):
+			var deformed := Vector3.ZERO
+			for influence in range(influences):
+				var index := vertex_index * influences + influence
+				if weights[index] <= 0.0:
+					continue
+				if bones[index] < 0 or bones[index] >= transforms.size():
+					return PackedVector3Array()
+				deformed += (transforms[bones[index]] * vertices[vertex_index]) * weights[index]
+			points.append(to_reference * deformed)
+	return points
 
 static func _collect_meshes(node: Node, output: Array[MeshInstance3D]) -> void:
 	if node is MeshInstance3D:

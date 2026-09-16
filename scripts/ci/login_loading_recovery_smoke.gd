@@ -1,9 +1,11 @@
 extends SceneTree
 
-const SocialClientScript = preload("res://src/social/SocialClient.gd")
-const LoginGateScript = preload("res://src/login/LoginGate.gd")
-const LoadingOverlayScript = preload("res://src/ui/MatchLoadingOverlay.gd")
+var SocialClientScript: Script
+var LoginGateScript: Script
+var LoadingOverlayScript: Script
 
+var _identity: Node
+var _social: Node
 var _client: Node
 var _login: Control
 var _overlay: CanvasLayer
@@ -21,18 +23,23 @@ func _run() -> void:
 	if DisplayServer.get_name() != "headless":
 		_fail("Run the login/loading regression with --headless")
 		return
+	_identity = root.get_node("GuestIdentity")
+	_social = root.get_node("SocialClient")
+	SocialClientScript = load("res://src/social/SocialClient.gd")
+	LoginGateScript = load("res://src/login/LoginGate.gd")
+	LoadingOverlayScript = load("res://src/ui/MatchLoadingOverlay.gd")
 	# Assign an in-memory fixture only. No account creation or persistence.
 	_identity_before = {
-		"guest_id": GuestIdentity.guest_id,
-		"username": GuestIdentity.username,
-		"auth_secret": GuestIdentity.auth_secret,
+		"guest_id": _identity.guest_id,
+		"username": _identity.username,
+		"auth_secret": _identity.auth_secret,
 	}
-	_api_before = SocialClient.api_base
+	_api_before = _social.api_base
 	_restoring = true
-	GuestIdentity.guest_id = "gst_login_loading_regression"
-	GuestIdentity.username = "AccessSmoke"
-	GuestIdentity.auth_secret = "a".repeat(64)
-	SocialClient.api_base = ""
+	_identity.guest_id = "gst_login_loading_regression"
+	_identity.username = "AccessSmoke"
+	_identity.auth_secret = "a".repeat(64)
+	_social.api_base = ""
 
 	_client = SocialClientScript.new()
 	root.add_child(_client)
@@ -78,7 +85,7 @@ func _test_request_start_failures() -> bool:
 
 func _test_session_validation() -> bool:
 	var future := int(Time.get_unix_time_from_system()) + 3600
-	var account := {"guest_id": GuestIdentity.guest_id, "username": "AccessSmoke", "public_id": "3333333333"}
+	var account := {"guest_id": _identity.guest_id, "username": "AccessSmoke", "public_id": "3333333333"}
 	var valid := {"ok": true, "session_token": "b".repeat(64), "expires_unix": future, "account": account}
 	var invalid: Array[Dictionary] = [
 		{"ok": true},
@@ -124,17 +131,22 @@ func _test_login_recovery() -> bool:
 	if not _check(not _login._busy, "Login UI stayed busy after retry"):
 		return false
 
+	_login._on_guest_account_pressed()
 	_login._username_edit.text = "NewCandidate"
+	_login._busy = true
+	_login._show_stage(LoginGateScript.Stage.CONNECTING)
 	_login._on_login_failed("username_taken")
 	if not _check(_login._stage == LoginGateScript.Stage.USERNAME and _login._username_edit.text == "NewCandidate", "Taken username did not return to the existing editable name"):
 		return false
-	if not _check(GuestIdentity.username == "AccessSmoke", "Rejected username changed the local identity"):
+	if not _check(_identity.username == "AccessSmoke", "Rejected username changed the local identity"):
 		return false
 
 	_login._registration_recovery_attempted = false
+	_login._busy = true
 	_login._on_login_failed("unknown_guest")
 	if not _check(_login._registration_recovery_attempted and not _login._busy, "Missing-account recovery did not stop on transport failure"):
 		return false
+	_login._busy = true
 	_login._on_login_failed("unknown_guest")
 	if not _check(not _login._busy and _login._stage == LoginGateScript.Stage.ERROR, "Missing-account recovery entered an automatic retry loop"):
 		return false
@@ -191,10 +203,10 @@ func _cleanup() -> void:
 	_login = null
 	_overlay = null
 	if _restoring:
-		GuestIdentity.guest_id = String(_identity_before["guest_id"])
-		GuestIdentity.username = String(_identity_before["username"])
-		GuestIdentity.auth_secret = String(_identity_before["auth_secret"])
-		SocialClient.api_base = _api_before
+		_identity.guest_id = String(_identity_before["guest_id"])
+		_identity.username = String(_identity_before["username"])
+		_identity.auth_secret = String(_identity_before["auth_secret"])
+		_social.api_base = _api_before
 		_restoring = false
 
 func _fail(message: String) -> void:

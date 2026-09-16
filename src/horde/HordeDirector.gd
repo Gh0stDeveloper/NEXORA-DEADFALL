@@ -79,7 +79,7 @@ func set_authority_override(value: RefCounted) -> void:
 func has_simulation_authority() -> bool:
 	if authority_override != null:
 		return true
-	if get_tree() == null:
+	if not is_inside_tree():
 		return false
 	var game := get_tree().root.get_node_or_null("Game")
 	return game != null and game.has_method("is_simulation_authority") and bool(game.call("is_simulation_authority"))

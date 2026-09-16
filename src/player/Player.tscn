@@ -1,4 +1,6 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=16 format=3]
+
+[ext_resource type="Script" path="res://src/audio/ActorAudio.gd" id="audio"]
 
 [ext_resource type="Script" path="res://src/player/PlayerController.gd" id="1_controller"]
 [ext_resource type="Script" path="res://src/player/PlayerInput.gd" id="2_input"]
@@ -131,3 +133,7 @@ position = Vector3(0, 0.2, -3.0)
 rotation = Vector3(0, 3.1415927, 0)
 fov = 75.0
 near = 0.08
+
+[node name="ActorAudio" type="Node" parent="."]
+script = ExtResource("audio")
+infected = false

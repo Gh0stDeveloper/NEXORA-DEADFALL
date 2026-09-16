@@ -29,7 +29,7 @@ var _last_server_reload_sequence := 0
 var _last_presented_sequence := 0
 var _view_model: Node3D
 var _view_tween: Tween
-var _base_view_position := Vector3(0.32, -0.30, -0.70)
+var _base_view_position := Vector3(0.25, -0.22, -0.48)
 var _base_view_rotation := Vector3(deg_to_rad(-1.0), deg_to_rad(-4.0), deg_to_rad(1.0))
 
 func _ready() -> void:
@@ -38,10 +38,13 @@ func _ready() -> void:
 	_state.configure(weapon_data)
 	ammo_changed.emit(_state.ammo_in_mag, _state.reserve_ammo)
 	if DisplayServer.get_name() != "headless" and not OS.has_feature("dedicated_server"):
-		_build_view_model()
+		# Weapons precede CameraRig in Player.tscn; its @onready cameras must exist.
+		call_deferred("_build_view_model")
 	if _camera_rig != null and _camera_rig.has_signal("camera_mode_changed"):
 		_camera_rig.connect("camera_mode_changed", Callable(self, "_on_camera_mode_changed"))
 	shot_fired.connect(Callable(self, "_on_view_shot_fired"))
+	reload_started.connect(func() -> void: _sound(&"reload"))
+	dry_fired.connect(func() -> void: _sound(&"dry"))
 	_refresh_view_visibility()
 
 func set_input_enabled(enabled: bool) -> void:
@@ -72,6 +75,8 @@ func _process(_delta: float) -> void:
 		_try_fire(now_usec)
 
 func _build_view_model() -> void:
+	if is_instance_valid(_view_model):
+		return
 	if _camera_rig == null or not _camera_rig.has_method("get_aim_camera"):
 		return
 	var camera := _camera_rig.call("get_aim_camera") as Camera3D
@@ -84,7 +89,9 @@ func _build_view_model() -> void:
 	_view_model.name = "ProceduralWeaponViewModel"
 	_view_model.position = _base_view_position
 	_view_model.rotation = _base_view_rotation
+	ProceduralWeapons.add_first_person_hands(_view_model, weapon_id)
 	camera.add_child(_view_model)
+	_refresh_view_visibility()
 
 func _on_camera_mode_changed(_mode: int) -> void:
 	_refresh_view_visibility()
@@ -95,11 +102,22 @@ func _refresh_view_visibility() -> void:
 	var mode_value = _camera_rig.get("mode")
 	_view_model.visible = input_enabled and int(mode_value) == 0
 
+func _sound(cue: StringName) -> void:
+	AudioDirector.play_at(cue, global_position, 0, 1, get_instance_id())
+
 func _on_view_shot_fired(_intent, _hit_result) -> void:
+	_sound(&"pistol" if String(weapon_data.weapon_id).contains("pistol") else &"rifle")
 	if _view_model == null or not is_instance_valid(_view_model):
 		return
 	if _view_tween != null and _view_tween.is_valid():
 		_view_tween.kill()
+	var flash := _view_model.get_node_or_null("MuzzleFlash") as Node3D
+	if flash != null:
+		flash.visible = true
+		get_tree().create_timer(0.045).timeout.connect(func() -> void:
+			if is_instance_valid(flash):
+				flash.visible = false
+		)
 	_view_model.position = _base_view_position
 	_view_model.rotation = _base_view_rotation
 	_view_tween = create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
@@ -227,6 +245,11 @@ func get_authoritative_state() -> Dictionary:
 func apply_authoritative_state(snapshot: Dictionary) -> void:
 	if snapshot.is_empty():
 		return
+	var next_sequence := int(snapshot.get("last_sequence", _last_presented_sequence))
+	if next_sequence > _last_presented_sequence and not input_enabled:
+		_on_view_shot_fired(null, null)
+	if bool(snapshot.get("reloading", false)) and not _state.reloading and not input_enabled:
+		_sound(&"reload")
 	_state.ammo_in_mag = maxi(0, int(snapshot.get("ammo", _state.ammo_in_mag)))
 	_state.reserve_ammo = maxi(0, int(snapshot.get("reserve", _state.reserve_ammo)))
 	_state.reloading = bool(snapshot.get("reloading", false))

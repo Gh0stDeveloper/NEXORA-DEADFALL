@@ -4,10 +4,15 @@ const DamageEventScript = preload("res://src/core/damage/DamageEvent.gd")
 const LocalAuthorityScript = preload("res://src/core/authority/LocalAuthority.gd")
 const GoreBudgetScript = preload("res://src/gore/GorePoolBudget.gd")
 const SettingsScript = preload("res://src/autoload/Settings.gd")
-const ZombieControllerScript = preload("res://src/zombies/base/ZombieController.gd")
-const ZombieScene = preload("res://src/zombies/base/Zombie.tscn")
+var ZombieControllerScript: Script
+var ZombieScene: PackedScene
 
 func _initialize() -> void:
+	call_deferred("_run")
+
+func _run() -> void:
+	ZombieControllerScript = load("res://src/zombies/base/ZombieController.gd")
+	ZombieScene = load("res://src/zombies/base/Zombie.tscn")
 	if not _test_quality_budgets():
 		return
 	if not _test_prepared_rig_contract():

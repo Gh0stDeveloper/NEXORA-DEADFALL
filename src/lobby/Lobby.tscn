@@ -1,50 +1,27 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=5 format=3]
 
-[ext_resource type="Script" path="res://src/lobby/LobbyController.gd" id="1_lobby"]
-[ext_resource type="Script" path="res://src/lobby/LobbySocialOverlayRuntime.gd" id="2_social"]
-[ext_resource type="Script" path="res://src/lobby/PublicPlayerIdBadge.gd" id="3_player_id"]
-[ext_resource type="Script" path="res://src/lobby/LobbyCharacterSync.gd" id="4_character_sync"]
-[ext_resource type="Script" path="res://src/lobby/LobbyMatchBridge.gd" id="5_match_bridge"]
-[ext_resource type="Script" path="res://src/lobby/LobbyCharacterPreviewBridge.gd" id="6_character_preview"]
-[ext_resource type="Script" path="res://src/lobby/LobbyVisualPolish.gd" id="7_visual_polish"]
+[ext_resource type="Script" path="res://src/lobby/LobbyController.gd" id="1"]
+[ext_resource type="Script" path="res://src/lobby/LobbySocialOverlayRuntime.gd" id="2"]
+[ext_resource type="Script" path="res://src/lobby/LobbyCharacterSync.gd" id="3"]
+[ext_resource type="Script" path="res://src/lobby/LobbyMatchBridge.gd" id="4"]
 
 [node name="Lobby" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-script = ExtResource("1_lobby")
+script = ExtResource("1")
 
 [node name="SocialOverlay" type="Control" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
 mouse_filter = 2
-script = ExtResource("2_social")
-
-[node name="PublicPlayerId" type="Label" parent="."]
-layout_mode = 1
-anchors_preset = 0
-anchor_left = 0.018
-anchor_top = 0.116
-anchor_right = 0.30
-anchor_bottom = 0.151
-mouse_filter = 2
-script = ExtResource("3_player_id")
+script = ExtResource("2")
 
 [node name="CharacterSync" type="Node" parent="."]
-script = ExtResource("4_character_sync")
+script = ExtResource("3")
 
 [node name="MatchBridge" type="Node" parent="."]
-script = ExtResource("5_match_bridge")
-
-[node name="CharacterPreviewBridge" type="Node" parent="."]
-script = ExtResource("6_character_preview")
-
-[node name="VisualPolish" type="Node" parent="."]
-script = ExtResource("7_visual_polish")
+script = ExtResource("4")

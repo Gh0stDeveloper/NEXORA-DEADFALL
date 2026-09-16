@@ -5,13 +5,14 @@ config_version=5
 [application]
 config/name="NEXORA: DEADFALL"
 config/description="Android zombie survival shooter by Ghost Developer / Nexora"
-run/main_scene="res://src/main/Main.tscn"
+run/main_scene="res://src/main/Boot.tscn"
 config/features=PackedStringArray("4.6", "Mobile")
 config/icon="res://assets/branding/deadfall_icon.svg"
 
 [autoload]
 Game="*res://src/autoload/Game.gd"
 Settings="*res://src/autoload/Settings.gd"
+AudioDirector="*res://src/audio/AudioDirector.gd"
 PerformanceTuner="*res://src/mobile/MobilePerformanceTuner.gd"
 GuestIdentity="*res://src/identity/GuestIdentity.gd"
 SocialClient="*res://src/social/SocialClient.gd"

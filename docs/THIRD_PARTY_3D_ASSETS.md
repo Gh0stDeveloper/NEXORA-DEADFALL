@@ -71,9 +71,10 @@ When a structure appears, update the `vendor/Objetos3D` gitlink to the new revie
 
 - Character IDs remain stable (`operator_01`, `operator_02`) even if provisional models are replaced later.
 - Missing/invalid runtime models fail the Phase 11.3 production staging/smoke path rather than silently publishing a release without the expected four assets.
-- The lobby preview and player replicas dynamically load the canonical character model.
-- Intact zombies may display the provisional external zombie model.
-- On damage/dismemberment, zombies fall back to the existing gore-ready segmented rig so hitboxes, wounds and limb destruction continue to match the authoritative gameplay system.
+- The lobby and player replicas use the canonical skinned operators with project-authored uniforms, fitted equipment and procedural weapon-grip/locomotion poses.
+- Normalization measures skinned vertices in their neutral pose, independently of authoritative colliders.
+- Zombies use verified Quaternius clips and retain removed limbs across animation updates. Damage no longer recreates the rig.
+- Native segmented geometry is retained as a missing-model fallback. The release staging gate still requires the four pinned assets.
 
 ## Licensing/redistribution gate
 

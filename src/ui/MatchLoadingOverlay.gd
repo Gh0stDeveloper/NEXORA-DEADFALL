@@ -3,7 +3,8 @@ extends CanvasLayer
 
 signal return_requested()
 
-const LOADING_ART: Texture2D = preload("res://assets/ui/loading_deadfall.svg")
+const UI = preload("res://src/ui/TacticalTheme.gd")
+const LOADING_ART: Texture2D = preload("res://assets/ui/quarantine_hangar.webp")
 
 var _status_label: Label
 var _detail_label: Label
@@ -30,7 +31,7 @@ func begin(_endpoint: String) -> void:
 	if _status_label != null:
 		_status_label.text = "CARGANDO…"
 	if _detail_label != null:
-		_detail_label.text = "Preparando tu partida…"
+		_detail_label.text = "Reuniendo al equipo en la zona de operaciones…"
 	if _return_button != null:
 		_return_button.visible = false
 
@@ -60,6 +61,7 @@ func show_error(message: String) -> void:
 func _build_ui() -> void:
 	var root := Control.new()
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	UI.apply(root)
 	root.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(root)
 
@@ -102,7 +104,7 @@ func _build_ui() -> void:
 	margin.add_child(vbox)
 	_status_label = Label.new()
 	_status_label.text = "CARGANDO…"
-	_status_label.add_theme_font_size_override("font_size", 22)
+	_status_label.add_theme_font_size_override("font_size", 32)
 	vbox.add_child(_status_label)
 	_detail_label = Label.new()
 	_detail_label.text = "Preparando servidor…"
@@ -116,7 +118,7 @@ func _build_ui() -> void:
 	_progress.show_percentage = false
 	_progress.custom_minimum_size = Vector2(0, 18)
 	_progress.add_theme_stylebox_override("background", _panel_style(Color(0.02, 0.04, 0.05, 0.96), Color(0.16, 0.30, 0.32, 0.65), 9))
-	_progress.add_theme_stylebox_override("fill", _panel_style(Color(0.84, 0.09, 0.08, 1.0), Color(1.0, 0.33, 0.18, 0.95), 9))
+	_progress.add_theme_stylebox_override("fill", _panel_style(UI.AMBER, Color(1.0, 0.33, 0.18, 0.95), 9))
 	vbox.add_child(_progress)
 
 	_return_button = Button.new()

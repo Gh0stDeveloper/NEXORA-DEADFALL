@@ -56,7 +56,7 @@ func _ready() -> void:
 	navigation_agent.target_desired_distance = maxf(0.45, _effective_attack_range() * 0.55)
 	navigation_agent.radius = 0.45
 	navigation_agent.avoidance_enabled = false
-	state_label.visible = OS.is_debug_build() and DisplayServer.get_name() != "headless"
+	state_label.visible = "--show-ai-debug" in OS.get_cmdline_user_args() and DisplayServer.get_name() != "headless"
 	_update_debug_label()
 
 func _physics_process(delta: float) -> void:

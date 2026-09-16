@@ -118,18 +118,21 @@ func _owner_body() -> CharacterBody3D:
 
 func _update_procedural_presentation(delta: float) -> void:
 	_procedural_elapsed += delta
-	if _loaded_model == null or not is_instance_valid(_loaded_model):
-		return
 	var owner := _owner_body()
-	var moving := owner != null and Vector2(owner.velocity.x, owner.velocity.z).length() > 0.18
-	var stance_value = owner.get("stance") if owner != null else null
-	var stance := int(stance_value) if stance_value != null else 0
-	var height_scale := 1.0 if stance == 0 else (0.70 if stance == 1 else 0.45)
-	_loaded_model.scale = _loaded_model.scale.lerp(Vector3(1.0, height_scale, 1.0), clampf(delta * 10.0, 0.0, 1.0))
-	var frequency := 7.0 if moving else 2.2
-	var amplitude := 0.006 if moving else 0.002
-	_loaded_model.position.y = sin(_procedural_elapsed * frequency) * amplitude
-	_loaded_model.rotation.y = sin(_procedural_elapsed * frequency * 0.5) * 0.008
+	if owner == null or _loaded_model == null:
+		return
+	_detect_weapon_action()
+	_semantic_state = _desired_semantic_state()
+	var speed := Vector2(owner.velocity.x, owner.velocity.z).length()
+	if _loaded_model.has_method("animate_pose"):
+		_loaded_model.call("animate_pose", _procedural_elapsed, speed, _semantic_state)
+	var loadout := owner.get_node_or_null("WeaponLoadout")
+	if loadout != null and _loaded_model.has_method("equip_visual"):
+		_loaded_model.call("equip_visual", int(loadout.get("active_slot")))
+	var stance := int(owner.get("stance"))
+	var height_scale := 0.75 if stance == 1 else 1.0
+	_loaded_model.scale = _loaded_model.scale.lerp(Vector3(1, height_scale, 1), clampf(delta * 10, 0, 1))
+	_animation_status = {"ok": true, "source": "procedural", "semantic": _semantic_state, "clip": "articulated_pose"}
 
 func current_character_id() -> StringName:
 	return _character_id
@@ -147,7 +150,7 @@ func get_semantic_inventory() -> Dictionary:
 	return AnimationDriver.semantic_inventory(_loaded_model) if has_external_model() else {}
 
 func _detect_weapon_action() -> void:
-	var owner := get_parent()
+	var owner := _owner_body()
 	if owner == null:
 		return
 	var loadout := owner.get_node_or_null("WeaponLoadout")
@@ -195,13 +198,13 @@ func _desired_semantic_state() -> StringName:
 			return &"death"
 		if state == 1:
 			return &"crawl"
-	if Time.get_ticks_usec() < _attack_until_usec:
-		return &"attack"
 	var planar_speed := Vector2(owner.velocity.x, owner.velocity.z).length()
 	var stance_value = owner.get("stance")
 	var stance := int(stance_value) if stance_value != null else 0
-	if stance == 2 and planar_speed > 0.18:
+	if stance == 2:
 		return &"crawl"
+	if Time.get_ticks_usec() < _attack_until_usec:
+		return &"attack"
 	if planar_speed > 5.8:
 		return &"run"
 	if planar_speed > 0.22:

@@ -60,6 +60,22 @@ jobs:
         run: godot --headless --path . --script scripts/ci/beta_hardening_smoke.gd
       - name: Run Phase 11 mobile/lobby tests
         run: godot --headless --path . --script scripts/ci/phase11_smoke.gd
+      - name: Install display for presentation runtime test
+        run: sudo apt-get update && sudo apt-get install -y xvfb libgl1-mesa-dri
+      - name: Exercise rendered boot, account, lobby and combat
+        env:
+          XDG_DATA_HOME: ${{ runner.temp }}/deadfall-presentation
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: xvfb-run -a bash scripts/ci/presentation_runtime_smoke.sh
+      - name: Upload presentation captures and runtime log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tactical-presentation
+          path: |
+            build/presentation-smoke/
+            build/presentation-runtime.log
+          if-no-files-found: ignore
       - name: Run Phase 10 VPS installer contract tests
         run: bash scripts/ci/vps_installer_smoke.sh
       - name: Run two-peer regression integration
@@ -71,7 +87,8 @@ jobs:
       - name: Validate shell/Python build scripts
         run: |
           bash -n scripts/server/run_server.sh scripts/assets/sync_objetos3d.sh scripts/ci/sync_required_models.sh scripts/ci/download_portal_smoke.sh scripts/ci/android_runtime_smoke.sh scripts/ci/android_template_patch_smoke.sh scripts/ci/duo_integration.sh scripts/ci/squad_integration.sh scripts/ci/campaign_integration.sh scripts/ci/vps_installer_smoke.sh scripts/beta/collect_android_report.sh deploy/vps/install.sh deploy/vps/update.sh deploy/vps/nexora-deadfall deploy/vps/lib/common.sh scripts/build/build_android_vps.sh scripts/build/build_download_site.sh
-          python3 -m py_compile scripts/build/patch_android_template.py
+          bash -n scripts/ci/presentation_runtime_smoke.sh
+          python3 -m py_compile scripts/build/patch_android_template.py scripts/assets/generate_original_audio.py
 
   download-portal-validation:
     runs-on: ubuntu-24.04

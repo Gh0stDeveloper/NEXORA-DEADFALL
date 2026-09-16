@@ -1,5 +1,10 @@
 # Presentation redesign continuation — 2026-09-14
 
+> Historical checkpoint, superseded on 2026-09-16 by
+> [HANDOFF_TACTICAL_PRESENTATION.md](HANDOFF_TACTICAL_PRESENTATION.md).
+> The workspace was recovered and the redesigned source/assets are now included.
+> The limitations below describe the earlier checkpoint, not current validation.
+
 ## Request and source state
 
 The user requested a substantial presentation upgrade for **Gh0stDeveloper/NEXORA-DEADFALL**: application boot/loading, verified guest account entry, a colorful tactical lobby inspired by Free Fire and Call of Duty, coordinated Duo/Squad staging, better operators/zombies/weapons, music and sound. The corrected repository name is authoritative.

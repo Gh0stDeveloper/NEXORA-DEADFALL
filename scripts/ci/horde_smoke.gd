@@ -3,14 +3,19 @@ extends SceneTree
 const DamageEventScript = preload("res://src/core/damage/DamageEvent.gd")
 const LocalAuthorityScript = preload("res://src/core/authority/LocalAuthority.gd")
 const HordeRulesScript = preload("res://src/horde/HordeRules.gd")
-const HordeDirectorScript = preload("res://src/horde/HordeDirector.gd")
+var HordeDirectorScript: Script
 const SettingsScript = preload("res://src/autoload/Settings.gd")
-const PlayerScene = preload("res://src/player/Player.tscn")
+var PlayerScene: PackedScene
 const WalkerData = preload("res://src/zombies/data/walker_01.tres")
 const ScreamerData = preload("res://src/zombies/data/screamer_01.tres")
 const CrawlerData = preload("res://src/zombies/data/crawler_01.tres")
 
 func _initialize() -> void:
+	call_deferred("_run")
+
+func _run() -> void:
+	HordeDirectorScript = load("res://src/horde/HordeDirector.gd")
+	PlayerScene = load("res://src/player/Player.tscn")
 	if not _test_rules_and_unlocks():
 		return
 	if not _test_director_runtime():
@@ -105,7 +110,7 @@ func _test_director_runtime() -> bool:
 
 	var spawned_tanks: Array[Node3D] = []
 	for _index in range(4):
-		var tank := director.debug_spawn_archetype(&"tank")
+		var tank = director.debug_spawn_archetype(&"tank")
 		if tank == null:
 			return _fail("Tank should fit inside Standard population budget")
 		spawned_tanks.append(tank)
@@ -118,7 +123,7 @@ func _test_director_runtime() -> bool:
 
 	var first_tank := spawned_tanks[0]
 	var tank_health := first_tank.get_node_or_null("Health")
-	var lethal_tank := _make_damage_event(int(tank_health.get("entity_id")), 999.0)
+	var lethal_tank = _make_damage_event(int(tank_health.get("entity_id")), 999.0)
 	if not authority.resolve_damage(lethal_tank):
 		return _fail("Authority rejected lethal Tank damage")
 	if int(director.get("kills")) != 1 or int(director.get("score")) != 350:
@@ -128,7 +133,7 @@ func _test_director_runtime() -> bool:
 		return _fail("Zombie death awarded score more than once")
 
 	player.global_position = Vector3(5, 0, 5)
-	var player_lethal := _make_damage_event(int(player_health.get("entity_id")), 999.0)
+	var player_lethal = _make_damage_event(int(player_health.get("entity_id")), 999.0)
 	if not authority.resolve_damage(player_lethal):
 		return _fail("Authority rejected lethal player damage")
 	if int(director.get("state")) != HordeDirectorScript.State.GAME_OVER:
@@ -151,14 +156,14 @@ func _test_director_runtime() -> bool:
 		return _fail("Empty fully-spawned wave did not transition to INTERMISSION")
 
 	director.call("_clear_active_zombies")
-	var screamer := director.debug_spawn_archetype(&"screamer")
-	var walker := director.debug_spawn_archetype(&"walker")
+	var screamer = director.debug_spawn_archetype(&"screamer")
+	var walker = director.debug_spawn_archetype(&"walker")
 	if screamer == null or walker == null:
 		return _fail("Screamer/Walker debug spawn failed")
 	screamer.global_position = Vector3(10, 0, 0)
 	walker.global_position = Vector3(10.5, 0, 0)
-	var screamer_behavior := screamer.get_node_or_null("ArchetypeBehavior")
-	var walker_behavior := walker.get_node_or_null("ArchetypeBehavior")
+	var screamer_behavior = screamer.get_node_or_null("ArchetypeBehavior")
+	var walker_behavior = walker.get_node_or_null("ArchetypeBehavior")
 	if screamer_behavior == null or walker_behavior == null:
 		return _fail("Zombie ArchetypeBehavior missing")
 	screamer_behavior.call("_emit_scream")
@@ -168,10 +173,10 @@ func _test_director_runtime() -> bool:
 		return _fail("Runtime rage mutated shared Walker resource")
 
 	director.call("_clear_active_zombies")
-	var crawler := director.debug_spawn_archetype(&"crawler")
+	var crawler = director.debug_spawn_archetype(&"crawler")
 	if crawler == null:
 		return _fail("Native Crawler spawn failed")
-	var crawler_behavior := crawler.get_node_or_null("ArchetypeBehavior")
+	var crawler_behavior = crawler.get_node_or_null("ArchetypeBehavior")
 	crawler_behavior.call("_activate_native_crawler")
 	if not bool(crawler.call("is_crawler")):
 		return _fail("Native Crawler did not enter crawler locomotion")

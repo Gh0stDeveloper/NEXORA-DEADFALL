@@ -207,7 +207,7 @@ func _run() -> void:
 		_fail("Phase 11 Lobby scene could not instantiate")
 		return
 	root.add_child(lobby)
-	for node_path in ["SafeArea/OperatorStage", "SafeArea/PartyRail", "SafeArea/MatchControls", "SafeArea/CharacterSelection", "SocialOverlay", "PublicPlayerId", "CharacterSync", "MatchBridge", "CharacterPreviewBridge"]:
+	for node_path in ["SafeArea/OperatorStage", "SafeArea/PartyRail", "SafeArea/MatchControls", "SafeArea/IdentityCard", "SafeArea/Navigation", "SocialOverlay", "CharacterSync", "MatchBridge"]:
 		if lobby.get_node_or_null(node_path) == null:
 			_fail("Phase 11 Lobby missing UI contract: %s" % node_path)
 			return

@@ -2,13 +2,10 @@ class_name DeadfallLobbyController
 extends Control
 
 signal start_requested(mode: int)
-
-enum PartyMode {
-	SOLO = 1,
-	DUO = 2,
-	SQUAD = 4,
-}
-
+enum PartyMode { SOLO = 1, DUO = 2, SQUAD = 4 }
+const UI = preload("res://src/ui/TacticalTheme.gd")
+const Backdrop = preload("res://src/ui/TacticalBackdrop.gd")
+const Stage = preload("res://src/lobby/TacticalStage.gd")
 const SafeAreaScript = preload("res://src/mobile/SafeArea.gd")
 const CharacterCatalog = preload("res://src/lobby/CharacterCatalog.gd")
 const PartyAvatarScript = preload("res://src/lobby/LobbyPartyAvatar.gd")
@@ -16,597 +13,358 @@ const PartyAvatarScript = preload("res://src/lobby/LobbyPartyAvatar.gd")
 var selected_mode: PartyMode = PartyMode.SOLO
 var _safe_root: Control
 var _username_label: Label
-var _username_editor: LineEdit
-var _username_setup_panel: PanelContainer
 var _status_label: Label
 var _mode_buttons: Dictionary = {}
 var _party_labels: Array[Label] = []
 var _party_avatars: Array[Control] = []
+var _party_slots: Array[Control] = []
 var _party_title: Label
 var _character_panel: PanelContainer
 var _character_name: Label
 var _character_role: Label
-var _character_mesh: MeshInstance3D
 var _start_button: Button
 var _selected_character: StringName = &"operator_01"
+var _stage_view: Control
+var _overlay: PanelContainer
+var _stage_info: Control
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_build_background()
-	_build_safe_layout()
+	UI.apply(self)
+	add_child(Backdrop.new())
+	_safe_root = SafeAreaScript.new()
+	_safe_root.name = "SafeArea"
+	_safe_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_safe_root)
+	_safe_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_selected_character = GuestIdentity.selected_character
+	_build_top_bar()
+	_build_stage()
+	_build_navigation()
+	_build_party_rail()
+	_build_bottom_bar()
 	_refresh_identity()
 	_refresh_character()
 	_refresh_mode()
 	GuestIdentity.username_changed.connect(_on_identity_username_changed)
 	GuestIdentity.selected_character_changed.connect(_on_identity_character_changed)
-
-func _build_background() -> void:
-	var background := ColorRect.new()
-	background.name = "Background"
-	background.color = Color(0.012, 0.015, 0.020, 1.0)
-	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(background)
-
-	var red_glow := ColorRect.new()
-	red_glow.name = "RedAccent"
-	red_glow.color = Color(0.48, 0.025, 0.035, 0.16)
-	red_glow.anchor_left = 0.32
-	red_glow.anchor_top = 0.0
-	red_glow.anchor_right = 0.72
-	red_glow.anchor_bottom = 1.0
-	background.add_child(red_glow)
-
-func _build_safe_layout() -> void:
-	_safe_root = SafeAreaScript.new()
-	_safe_root.name = "SafeArea"
-	_safe_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(_safe_root)
-	_build_top_bar()
-	_build_left_navigation()
-	_build_character_stage()
-	_build_party_rail()
-	_build_bottom_bar()
-	_build_character_panel()
+	SocialClient.account_updated.connect(func(_account: Dictionary) -> void: _refresh_identity())
+	var old_badge := get_node_or_null("PublicPlayerId") as Control
+	if old_badge != null:
+		old_badge.hide()
+	AudioDirector.set_context(&"lobby")
+	NetworkTelemetry.set_frontend_mode(true)
 
 func _build_top_bar() -> void:
-	var identity := PanelContainer.new()
-	identity.name = "IdentityCard"
-	identity.anchor_left = 0.0
-	identity.anchor_top = 0.0
-	identity.anchor_right = 0.32
-	identity.anchor_bottom = 0.0
-	identity.offset_left = 28.0
-	identity.offset_top = 24.0
-	identity.offset_right = -12.0
-	identity.offset_bottom = 126.0
-	identity.add_theme_stylebox_override("panel", _panel_style(Color(0.020, 0.025, 0.032, 0.94), Color(0.28, 0.31, 0.36, 0.65), 14))
-	_safe_root.add_child(identity)
-	var margin := MarginContainer.new()
-	_set_margins(margin, 18, 18, 12, 12)
-	identity.add_child(margin)
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 4)
-	margin.add_child(vbox)
-	var brand := Label.new()
-	brand.text = "NEXORA: DEADFALL"
-	brand.add_theme_font_size_override("font_size", 17)
-	brand.add_theme_color_override("font_color", Color(0.78, 0.10, 0.12))
-	vbox.add_child(brand)
-	_username_label = Label.new()
-	_username_label.add_theme_font_size_override("font_size", 24)
-	vbox.add_child(_username_label)
-	var id_label := Label.new()
-	id_label.text = "ID  %s" % GuestIdentity.guest_id.trim_prefix("gst_").left(12).to_upper()
-	id_label.add_theme_font_size_override("font_size", 12)
-	id_label.add_theme_color_override("font_color", Color(0.58, 0.61, 0.66))
-	vbox.add_child(id_label)
-	var beta := Label.new()
-	beta.text = "CLOSED BETA"
-	beta.anchor_left = 0.5
-	beta.anchor_right = 0.5
-	beta.offset_left = -90.0
-	beta.offset_top = 30.0
-	beta.offset_right = 90.0
-	beta.offset_bottom = 62.0
-	beta.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	beta.add_theme_font_size_override("font_size", 16)
-	beta.add_theme_color_override("font_color", Color(0.70, 0.72, 0.76))
-	_safe_root.add_child(beta)
-	_status_label = Label.new()
-	_status_label.anchor_left = 0.5
-	_status_label.anchor_right = 0.5
-	_status_label.offset_left = -280.0
-	_status_label.offset_top = 66.0
-	_status_label.offset_right = 280.0
-	_status_label.offset_bottom = 98.0
+	var card := VBoxContainer.new()
+	card.name = "IdentityCard"
+	UI.place(card, _safe_root, Rect2(0.03, 0.025, 0.30, 0.10))
+	card.add_theme_constant_override("separation", 0)
+	card.add_child(UI.label("N E X O R A   /   D E A D F A L L", 23, UI.AMBER))
+	_username_label = UI.label("", 34)
+	card.add_child(_username_label)
+	var brand := UI.label("CENTRO DE OPERACIONES", 24, UI.MUTED)
+	brand.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	UI.place(brand, _safe_root, Rect2(0.32, 0.035, 0.34, 0.05))
+	_status_label = UI.label("", 21, UI.CYAN)
 	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_status_label.add_theme_font_size_override("font_size", 14)
-	_status_label.add_theme_color_override("font_color", Color(0.72, 0.74, 0.78))
-	_safe_root.add_child(_status_label)
+	_status_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	UI.place(_status_label, _safe_root, Rect2(0.25, 0.095, 0.49, 0.04))
 
-func _build_left_navigation() -> void:
-	var panel := PanelContainer.new()
-	panel.name = "Navigation"
-	panel.anchor_left = 0.0
-	panel.anchor_top = 0.22
-	panel.anchor_right = 0.18
-	panel.anchor_bottom = 0.80
-	panel.offset_left = 28.0
-	panel.offset_right = -14.0
-	panel.add_theme_stylebox_override("panel", _panel_style(Color(0.015, 0.019, 0.025, 0.88), Color(0.22, 0.24, 0.28, 0.50), 16))
-	_safe_root.add_child(panel)
-	var margin := MarginContainer.new()
-	_set_margins(margin, 14, 14, 18, 18)
-	panel.add_child(margin)
-	var vbox := VBoxContainer.new()
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", 12)
-	margin.add_child(vbox)
-	vbox.add_child(_nav_button("JUGAR", _close_character_panel))
-	vbox.add_child(_nav_button("PERSONAJES", _open_character_panel))
-	vbox.add_child(_nav_button("EQUIPAMIENTO", _show_coming_soon.bind("Equipamiento")))
-	vbox.add_child(_nav_button("AJUSTES", _show_coming_soon.bind("Ajustes completos")))
-
-func _build_character_stage() -> void:
-	var stage := PanelContainer.new()
-	stage.name = "OperatorStage"
-	stage.anchor_left = 0.20
-	stage.anchor_top = 0.14
-	stage.anchor_right = 0.73
-	stage.anchor_bottom = 0.84
-	stage.add_theme_stylebox_override("panel", _panel_style(Color(0.018, 0.021, 0.027, 0.62), Color(0.30, 0.31, 0.34, 0.28), 24))
-	_safe_root.add_child(stage)
-	var viewport_container := SubViewportContainer.new()
-	viewport_container.name = "CharacterViewportContainer"
-	viewport_container.stretch = true
-	viewport_container.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	stage.add_child(viewport_container)
-	var viewport := SubViewport.new()
-	viewport.name = "CharacterViewport"
-	viewport.size = Vector2i(720, 840)
-	viewport.transparent_bg = true
-	viewport_container.add_child(viewport)
-	var root_3d := Node3D.new()
-	viewport.add_child(root_3d)
-	var camera := Camera3D.new()
-	camera.position = Vector3(0.0, 1.35, 4.8)
-	camera.fov = 42.0
-	root_3d.add_child(camera)
-	camera.look_at(Vector3(0.0, 0.86, 0.0))
-	var key_light := DirectionalLight3D.new()
-	key_light.rotation_degrees = Vector3(-40, -28, 0)
-	key_light.light_energy = 1.2
-	key_light.light_color = Color(0.88, 0.91, 1.0)
-	key_light.shadow_enabled = true
-	root_3d.add_child(key_light)
-	var rim_light := OmniLight3D.new()
-	rim_light.position = Vector3(-1.4, 2.0, -0.8)
-	rim_light.light_color = Color(0.75, 0.04, 0.06)
-	rim_light.light_energy = 3.0
-	rim_light.omni_range = 5.0
-	root_3d.add_child(rim_light)
-	_character_mesh = MeshInstance3D.new()
-	_character_mesh.name = "OperatorPlaceholder"
-	var body_mesh := CapsuleMesh.new()
-	body_mesh.radius = 0.34
-	body_mesh.height = 1.72
-	_character_mesh.mesh = body_mesh
-	_character_mesh.position = Vector3(0, 0.86, 0)
-	root_3d.add_child(_character_mesh)
-	var stage_floor := MeshInstance3D.new()
-	var floor_mesh := CylinderMesh.new()
-	floor_mesh.top_radius = 1.35
-	floor_mesh.bottom_radius = 1.55
-	floor_mesh.height = 0.12
-	stage_floor.mesh = floor_mesh
-	stage_floor.position = Vector3(0, 0.02, 0)
-	var floor_material := StandardMaterial3D.new()
-	floor_material.albedo_color = Color(0.06, 0.065, 0.075)
-	floor_material.metallic = 0.35
-	floor_material.roughness = 0.55
-	floor_mesh.material = floor_material
-	root_3d.add_child(stage_floor)
+func _build_stage() -> void:
+	_stage_view = Stage.new()
+	_stage_view.name = "OperatorStage"
+	UI.place(_stage_view, _safe_root, Rect2(0.20, 0.14, 0.55, 0.65))
 	var info := VBoxContainer.new()
-	info.anchor_left = 0.04
-	info.anchor_top = 0.70
-	info.anchor_right = 0.50
-	info.anchor_bottom = 0.94
+	_stage_info = info
 	info.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	stage.add_child(info)
-	_character_name = Label.new()
-	_character_name.add_theme_font_size_override("font_size", 38)
+	info.add_theme_constant_override("separation", 0)
+	UI.place(info, _safe_root, Rect2(0.24, 0.70, 0.40, 0.10))
+	_character_name = UI.label("", 46)
 	info.add_child(_character_name)
-	_character_role = Label.new()
-	_character_role.add_theme_font_size_override("font_size", 15)
-	_character_role.add_theme_color_override("font_color", Color(0.74, 0.76, 0.80))
+	_character_role = UI.label("", 22, UI.AMBER)
 	info.add_child(_character_role)
+
+func _build_navigation() -> void:
+	var briefing := PanelContainer.new()
+	briefing.add_theme_stylebox_override("panel", UI.style())
+	UI.place(briefing, _safe_root, Rect2(0.03, 0.18, 0.17, 0.19))
+	var copy := UI.column(briefing, 2)
+	copy.add_child(UI.label("CAMPAÑA  /  01", 21, UI.CYAN))
+	copy.add_child(UI.label("PRIMERA\nSEÑAL", 39))
+	copy.add_child(UI.label("Distrito del brote", 23, UI.MUTED))
+	var nav := VBoxContainer.new()
+	nav.name = "Navigation"
+	UI.place(nav, _safe_root, Rect2(0.03, 0.42, 0.17, 0.31))
+	for item in [
+		["OPERADORES", "operator", _open_character_panel],
+		["ARSENAL", "rifle", _open_armory],
+		["AJUSTES", "settings", _open_settings],
+	]:
+		var button := UI.button(item[0], item[2], false, item[1])
+		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		nav.add_child(button)
 
 func _build_party_rail() -> void:
 	var rail := PanelContainer.new()
 	rail.name = "PartyRail"
-	rail.anchor_left = 0.75
-	rail.anchor_top = 0.15
-	rail.anchor_right = 1.0
-	rail.anchor_bottom = 0.78
-	rail.offset_left = 12.0
-	rail.offset_right = -28.0
-	rail.add_theme_stylebox_override("panel", _panel_style(Color(0.015, 0.019, 0.025, 0.92), Color(0.25, 0.27, 0.31, 0.62), 18))
-	_safe_root.add_child(rail)
-	var margin := MarginContainer.new()
-	_set_margins(margin, 16, 16, 18, 18)
-	rail.add_child(margin)
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 8)
-	margin.add_child(vbox)
-	_party_title = Label.new()
-	_party_title.text = "ESCUADRA"
-	_party_title.add_theme_font_size_override("font_size", 20)
-	vbox.add_child(_party_title)
-	var subtitle := Label.new()
-	subtitle.text = "MI EQUIPO · IDENTIDAD Y ESTADO"
-	subtitle.add_theme_font_size_override("font_size", 10)
-	subtitle.add_theme_color_override("font_color", Color(0.46, 0.50, 0.57))
-	vbox.add_child(subtitle)
+	rail.add_theme_stylebox_override("panel", UI.style())
+	UI.place(rail, _safe_root, Rect2(0.77, 0.18, 0.20, 0.59))
+	var column := UI.column(rail, 10)
+	_party_title = UI.label("TU EQUIPO", 30)
+	column.add_child(_party_title)
+	column.add_child(UI.label("SUPERVIVIENTES", 20, UI.CYAN))
 	for index in range(4):
 		var slot := PanelContainer.new()
 		slot.name = "PartySlot%d" % (index + 1)
-		slot.custom_minimum_size = Vector2(0, 84)
-		slot.add_theme_stylebox_override("panel", _panel_style(Color(0.025, 0.030, 0.038, 0.88), Color(0.23, 0.25, 0.29, 0.62), 12))
-		vbox.add_child(slot)
-		var slot_margin := MarginContainer.new()
-		_set_margins(slot_margin, 8, 8, 6, 6)
-		slot.add_child(slot_margin)
-		var slot_row := HBoxContainer.new()
-		slot_row.add_theme_constant_override("separation", 8)
-		slot_margin.add_child(slot_row)
-		var avatar := PartyAvatarScript.new()
-		avatar.name = "MemberAvatar%d" % (index + 1)
-		avatar.custom_minimum_size = Vector2(72, 72)
-		avatar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		slot_row.add_child(avatar)
-		_party_avatars.append(avatar)
-		var label := Label.new()
-		label.name = "MemberLabel%d" % (index + 1)
+		slot.custom_minimum_size.y = 104
+		slot.add_theme_stylebox_override("panel", UI.style(Color(0.04, 0.10, 0.13, 0.86), Color(0.3, 0.6, 0.65, 0.22), 12))
+		column.add_child(slot)
+		_party_slots.append(slot)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 12)
+		slot.add_child(row)
+		var number := UI.label("%02d" % (index + 1), 38, UI.AMBER)
+		number.custom_minimum_size.x = 46
+		row.add_child(number)
+		var label := UI.label("", 22)
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		label.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		label.add_theme_font_size_override("font_size", 14)
-		slot_row.add_child(label)
+		label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		row.add_child(label)
 		_party_labels.append(label)
 
 func _build_bottom_bar() -> void:
 	var bar := PanelContainer.new()
 	bar.name = "MatchControls"
-	bar.anchor_left = 0.20
-	bar.anchor_top = 0.86
-	bar.anchor_right = 1.0
-	bar.anchor_bottom = 1.0
-	bar.offset_right = -28.0
-	bar.offset_bottom = -22.0
-	bar.add_theme_stylebox_override("panel", _panel_style(Color(0.014, 0.018, 0.023, 0.94), Color(0.30, 0.31, 0.34, 0.50), 18))
-	_safe_root.add_child(bar)
-	var margin := MarginContainer.new()
-	_set_margins(margin, 18, 18, 14, 14)
-	bar.add_child(margin)
+	bar.add_theme_stylebox_override("panel", UI.style())
+	UI.place(bar, _safe_root, Rect2(0.23, 0.83, 0.74, 0.14))
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
-	margin.add_child(row)
-	var mode_column := VBoxContainer.new()
-	mode_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(mode_column)
-	var mode_title := Label.new()
-	mode_title.text = "FORMACIÓN"
-	mode_title.add_theme_font_size_override("font_size", 13)
-	mode_title.add_theme_color_override("font_color", Color(0.62, 0.64, 0.68))
-	mode_column.add_child(mode_title)
-	var mode_row := HBoxContainer.new()
-	mode_row.add_theme_constant_override("separation", 8)
-	mode_column.add_child(mode_row)
-	_add_mode_button(mode_row, "SOLO", PartyMode.SOLO)
-	_add_mode_button(mode_row, "DÚO", PartyMode.DUO)
-	_add_mode_button(mode_row, "ESCUADRA", PartyMode.SQUAD)
-	var character_button := Button.new()
-	character_button.text = "PERSONAJE"
-	character_button.custom_minimum_size = Vector2(180, 70)
-	_apply_button_style(character_button, false)
-	row.add_child(character_button)
-	character_button.pressed.connect(_open_character_panel)
-	_start_button = Button.new()
-	_start_button.text = "INICIAR SOLO"
-	_start_button.custom_minimum_size = Vector2(260, 74)
-	_start_button.add_theme_font_size_override("font_size", 23)
-	_apply_button_style(_start_button, true)
+	row.add_theme_constant_override("separation", 18)
+	bar.add_child(row)
+	var column := UI.column(row, 4)
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	column.add_child(UI.label("ELIGE TU FORMACIÓN", 20, UI.MUTED))
+	var modes := HBoxContainer.new()
+	modes.add_theme_constant_override("separation", 10)
+	column.add_child(modes)
+	for mode in [1, 2, 4]:
+		var title := "SOLO" if mode == 1 else ("DÚO" if mode == 2 else "ESCUADRA")
+		var button := UI.button(title, _set_mode.bind(mode), false, "operator" if mode == 1 else "squad")
+		button.custom_minimum_size.x = 145 if mode != 4 else 190
+		button.toggle_mode = true
+		modes.add_child(button)
+		_mode_buttons[mode] = button
+	_start_button = UI.button("INICIAR SOLO", _on_start_pressed, true, "play")
+	_start_button.custom_minimum_size.x = 290
+	_start_button.add_theme_font_size_override("font_size", 32)
 	row.add_child(_start_button)
-	_start_button.pressed.connect(_on_start_pressed)
 
-func _build_character_panel() -> void:
-	_character_panel = PanelContainer.new()
-	_character_panel.name = "CharacterSelection"
-	_character_panel.anchor_left = 0.18
-	_character_panel.anchor_top = 0.12
-	_character_panel.anchor_right = 0.98
-	_character_panel.anchor_bottom = 0.84
-	_character_panel.visible = false
-	_character_panel.add_theme_stylebox_override("panel", _panel_style(Color(0.012, 0.016, 0.022, 0.985), Color(0.60, 0.07, 0.09, 0.72), 22))
-	_safe_root.add_child(_character_panel)
-	var margin := MarginContainer.new()
-	_set_margins(margin, 28, 28, 24, 24)
-	_character_panel.add_child(margin)
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 18)
-	margin.add_child(vbox)
+func _new_overlay(title: String) -> VBoxContainer:
+	if is_instance_valid(_overlay):
+		_overlay.free()
+	var social := get_node_or_null("SocialOverlay")
+	if social != null and is_instance_valid(social.get("_modal")):
+		social.get("_modal").hide()
+	set_stage_covered(true)
+	_overlay = PanelContainer.new()
+	_overlay.name = "TacticalOverlay"
+	_overlay.add_theme_stylebox_override("panel", UI.style(Color(0.02, 0.04, 0.06, 0.99), UI.CYAN, 26))
+	UI.place(_overlay, _safe_root, Rect2(0.20, 0.14, 0.77, 0.65))
+	var box := UI.column(_overlay, 16)
 	var header := HBoxContainer.new()
-	vbox.add_child(header)
-	var title := Label.new()
-	title.text = "PERSONAJES"
-	title.add_theme_font_size_override("font_size", 30)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(title)
-	var close := Button.new()
-	close.text = "CERRAR"
-	close.custom_minimum_size = Vector2(140, 48)
-	_apply_button_style(close, false)
-	header.add_child(close)
-	close.pressed.connect(_close_character_panel)
-	var cards := HBoxContainer.new()
-	cards.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	cards.add_theme_constant_override("separation", 18)
-	vbox.add_child(cards)
+	box.add_child(header)
+	var label := UI.label(title, 38)
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(label)
+	header.add_child(UI.button("VOLVER", _close_character_panel, false, "back"))
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	box.add_child(scroll)
+	var content := UI.column(scroll, 16)
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return content
+
+func _open_character_panel() -> void:
+	var content := _new_overlay("OPERADORES")
+	_character_panel = _overlay
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 22)
+	content.add_child(row)
 	for character in CharacterCatalog.all():
-		cards.add_child(_character_card(Dictionary(character)))
+		var card := PanelContainer.new()
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		card.add_theme_stylebox_override("panel", UI.style())
+		row.add_child(card)
+		var box := UI.column(card, 8)
+		var preview := Stage.new()
+		preview.custom_minimum_size = Vector2(300, 270)
+		box.add_child(preview)
+		preview.set_members([{"selected_character": character.id}], 1)
+		box.add_child(UI.label(character.name, 32, character.accent))
+		box.add_child(UI.label(character.role, 22, UI.MUTED))
+		var desc := UI.label(character.description, 22)
+		desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(desc)
+		var selected: bool = GuestIdentity.selected_character == character.id
+		box.add_child(UI.button("EQUIPADO" if selected else "EQUIPAR", _select_character.bind(character.id), not selected, "operator"))
 
-func _character_card(character: Dictionary) -> Control:
-	var card := PanelContainer.new()
-	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	card.custom_minimum_size = Vector2(320, 420)
-	var accent: Color = character.get("accent", Color(0.6, 0.08, 0.1))
-	card.add_theme_stylebox_override("panel", _panel_style(Color(0.025, 0.030, 0.038, 0.98), Color(accent.r, accent.g, accent.b, 0.72), 18))
-	var margin := MarginContainer.new()
-	_set_margins(margin, 20, 20, 20, 20)
-	card.add_child(margin)
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 10)
-	margin.add_child(vbox)
-	var silhouette := ColorRect.new()
-	silhouette.custom_minimum_size = Vector2(0, 220)
-	silhouette.color = Color(accent.r, accent.g, accent.b, 0.18)
-	vbox.add_child(silhouette)
-	var name_label := Label.new()
-	name_label.text = String(character.get("name", "OPERADOR"))
-	name_label.add_theme_font_size_override("font_size", 28)
-	vbox.add_child(name_label)
-	var role := Label.new()
-	role.text = String(character.get("role", "SUPERVIVIENTE"))
-	role.add_theme_color_override("font_color", accent)
-	vbox.add_child(role)
-	var description := Label.new()
-	description.text = String(character.get("description", ""))
-	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	description.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	vbox.add_child(description)
-	var model_state := Label.new()
-	model_state.text = "MODELO 3D: PROPIO · ESCALA NORMALIZADA"
-	model_state.add_theme_font_size_override("font_size", 12)
-	model_state.add_theme_color_override("font_color", Color(0.54, 0.56, 0.60))
-	vbox.add_child(model_state)
-	var select := Button.new()
-	select.text = "SELECCIONAR"
-	select.custom_minimum_size = Vector2(0, 56)
-	_apply_button_style(select, true)
-	vbox.add_child(select)
-	select.pressed.connect(_select_character.bind(StringName(character.get("id", &"operator_01"))))
-	return card
+func _open_armory() -> void:
+	var box := _new_overlay("ARSENAL")
+	box.add_child(UI.label("Tu equipo de supervivencia", 24, UI.MUTED))
+	var preview := Stage.new()
+	preview.custom_minimum_size.y = 270
+	box.add_child(preview)
+	preview.show_weapon(&"nxr_rifle_01")
+	var name_label := UI.label("NXR-4  /  FUSIL DE ASALTO", 32, UI.AMBER)
+	box.add_child(name_label)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 18)
+	box.add_child(row)
+	for item in [["nxr_rifle_01", "NXR-4", "FUSIL DE ASALTO"], ["nxr_pistol_01", "NXR-9", "ARMA SECUNDARIA"], ["machete", "MACHETE", "COMBATE CUERPO A CUERPO"]]:
+		var button := UI.button(item[1], func() -> void:
+			preview.show_weapon(StringName(item[0]))
+			name_label.text = "%s  /  %s" % [item[1], item[2]]
+		, false, "rifle")
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(button)
+	box.add_child(UI.label("Cambia de arma durante la partida con el selector del HUD.", 22, UI.MUTED))
 
-func _nav_button(label: String, callback: Callable) -> Button:
-	var button := Button.new()
-	button.text = label
-	button.custom_minimum_size = Vector2(0, 58)
-	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	button.add_theme_font_size_override("font_size", 17)
-	_apply_button_style(button, false)
-	button.pressed.connect(callback)
-	return button
+func _open_settings() -> void:
+	var box := _new_overlay("AJUSTES")
+	_add_slider(box, "Volumen general", Settings.master_volume, Settings.set_master_volume)
+	_add_slider(box, "Música", Settings.music_volume, Settings.set_music_volume)
+	for bus in ["SFX", "UI", "Ambience"]:
+		var title: String = {"SFX": "Combate y enemigos", "UI": "Interfaz", "Ambience": "Ambiente"}[bus]
+		_add_slider(box, title, Settings.get_audio_volume(bus), Settings.set_audio_volume.bind(bus))
+	_add_slider(box, "Sensibilidad", Settings.camera_sensitivity, Settings.set_camera_sensitivity, 0.10)
+	var row := HBoxContainer.new()
+	box.add_child(row)
+	var label := UI.label("Calidad gráfica", 26)
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(label)
+	var quality := OptionButton.new()
+	quality.custom_minimum_size = Vector2(320, 60)
+	for value in ["Fluida", "Estándar", "Ultra", "Ultra HD"]:
+		quality.add_item(value)
+	quality.select(int(Settings.quality_tier))
+	quality.item_selected.connect(Settings.set_quality_tier)
+	row.add_child(quality)
+	box.add_child(UI.label("Los cambios se guardan automáticamente. El HUD se personaliza durante la partida.", 22, UI.MUTED))
 
-func _add_mode_button(parent: Control, label: String, mode: PartyMode) -> void:
-	var button := Button.new()
-	button.text = label
-	button.custom_minimum_size = Vector2(150, 48)
-	button.toggle_mode = true
-	_apply_button_style(button, false)
-	parent.add_child(button)
-	_mode_buttons[int(mode)] = button
-	button.pressed.connect(_set_mode.bind(mode))
+func _add_slider(box: Control, title: String, value: float, callback: Callable, minimum: float = 0.0) -> void:
+	var row := HBoxContainer.new()
+	row.custom_minimum_size.y = 54
+	row.add_theme_constant_override("separation", 24)
+	box.add_child(row)
+	var label := UI.label(title, 26)
+	label.custom_minimum_size.x = 270
+	row.add_child(label)
+	var slider := HSlider.new()
+	slider.min_value = minimum
+	slider.max_value = 1.0
+	slider.step = 0.01
+	slider.value = value
+	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(slider)
+	var amount := UI.label("%d%%" % roundi(value * 100), 26, UI.AMBER)
+	amount.custom_minimum_size.x = 72
+	row.add_child(amount)
+	slider.value_changed.connect(func(next: float) -> void:
+		callback.call(next)
+		amount.text = "%d%%" % roundi(next * 100)
+	)
 
-func _set_mode(mode: PartyMode) -> void:
-	selected_mode = mode
+func _close_character_panel() -> void:
+	if is_instance_valid(_overlay):
+		_overlay.queue_free()
+	_overlay = null
+	_character_panel = null
+	set_stage_covered(false)
+
+func set_stage_covered(covered: bool) -> void:
+	if is_instance_valid(_stage_view):
+		_stage_view.visible = not covered
+	if is_instance_valid(_stage_info):
+		_stage_info.visible = not covered
+
+func _select_character(character_id: StringName) -> void:
+	GuestIdentity.set_selected_character(character_id)
+	_close_character_panel()
+	_status_label.text = "OPERADOR EQUIPADO"
+
+func _set_mode(mode: int) -> void:
+	if mode not in [1, 2, 4]:
+		return
+	var party := SocialClient.current_party
+	if not Dictionary(party.get("match", {})).is_empty():
+		_status_label.text = "ESPERA A QUE TERMINE LA PARTIDA"
+		return
+	if mode > 1 and not party.is_empty() and String(party.get("leader_guest_id", "")) != GuestIdentity.guest_id:
+		_status_label.text = "SOLO EL LÍDER PUEDE CAMBIAR LA FORMACIÓN"
+		return
+	selected_mode = mode as PartyMode
 	_refresh_mode()
 
 func _refresh_mode() -> void:
 	for key in _mode_buttons:
 		var button: Button = _mode_buttons[key]
-		button.button_pressed = int(key) == int(selected_mode)
-		if button.button_pressed:
-			button.add_theme_color_override("font_color", Color.WHITE)
-		else:
-			button.remove_theme_color_override("font_color")
-	var formation_name := "SOLO" if selected_mode == PartyMode.SOLO else ("DÚO" if selected_mode == PartyMode.DUO else "ESCUADRA")
-	if _party_title != null:
-		_party_title.text = formation_name
-	if _start_button != null:
-		_start_button.text = "INICIAR %s" % formation_name
-	for index in range(_party_labels.size()):
-		var label := _party_labels[index]
-		if index == 0:
-			label.text = "1  %s\n   LÍDER" % _display_username()
-			label.modulate = Color.WHITE
-		elif index < int(selected_mode):
-			label.text = "%d  ESPERANDO JUGADOR" % (index + 1)
-			label.modulate = Color(0.72, 0.74, 0.78)
-		else:
-			label.text = "%d  CERRADO" % (index + 1)
-			label.modulate = Color(0.38, 0.40, 0.44)
+		button.set_pressed_no_signal(int(key) == int(selected_mode))
+		UI.skin_button(button, button.button_pressed)
+	var title := "SOLO" if selected_mode == 1 else ("DÚO" if selected_mode == 2 else "ESCUADRA")
+	_party_title.text = "TU EQUIPO  /  %s" % title
+	_start_button.text = "INICIAR %s" % title
+	_status_label.text = "PREPARADO" if selected_mode == 1 else "INVITA A TUS COMPAÑEROS"
 	update_party_members([], int(selected_mode))
-	_status_label.text = "SOLO" if selected_mode == PartyMode.SOLO else ("%s · FORMA TU EQUIPO" % formation_name)
 
 func update_party_members(members: Array, capacity: int) -> void:
-	var visible_members: Array = members.duplicate(true)
-	if visible_members.is_empty() and capacity > 0 and GuestIdentity.has_complete_profile():
-		visible_members.append({
-			"guest_id": GuestIdentity.guest_id,
-			"username": _display_username(),
-			"selected_character": _selected_character,
-			"leader": true,
-			"online": true,
-		})
-	for index in range(_party_avatars.size()):
-		var avatar := _party_avatars[index]
-		if index < visible_members.size():
-			var member := Dictionary(visible_members[index])
-			avatar.call("set_member", member, index)
+	var shown := members.duplicate(true)
+	if shown.is_empty():
+		shown.append({"guest_id": GuestIdentity.guest_id, "username": _display_username(), "selected_character": _selected_character, "leader": true, "online": true})
+	_stage_view.call("set_members", shown, capacity)
+	for index in range(_party_slots.size()):
+		_party_slots[index].visible = index < capacity
+		if index < shown.size():
+			var member: Dictionary = shown[index]
+			_party_labels[index].text = "%s\n%s" % [String(member.get("username", "Superviviente")), "LÍDER" if member.get("leader", false) else "EN EL EQUIPO"]
 		else:
-			avatar.call("set_empty", index)
+			_party_labels[index].text = "PLAZA LIBRE\nInvita por código"
+	if capacity > 1:
+		_character_name.text = "JUNTOS SOBREVIVIMOS"
+		_character_name.add_theme_font_size_override("font_size", 34)
+		_character_role.text = "%d / %d SUPERVIVIENTES" % [shown.size(), capacity]
+	else:
+		_character_name.add_theme_font_size_override("font_size", 46)
+		_refresh_character()
 
 func _refresh_identity() -> void:
-	if _username_label == null:
-		return
-	_username_label.text = _display_username()
-	if GuestIdentity.username.is_empty():
-		_build_username_editor()
-	elif _username_setup_panel != null and is_instance_valid(_username_setup_panel):
-		_username_setup_panel.queue_free()
-		_username_setup_panel = null
-		_username_editor = null
-
-func _build_username_editor() -> void:
-	if _username_setup_panel != null and is_instance_valid(_username_setup_panel):
-		return
-	_username_setup_panel = PanelContainer.new()
-	_username_setup_panel.name = "UsernameSetup"
-	_username_setup_panel.anchor_left = 0.5
-	_username_setup_panel.anchor_top = 0.5
-	_username_setup_panel.anchor_right = 0.5
-	_username_setup_panel.anchor_bottom = 0.5
-	_username_setup_panel.offset_left = -300.0
-	_username_setup_panel.offset_top = -120.0
-	_username_setup_panel.offset_right = 300.0
-	_username_setup_panel.offset_bottom = 120.0
-	_username_setup_panel.add_theme_stylebox_override("panel", _panel_style(Color(0.015, 0.020, 0.027, 0.98), Color(0.66, 0.07, 0.09, 0.78), 20))
-	_safe_root.add_child(_username_setup_panel)
-	var margin := MarginContainer.new()
-	_set_margins(margin, 24, 24, 20, 20)
-	_username_setup_panel.add_child(margin)
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 12)
-	margin.add_child(vbox)
-	var title := Label.new()
-	title.text = "ELIGE TU NOMBRE"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 24)
-	vbox.add_child(title)
-	var hint := Label.new()
-	hint.text = "1–12 caracteres · letras, números o _ · sin emojis"
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hint.add_theme_color_override("font_color", Color(0.64, 0.66, 0.70))
-	vbox.add_child(hint)
-	_username_editor = LineEdit.new()
-	_username_editor.max_length = 12
-	_username_editor.placeholder_text = "Nombre de superviviente"
-	_username_editor.custom_minimum_size = Vector2(0, 54)
-	vbox.add_child(_username_editor)
-	var confirm := Button.new()
-	confirm.text = "CONFIRMAR"
-	confirm.custom_minimum_size = Vector2(0, 54)
-	_apply_button_style(confirm, true)
-	vbox.add_child(confirm)
-	confirm.pressed.connect(_submit_username)
-	_username_editor.text_submitted.connect(func(_value: String) -> void: _submit_username())
-
-func _submit_username() -> void:
-	if _username_editor == null:
-		return
-	if GuestIdentity.set_username(_username_editor.text):
-		_status_label.text = "IDENTIDAD GUEST GUARDADA"
-	else:
-		_status_label.text = "NOMBRE INVÁLIDO · USA 1–12 LETRAS, NÚMEROS O _"
+	_username_label.text = "%s   /   ID %s" % [_display_username(), String(SocialClient.current_account.get("public_id", "—"))]
 
 func _display_username() -> String:
-	return GuestIdentity.username if not GuestIdentity.username.is_empty() else "NUEVO SUPERVIVIENTE"
-
-func _open_character_panel() -> void:
-	_character_panel.visible = true
-
-func _close_character_panel() -> void:
-	_character_panel.visible = false
-
-func _select_character(character_id: StringName) -> void:
-	GuestIdentity.set_selected_character(character_id)
-	_selected_character = character_id
-	_refresh_character()
-	_character_panel.visible = false
-	_status_label.text = "PERSONAJE SELECCIONADO"
+	return GuestIdentity.username if not GuestIdentity.username.is_empty() else "SUPERVIVIENTE"
 
 func _refresh_character() -> void:
 	var character := CharacterCatalog.get_character(_selected_character)
-	if _character_name != null:
-		_character_name.text = String(character.get("name", "OPERADOR"))
-	if _character_role != null:
-		_character_role.text = String(character.get("role", "SUPERVIVIENTE"))
-	if _character_mesh != null:
-		var material := StandardMaterial3D.new()
-		var accent: Color = character.get("accent", Color(0.65, 0.07, 0.09))
-		material.albedo_color = Color(accent.r * 0.75 + 0.12, accent.g * 0.75 + 0.12, accent.b * 0.75 + 0.12)
-		material.metallic = 0.18
-		material.roughness = 0.58
-		_character_mesh.material_override = material
-
-func _on_start_pressed() -> void:
-	if not GuestIdentity.has_complete_profile():
-		_status_label.text = "CONFIGURA UN NOMBRE ANTES DE INICIAR"
-		_build_username_editor()
-		return
-	if selected_mode != PartyMode.SOLO:
-		# LobbySocialOverlay is the single owner of online party start/admission.
-		return
-	_start_button.disabled = true
-	_status_label.text = "PREPARANDO PARTIDA..."
-	start_requested.emit(int(selected_mode))
+	_character_name.text = character.name
+	_character_role.text = "%s  /  ARRASTRA PARA GIRAR" % character.role
 
 func _on_identity_username_changed(_username: String) -> void:
 	_refresh_identity()
-	_refresh_mode()
 
 func _on_identity_character_changed(character_id: StringName) -> void:
 	_selected_character = character_id
-	_refresh_character()
+	var members: Array = Array(SocialClient.current_party.get("members", [])).duplicate(true)
+	for member in members:
+		if String(member.get("guest_id", "")) == GuestIdentity.guest_id:
+			member["selected_character"] = character_id
+	update_party_members(members, int(selected_mode))
 
-func _show_coming_soon(section: String) -> void:
-	_status_label.text = "%s · SIGUIENTE BLOQUE DE PHASE 11" % section.to_upper()
-
-func _set_margins(container: MarginContainer, left: int, right: int, top: int, bottom: int) -> void:
-	container.add_theme_constant_override("margin_left", left)
-	container.add_theme_constant_override("margin_right", right)
-	container.add_theme_constant_override("margin_top", top)
-	container.add_theme_constant_override("margin_bottom", bottom)
-
-func _panel_style(background: Color, border: Color, radius: int) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = background
-	style.border_color = border
-	style.set_border_width_all(1)
-	style.corner_radius_top_left = radius
-	style.corner_radius_top_right = radius
-	style.corner_radius_bottom_left = radius
-	style.corner_radius_bottom_right = radius
-	return style
-
-func _apply_button_style(button: Button, primary: bool) -> void:
-	var normal_bg := Color(0.62, 0.035, 0.045, 0.94) if primary else Color(0.035, 0.042, 0.052, 0.94)
-	var hover_bg := Color(0.74, 0.045, 0.055, 1.0) if primary else Color(0.060, 0.068, 0.080, 1.0)
-	var border := Color(0.88, 0.12, 0.14, 0.82) if primary else Color(0.28, 0.31, 0.36, 0.72)
-	button.add_theme_stylebox_override("normal", _panel_style(normal_bg, border, 10))
-	button.add_theme_stylebox_override("hover", _panel_style(hover_bg, border, 10))
-	button.add_theme_stylebox_override("pressed", _panel_style(Color(0.48, 0.025, 0.035, 1.0), Color(1.0, 0.20, 0.22, 0.90), 10))
-	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+func _on_start_pressed() -> void:
+	if not GuestIdentity.has_complete_profile():
+		_status_label.text = "COMPLETA TU CUENTA ANTES DE INICIAR"
+		return
+	if selected_mode != PartyMode.SOLO:
+		return
+	_start_button.disabled = true
+	_status_label.text = "PREPARANDO PARTIDA"
+	start_requested.emit(int(selected_mode))

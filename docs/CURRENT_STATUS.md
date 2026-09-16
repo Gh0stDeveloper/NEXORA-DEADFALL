@@ -1,6 +1,6 @@
 # NEXORA: DEADFALL — Current Status
 
-Last updated: 2026-09-14.
+Last updated: 2026-09-16.
 
 This file is the short operational source of truth for the project. For the complete development sequence read `docs/ROADMAP.md`; for a new-chat continuation read `docs/HANDOFF_BETA_5.md`.
 
@@ -17,11 +17,24 @@ This file is the short operational source of truth for the project. For the comp
 - Content version: `1`.
 - Maximum party size: `4`.
 
-## Access/loading recovery checkpoint — source only
+## Tactical presentation phase — implemented and locally validated
 
-Guest login now recovers from immediate request-start failures, validates session responses before reporting success, returns rejected names to the editable input and limits automatic missing-account recovery. Match loading animation uses elapsed time and resets visibly on retry. A new login/loading regression is wired into the strict compile gate.
+The recovered redesign now includes threaded visual boot/loading, robust verified
+guest access/retry, a tactical amber/cyan lobby and shared Solo/Duo/Squad stage,
+operator/arsenal/settings panels, fitted skinned operators and zombie variants,
+detailed visible first-person weapons, and original music/ambience/effects with
+persistent volume controls. Hidden stages stop rendering and headless servers skip
+presentation work.
 
-The full requested tactical presentation redesign was not uploaded before the local execution environment became unavailable. These reconstructed fixes have received source review but have not been run in Godot or exported to Android. See `docs/HANDOFF_PRESENTATION_RECOVERY.md` for the exact scope, remaining work and recovery details. This does not change the last verified production deployment or physical beta acceptance status.
+All 16 local regression/integration gates passed with Godot 4.6.3. A rendered
+end-to-end test also passed real local HTTP account registration/retry, lobby and
+formation panels, saved operator/audio choices, Solo Campaign and all three
+weapons. The new graphical CI step retains logs/captures. See
+`docs/HANDOFF_TACTICAL_PRESENTATION.md` for exact scope and reproduction commands.
+
+This is a source delivery on the active branch. A new Android APK, physical-device
+acceptance and production deployment remain pending. It does not change the last
+verified production deployment below. PR #1 remains Draft.
 
 ## Last verified production deployment
 
@@ -203,16 +216,20 @@ Verified animation capabilities:
 
 ## Mobile presentation/performance already implemented
 
-- Lobby 2.0 visual pass.
-- Central 3D character stage.
-- Own procedural operator models with MARA/DANTE palette variants, normalized visual height, used by default in lobby and gameplay.
-- Party rail with 2/4 visible procedural avatars, identity, leader and ping status.
-- Procedural first-person rifle/pistol/machete view models; the infinite machete remains server-authoritative.
-- Procedural zombie presentation around 1.60 m for the base walker, with aligned fallback visuals/hitboxes and gore forwarding.
-- Lobby turntable preview; the external GLB path remains only as optional compatibility fallback (runtime presenters use USE_EXTERNAL_MODELS := false).
-- Quality tiers controlling render scale, mesh LOD, MSAA and FPS target.
-- Zombie visual distance culling by quality tier.
-- Presentation GLBs disabled on dedicated/headless processes.
+- Original hangar artwork, tactical theme, icons and Rajdhani font.
+- Threaded boot and staged account/match loading with usable failure/retry flows.
+- Shared 3D Solo/Duo/Squad stage, member identity, vacancies, leader/ping status.
+- Rotating operator/weapon inspection, social dialogs and persistent settings.
+- MARA/DANTE skinned models with fitted equipment and procedural limb/weapon IK.
+- Rifle, pistol and machete with first-person hands, recoil and muzzle feedback.
+- Animated zombie variants with persistent limb removal and native fallback.
+- Original music, ambience, weapon/UI/footstep/zombie cues; bounded voices and
+  persistent Master/Music/SFX/UI/Ambience buses.
+- Cached/batched geometry, hidden-stage suspension, render/animation budgets and
+  quality tiers; presentation and audio disabled on dedicated/headless processes.
+
+The legacy `USE_EXTERNAL_MODELS := false` flag now selects the character factory,
+which itself uses the normalized skinned models; it does not disable GLB loading.
 
 ## Android build/deployment hardening already implemented
 
@@ -279,16 +296,12 @@ The active branch now contains the contained portal/history implementation:
 
 This source pass is not a new Android runtime deployment. The VPS web-only build, HTTPS route check and mobile-browser validation remain pending.
 
-## Current presentation patch
+## Current source and release distinction
 
-The active branch now contains a presentation-only multiplayer/lobby pass that is not a new deployed beta runtime yet:
-
-- Duo/Squad slots render each admitted member's selected operator as a small procedural 3D avatar.
-- Runtime player/zombie presenters default to first-party procedural geometry; external GLBs are not loaded by default.
-- Player visual height is kept below the authoritative standing collider; the base zombie target is about 1.64 m.
-- Match assignment validation accepts only the production UDP range 24600-24749 and 64-character hexadecimal tickets.
-- Mobile touch buttons now use the explicit router path without duplicate emulated clicks; the previously malformed `TouchActionButton.gd` draw branch was repaired.
-- These changes still require the real VPS gates and physical Android acceptance before any beta runtime publication.
+The tactical presentation phase is locally tested source. Export a fresh Android
+build through the existing validated pipeline, then repeat the physical tests
+below. The screenshots and Linux tests do not certify Android performance or
+establish a newly deployed beta runtime.
 
 ## Immediate next gate: physical beta.5 acceptance
 
@@ -315,8 +328,8 @@ Priority depends on physical-test findings, but planned work includes:
 
 - fix any blocker discovered by beta.5 physical testing before adding unrelated systems;
 - improve the download portal and add version-history/changelog navigation;
-- finish full settings screen and HUD editor;
-- add production audio buses, weapon/zombie/ambient/music/UI audio;
+- finish remaining HUD editor customization and physical touch usability;
+- validate the new audio mix on actual Android speakers/headphones;
 - improve/expand environment art and level dressing;
 - add/retarget full player locomotion/combat/death animations;
 - add verified zombie Hurt/Death presentation;
@@ -335,5 +348,6 @@ Do not start by re-planning the project from zero. Fetch the current branch, rea
 3. `docs/ROADMAP.md`
 4. `docs/DOWNLOAD_PORTAL_PLAN.md`
 5. `docs/beta/RELEASE_HISTORY.md`
+6. `docs/HANDOFF_TACTICAL_PRESENTATION.md`
 
 Then continue from the first unchecked item in the immediate plan.

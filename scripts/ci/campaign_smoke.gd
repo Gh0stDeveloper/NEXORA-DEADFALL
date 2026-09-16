@@ -1,21 +1,31 @@
 extends SceneTree
 
-const CampaignDirectorScript = preload("res://src/campaign/CampaignDirector.gd")
+var _game: Node
+
+var CampaignDirectorScript: Script
 const SaveStoreScript = preload("res://src/campaign/CampaignSaveStore.gd")
 const Mission1 = preload("res://src/campaign/data/mission_01_first_signal.tres")
 const Mission2 = preload("res://src/campaign/data/mission_02_last_broadcast.tres")
-const CampaignArenaScene = preload("res://src/maps/campaign/OutbreakDistrict.tscn")
-const PlayerScene = preload("res://src/player/Player.tscn")
-const PlayerControllerScript = preload("res://src/player/PlayerController.gd")
+var CampaignArenaScene: PackedScene
+var PlayerScene: PackedScene
+var PlayerControllerScript: Script
 
 func _initialize() -> void:
-	Game.start_local_session()
+	call_deferred("_run")
+
+func _run() -> void:
+	_game = root.get_node("Game")
+	CampaignDirectorScript = load("res://src/campaign/CampaignDirector.gd")
+	CampaignArenaScene = load("res://src/maps/campaign/OutbreakDistrict.tscn")
+	PlayerScene = load("res://src/player/Player.tscn")
+	PlayerControllerScript = load("res://src/player/PlayerController.gd")
+	_game.start_local_session()
 	if not _test_mission_one(): return
 	if not _test_mission_two(): return
 	if not _test_failure_checkpoint_restart(): return
 	if not _test_checkpoint_store(): return
 	if not _test_campaign_scene_contract(): return
-	Game.stop_session()
+	_game.stop_session()
 	if not _test_client_authority_rejection(): return
 	print("NEXORA: DEADFALL campaign smoke test passed")
 	quit(0)
@@ -102,7 +112,7 @@ func _test_campaign_scene_contract() -> bool:
 	return true
 
 func _test_client_authority_rejection() -> bool:
-	Game.start_network_client_session()
+	_game.start_network_client_session()
 	var director = CampaignDirectorScript.new()
 	director.set("mission", Mission1)
 	root.add_child(director)
@@ -111,7 +121,7 @@ func _test_client_authority_rejection() -> bool:
 	var status: Dictionary = director.call("get_status_snapshot")
 	if int(status.get("objective_index", -1)) != 2 or String(status.get("mission_id", "")) != "mission_01_first_signal": return _fail("Campaign replica snapshot did not apply")
 	director.free()
-	Game.stop_session()
+	_game.stop_session()
 	return true
 
 func _make_fixture(mission: Resource, entity_id: int) -> Dictionary:
@@ -144,6 +154,6 @@ func _make_fixture(mission: Resource, entity_id: int) -> Dictionary:
 
 func _fail(message: String) -> bool:
 	push_error(message)
-	if Game.session_mode != Game.SessionMode.NONE: Game.stop_session()
+	if _game.session_mode != _game.SessionMode.NONE: _game.stop_session()
 	quit(1)
 	return false

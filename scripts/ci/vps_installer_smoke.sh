@@ -37,7 +37,7 @@ for file in \
 done
 
 grep -Fq 'config/icon="res://assets/branding/deadfall_icon.svg"' project.godot
-grep -Fq 'deadfall-release.keystore' deploy/vps/install.sh
+grep -Fq 'deadfall-release.keystore' deploy/vps/lib/common.sh
 grep -Fq 'Keystore existente: NO se regenera' deploy/vps/install.sh
 grep -Fq 'gh auth setup-git' deploy/vps/install.sh
 grep -Fq 'gh auth login --hostname github.com --git-protocol https' deploy/vps/install.sh
