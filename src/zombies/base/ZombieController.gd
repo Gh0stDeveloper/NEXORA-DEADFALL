@@ -14,7 +14,7 @@ const DamageEventScript = preload("res://src/core/damage/DamageEvent.gd")
 @export var zombie_data: Resource
 @export var target_group: StringName = &"deadfall_player"
 @export_flags_3d_physics var visibility_mask: int = 1
-@export var debug_state_logs := true
+@export var debug_state_logs := false
 
 @onready var navigation_agent: NavigationAgent3D = $NavigationAgent3D
 @onready var health: Node = $Health
@@ -22,7 +22,7 @@ const DamageEventScript = preload("res://src/core/damage/DamageEvent.gd")
 @onready var collision_shape: CollisionShape3D = $CollisionShape3D
 @onready var hitboxes: Node3D = $Hitboxes
 @onready var visual_root: Node3D = $VisualRoot
-@onready var state_label: Label3D = $StateLabel
+@onready var state_label: Label3D = get_node_or_null("VisualRoot/StateLabel")
 
 var state: int = State.IDLE
 var authority_override: RefCounted
@@ -40,9 +40,21 @@ var _death_hit_direction := Vector3.ZERO
 var _crawler_mode := false
 var _attack_damage_multiplier := 1.0
 var _attack_cooldown_multiplier := 1.0
+var _horde_pursuit := false
+var _path_requested := false
+var _sight_elapsed := 0.0
+var _cached_sight := false
+
+func _enter_tree() -> void:
+	preload("res://src/core/PresentationRuntime.gd").attach_actor(self, "res://src/zombies/base/ZombiePresentation.tscn", true)
 
 func _ready() -> void:
 	_gravity = float(ProjectSettings.get_setting("physics/3d/default_gravity", 9.8))
+	# Crawling changes this shape. Each zombie must own its capsule.
+	if collision_shape.shape != null:
+		collision_shape.shape = collision_shape.shape.duplicate(true)
+	_scan_elapsed = -float(entity_id % 11) * 0.02
+	_repath_elapsed = -float(entity_id % 7) * 0.035
 	if health.has_method("configure_entity"): health.call("configure_entity", entity_id, _cfg_float(&"max_health", 100.0))
 	for child in hitboxes.get_children(): child.set("victim_id", entity_id)
 	if health.has_signal("health_changed"): health.connect("health_changed", Callable(self, "_on_health_changed"))
@@ -53,15 +65,21 @@ func _ready() -> void:
 		if gore.has_signal("attack_capability_changed"): gore.connect("attack_capability_changed", Callable(self, "_on_attack_capability_changed"))
 		if gore.has_signal("head_destroyed"): gore.connect("head_destroyed", Callable(self, "_on_head_destroyed"))
 	navigation_agent.path_desired_distance = 0.35
+	# Recast's 0.25 m voxel bake places the walkable surface about 0.5 m
+	# above the collider floor. Without this offset the first waypoint is
+	# vertically farther than path_desired_distance, so its XZ never advances.
+	navigation_agent.path_height_offset = 0.5
 	navigation_agent.target_desired_distance = maxf(0.45, _effective_attack_range() * 0.55)
 	navigation_agent.radius = 0.45
 	navigation_agent.avoidance_enabled = false
-	state_label.visible = "--show-ai-debug" in OS.get_cmdline_user_args() and DisplayServer.get_name() != "headless"
+	if state_label != null:
+		state_label.visible = "--show-ai-debug" in OS.get_cmdline_user_args()
 	_update_debug_label()
 
 func _physics_process(delta: float) -> void:
 	if not has_simulation_authority() or state == State.DEAD: return
 	_state_elapsed += delta; _scan_elapsed += delta; _repath_elapsed += delta
+	_sight_elapsed += delta
 	_process_vertical_velocity(delta)
 	match state:
 		State.IDLE: _process_idle()
@@ -82,6 +100,28 @@ func get_target() -> Node3D: return _target
 func is_crawler() -> bool: return _crawler_mode
 func get_attack_damage_multiplier() -> float: return _attack_damage_multiplier
 func get_attack_cooldown_multiplier() -> float: return _attack_cooldown_multiplier
+
+func enable_horde_pursuit() -> void:
+	# Horde members are dispatched toward the survivors, including around corners.
+	# Ambient zombies retain their normal sight/range acquisition behavior.
+	_horde_pursuit = true
+	var candidate := _find_horde_target()
+	if candidate != null:
+		_set_target(candidate)
+		_transition_to(State.CHASE, "horde_dispatched")
+
+func _find_horde_target() -> Node3D:
+	var best: Node3D
+	var best_distance := INF
+	for node in get_tree().get_nodes_in_group(target_group):
+		var candidate := node as Node3D
+		if not _target_is_alive(candidate):
+			continue
+		var distance := global_position.distance_squared_to(candidate.global_position)
+		if distance < best_distance:
+			best = candidate
+			best_distance = distance
+	return best
 
 func perform_melee_attack(target: Node3D) -> bool:
 	if not has_simulation_authority() or state != State.ATTACK: return false
@@ -106,7 +146,7 @@ func _process_idle() -> void:
 	_stop_horizontal()
 	if _scan_elapsed < _cfg_float(&"scan_interval_seconds", 0.2): return
 	_scan_elapsed = 0.0
-	var candidate := _find_visible_target()
+	var candidate := _find_horde_target() if _horde_pursuit else _find_visible_target()
 	if candidate != null: _set_target(candidate); _transition_to(State.CHASE, "target_acquired")
 
 func _process_search() -> void:
@@ -124,9 +164,25 @@ func _process_search() -> void:
 func _process_chase(delta: float) -> void:
 	if not _target_is_alive(_target): _set_target(null); _transition_to(State.IDLE, "target_invalid"); return
 	var distance := global_position.distance_to(_target.global_position)
+	if _horde_pursuit:
+		if _scan_elapsed >= 1.0:
+			_scan_elapsed = 0.0
+			var candidate := _find_horde_target()
+			if candidate != null:
+				_set_target(candidate)
+		_last_known_position = _target.global_position
+		_has_last_known_position = true
+		if _is_target_in_attack_range(_target, 1.0) and _can_see_target(_target):
+			_transition_to(State.ATTACK, "horde_in_attack_range")
+			return
+		_move_towards_destination(_target.global_position)
+		return
 	if distance > _cfg_float(&"lose_target_range", 30.0):
 		_last_known_position = _target.global_position; _has_last_known_position = true; _set_target(null); _transition_to(State.SEARCH, "target_out_of_range"); return
-	if _can_see_target(_target):
+	if _sight_elapsed >= 0.2:
+		_sight_elapsed = 0.0
+		_cached_sight = _can_see_target(_target)
+	if _cached_sight:
 		_sight_lost_elapsed = 0.0; _last_known_position = _target.global_position; _has_last_known_position = true
 	else:
 		_sight_lost_elapsed += delta
@@ -158,13 +214,31 @@ func _process_vertical_velocity(delta: float) -> void:
 	else: velocity.y -= _gravity * delta
 
 func _move_towards_destination(destination: Vector3) -> void:
-	var repath_interval := _cfg_float(&"repath_interval_seconds", 0.25)
-	if _repath_elapsed >= repath_interval or navigation_agent.target_position.distance_squared_to(destination) > 0.25:
-		navigation_agent.target_position = destination; _repath_elapsed = 0.0
-	var movement_target := destination; var used_navigation := false
-	if navigation_agent.get_navigation_map().is_valid() and not navigation_agent.is_navigation_finished():
+	var repath_interval := maxf(0.35, _cfg_float(&"repath_interval_seconds", 0.25))
+	var map := navigation_agent.get_navigation_map()
+	var map_ready := map.is_valid() and NavigationServer3D.map_get_iteration_id(map) > 0
+	var changed := navigation_agent.target_position.distance_squared_to(destination) > 0.36
+	var requested_now := false
+	if map_ready and (not _path_requested or (_repath_elapsed >= repath_interval and (changed or navigation_agent.is_navigation_finished()))):
+		navigation_agent.target_position = destination
+		_repath_elapsed = 0.0
+		_path_requested = true
+		requested_now = true
+	var movement_target := destination
+	var used_navigation := false
+	if map_ready and (requested_now or not navigation_agent.is_navigation_finished()):
 		var next_position := navigation_agent.get_next_path_position()
-		if next_position.distance_squared_to(global_position) > 0.01: movement_target = next_position; used_navigation = true
+		if navigation_agent.get_current_navigation_path().size() > 0:
+			movement_target = next_position
+			used_navigation = true
+	if not used_navigation:
+		# Direct movement is only safe along an unobstructed segment. Never push
+		# forever against a wall when a map is baking or a route is unavailable.
+		var query := PhysicsRayQueryParameters3D.create(global_position + Vector3.UP * 0.8, destination + Vector3.UP * 0.8, visibility_mask)
+		query.exclude = [get_rid()]
+		if not get_world_3d().direct_space_state.intersect_ray(query).is_empty():
+			_stop_horizontal()
+			return
 	if not used_navigation and not _navigation_fallback_announced:
 		_navigation_fallback_announced = true; navigation_fallback_used.emit()
 		if debug_state_logs and OS.is_debug_build(): print("DEADFALL_ZOMBIE_NAV_FALLBACK entity=%d" % entity_id)
@@ -218,6 +292,8 @@ func _is_target_collider(collider: Node, target: Node3D) -> bool:
 func _set_target(value: Node3D) -> void:
 	if _target == value: return
 	_target = value
+	_sight_elapsed = 1.0
+	_path_requested = false
 	if _target != null: _last_known_position = _target.global_position; _has_last_known_position = true
 	target_changed.emit(_target)
 
@@ -245,7 +321,8 @@ func _on_crawler_required(_event) -> void:
 	if capsule != null:
 		var crawler_height := maxf(capsule.radius * 2.0, _cfg_float(&"crawler_height", 0.85)); capsule.height = crawler_height; collision_shape.position.y = crawler_height * 0.5
 	navigation_agent.radius = 0.35; navigation_agent.target_desired_distance = maxf(0.40, _effective_attack_range() * 0.55)
-	visual_root.rotation_degrees.x = -58.0; visual_root.position.y = 0.58; state_label.position.y = 1.35
+	visual_root.rotation_degrees.x = -58.0; visual_root.position.y = 0.58
+	if state_label != null: state_label.position.y = 1.35
 	crawler_mode_changed.emit(true); _update_debug_label()
 
 func _on_attack_capability_changed(damage_multiplier: float, cooldown_multiplier: float) -> void:
@@ -265,7 +342,8 @@ func _disable_after_death() -> void:
 	for child in hitboxes.get_children():
 		var area := child as Area3D
 		if area != null: area.collision_layer = 0; area.collision_mask = 0; area.set_deferred("monitoring", false); area.set_deferred("monitorable", false)
-	state_label.visible = false; visual_root.rotation_degrees.z = 82.0
+	if state_label != null: state_label.visible = false
+	visual_root.rotation_degrees.z = 82.0
 	var manager := get_tree().root.get_node_or_null("Gore") if get_tree() != null else null
 	if manager != null:
 		var corpse_slot := int(manager.call("spawn_corpse", global_transform, _death_hit_direction))

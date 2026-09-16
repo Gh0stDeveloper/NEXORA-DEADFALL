@@ -345,6 +345,8 @@ func _spawn_zombie(data: Resource) -> Node3D:
 	zombie.name = "%s_%d" % [String(data.get("display_name")).replace(" ", ""), entity_id]
 	_zombie_parent.add_child(zombie)
 	zombie.global_position = spawn_point.global_position
+	if zombie.has_method("enable_horde_pursuit"):
+		zombie.call("enable_horde_pursuit")
 	var health := zombie.get_node_or_null("Health")
 	if health == null:
 		zombie.queue_free()

@@ -24,7 +24,7 @@ func _ready() -> void:
 	_build_geometry()
 	var selected := Mission2 if mission_id == &"mission_02_last_broadcast" else Mission1
 	campaign.set("mission", selected)
-	if not Game.is_network_client() and (DisplayServer.get_name() != "headless" or Game.is_dedicated_server()):
+	if not Game.is_network_client():
 		call_deferred("_build_navigation")
 	if Game.is_local_session():
 		_spawn_local_player()

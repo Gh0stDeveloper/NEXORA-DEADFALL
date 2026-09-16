@@ -66,3 +66,26 @@ dispositivos/VPS del propietario; no presentar pruebas locales como esas medidas
 Pendiente para estas nuevas fases. Godot local disponible: 4.6.3 estable.
 La compilación y pruebas de presentación de beta.5 y el portal se validaron en
 la fase anterior; no sustituyen las pruebas de esta ciudad y nueva simulación.
+
+### Checkpoint 1 — persecución y separación de presentación
+
+Implementado: escenas base sin recursos visuales; PlayerPresentation,
+ZombiePresentation y AmmoPickupPresentation se cargan sólo con pantalla. La
+puntería autoritativa usa Node3D, sin Camera3D. Cápsulas de zombis independientes.
+Dedicado limitado a 60 frames/s, sin cambiar los 60 ticks de física. Registros
+DEADFALL_SERVER_PERF cada diez segundos con intervalos de tick y costo/payload de
+snapshots. El lobby distingue API de PARTIDA y no convierte 25 ms en cero.
+
+La prueba reprodujo además el bloqueo principal: Recast devuelve puntos a y=0.5
+m sobre el suelo, mientras path_desired_distance era 0.35 m. El agente nunca
+avanzaba el primer punto y el movimiento XZ quedaba en cero. path_height_offset
+corrige ese desfase. Las hordas ahora reciben una orden de persecución persistente.
+
+Validación: gameplay_compile_smoke pasó. server_navigation_smoke pasó recorriendo
+una ruta de 10 puntos alrededor de la clínica desde más de 29 m de distancia hasta
+1.79 m del jugador; comprobó ausencia de nodos de presentación en actores/mapa y
+que activar crawler no deforma otro zombi. El indicador HTTP está cambiando a
+HTTPClient persistente con tiempo de conexión separado: pendiente prueba específica.
+Pendientes: regresiones históricas adaptadas a escenas visuales separadas, prueba
+ENet con cuatro clientes y mediciones. La nueva ciudad está en construcción y aún
+no sustituye el mapa en este checkpoint.

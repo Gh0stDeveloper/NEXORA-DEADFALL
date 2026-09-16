@@ -360,7 +360,7 @@ func _set_ping(raw_ms: int) -> void:
 		_display_ping_ms = 999
 		_ping_quality = "SIN CONEXIÓN"
 	elif _raw_ping_ms <= EXCELLENT_PING_THRESHOLD_MS:
-		_display_ping_ms = 0
+		_display_ping_ms = _raw_ping_ms
 		_ping_quality = "EXCELENTE"
 	elif _raw_ping_ms <= 70:
 		_display_ping_ms = _raw_ping_ms

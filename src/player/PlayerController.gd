@@ -36,7 +36,7 @@ const PlayerCommandScript = preload("res://src/network/PlayerCommand.gd")
 @onready var life_state: Node = $LifeState
 @onready var collision_shape: CollisionShape3D = $CollisionShape3D
 @onready var visual_root: Node3D = $VisualRoot
-@onready var visual_body: MeshInstance3D = $VisualRoot/Body
+@onready var visual_body: MeshInstance3D = get_node_or_null("VisualRoot/Body")
 @onready var camera_rig: DeadfallCameraRig = $CameraRig
 
 var stance: Stance = Stance.STAND
@@ -50,6 +50,9 @@ var _processed_crouch_serial := 0
 var _processed_prone_serial := 0
 var _last_server_sequence := -1
 var _server_command: Dictionary = {}
+
+func _enter_tree() -> void:
+	preload("res://src/core/PresentationRuntime.gd").attach_actor(self, "res://src/player/PlayerPresentation.tscn", false)
 
 func _ready() -> void:
 	_gravity = float(ProjectSettings.get_setting("physics/3d/default_gravity", 9.8))
@@ -248,8 +251,9 @@ func _apply_stance_geometry(target: Stance) -> void:
 	if capsule != null:
 		capsule.height = target_height
 		collision_shape.position.y = target_height * 0.5
-	visual_body.scale.y = target_height / standing_height
-	visual_body.position.y = target_height * 0.5
+	if visual_body != null:
+		visual_body.scale.y = target_height / standing_height
+		visual_body.position.y = target_height * 0.5
 	camera_rig.position.y = _eye_height_for_stance(target)
 
 func _height_for_stance(value: Stance) -> float:

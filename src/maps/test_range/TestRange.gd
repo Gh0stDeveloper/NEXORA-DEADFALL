@@ -7,12 +7,12 @@ var _navigation_region: NavigationRegion3D
 func _ready() -> void:
 	_build_environment()
 	_build_geometry()
-	# The prototype range bakes a tiny runtime navmesh on visual clients. Server
-	# production maps will ship prebaked navigation data rather than doing this.
-	if DisplayServer.get_name() != "headless":
+	if not Game.is_network_client():
 		call_deferred("_build_navigation")
 
 func _build_environment() -> void:
+	if not preload("res://src/core/PresentationRuntime.gd").enabled():
+		return
 	var environment_node := WorldEnvironment.new()
 	environment_node.name = "WorldEnvironment"
 	var environment := Environment.new()

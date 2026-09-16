@@ -100,7 +100,7 @@ func _consume_cooldown() -> bool:
 func _resolve_authoritative_melee(sequence: int, simulation_tick: int) -> void:
 	if not _is_simulation_authority() or _camera_rig == null or not _camera_rig.has_method("get_aim_camera"):
 		return
-	var camera := _camera_rig.call("get_aim_camera") as Camera3D
+	var camera := _camera_rig.call("get_aim_camera") as Node3D
 	if camera == null or camera.get_world_3d() == null:
 		return
 	var origin := camera.global_position
