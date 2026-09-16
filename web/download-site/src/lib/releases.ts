@@ -59,7 +59,7 @@ function isCatalog(value: unknown): value is ReleaseCatalog {
     if (!isRecord(release)) return false;
     return (
       typeof release.version === "string" &&
-      typeof release.version_code === "number" &&
+      (release.version_code === null || typeof release.version_code === "number") &&
       typeof release.status === "string" &&
       ["current", "superseded", "withdrawn"].includes(release.status) &&
       typeof release.summary === "string" &&
@@ -75,7 +75,9 @@ function isCatalog(value: unknown): value is ReleaseCatalog {
 
 async function readRuntimeCatalog(): Promise<ReleaseCatalog | null> {
   try {
-    const raw = await fs.readFile(historyPath, "utf8");
+    // Managed runtime data lives outside the standalone app and changes after
+    // APK publication. Do not trace the whole source tree for this dynamic path.
+    const raw = await fs.readFile(/* turbopackIgnore: true */ historyPath, "utf8");
     const parsed: unknown = JSON.parse(raw);
     return isCatalog(parsed) ? parsed : null;
   } catch {

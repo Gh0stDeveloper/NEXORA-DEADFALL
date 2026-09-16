@@ -2,6 +2,7 @@
 set -euo pipefail
 ROOT_FALLBACK="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$ROOT_FALLBACK/deploy/vps/lib/common.sh"
+source "$ROOT_FALLBACK/deploy/vps/lib/portal.sh"
 require_root
 load_env
 ORIGINAL_ARGS=("$@")
@@ -96,28 +97,6 @@ run_android_template_patch_gate(){
   log "Validando sanitización reproducible del template Android/Manifest Merger..."
   bash "$DEADFALL_ROOT/scripts/ci/android_template_patch_smoke.sh"
 }
-validate_portal_routes(){
-  local base_url="$1"
-  curl -fsS --max-time 5 "$base_url/" | grep -Fq "DEADFALL."
-  curl -fsS --max-time 5 "$base_url/versiones" | grep -Fq "Historial de versiones."
-  local current_version
-  current_version="$(jq -r '.current // empty' "$DEADFALL_PUBLIC_DIR/releases.json")"
-  [[ -n "$current_version" ]] || die "El historial público no declara current."
-  curl -fsS --max-time 5 "$base_url/releases.json" | jq -e --arg current "$current_version" '.schema_version == 1 and .current == $current and ([.releases[] | select(.version == $current)] | length) == 1' >/dev/null ||     die "El endpoint público de historial no coincide con current."
-  curl -fsS --max-time 5 "$base_url/versiones/$current_version" | grep -Fq "Integridad del archivo"
-  local invalid_status
-  invalid_status="$(curl -sS --max-time 5 -o /dev/null -w '%{http_code}' "$base_url/versiones/no-existe")"
-  [[ "$invalid_status" == "404" ]] || die "El portal no devuelve 404 para una versión inexistente."
-  if [[ -f "$DEADFALL_PUBLIC_DIR/release.json" ]]; then
-    local public_sha
-    public_sha="$(jq -r '.sha256 // empty' "$DEADFALL_PUBLIC_DIR/release.json")"
-    if [[ -n "$public_sha" ]]; then
-      curl -fsS --max-time 5 "$base_url/versiones/$current_version" | grep -Fq "$public_sha" ||         die "El SHA-256 publicado no aparece en la ficha actual del portal."
-    fi
-  fi
-}
-
-
 if [[ "$NETWORK_ONLY" -eq 1 ]]; then
   prepare_validation_project
   run_strict_gameplay_compile_gate
@@ -199,7 +178,7 @@ if [[ "$WEB" -eq 1 || "$APP" -eq 1 ]]; then
   systemctl restart nexora-deadfall-download
   PORTAL_OK=0
   for _attempt in $(seq 1 20); do
-    if curl -fsS --max-time 3 http://127.0.0.1:3100/ >/dev/null; then
+    if curl -fsS --max-time 3 http://127.0.0.1:3100/ >/dev/null 2>&1; then
       PORTAL_OK=1
       break
     fi
@@ -215,7 +194,8 @@ if [[ "$WEB" -eq 1 || "$APP" -eq 1 ]]; then
         die "Nginx HTTPS no está sirviendo DEADFALL para $DEADFALL_DOMAIN. Revisa el vhost 443 activo."
       PUBLIC_CURRENT_VERSION="$(jq -r '.current // empty' "$DEADFALL_PUBLIC_DIR/releases.json")"
       curl -kfsS --max-time 8 --resolve "$DEADFALL_DOMAIN:443:127.0.0.1" "https://$DEADFALL_DOMAIN/releases.json" |         jq -e --arg current "$PUBLIC_CURRENT_VERSION" '.schema_version == 1 and .current == $current and ([.releases[] | select(.version == $current)] | length) == 1' >/dev/null ||         die "Nginx HTTPS no está publicando un historial válido."
-      curl -kfsS --max-time 8 --resolve "$DEADFALL_DOMAIN:443:127.0.0.1" "https://$DEADFALL_DOMAIN/versiones/$PUBLIC_CURRENT_VERSION" |         grep -Fq "Integridad del archivo" || die "La ficha current no está disponible detrás de HTTPS."
+      PUBLIC_DETAIL="$(curl -kfsS --max-time 8 --resolve "$DEADFALL_DOMAIN:443:127.0.0.1" "https://$DEADFALL_DOMAIN/versiones/$PUBLIC_CURRENT_VERSION")" || die "La ficha current no está disponible detrás de HTTPS."
+      grep -Fq "Integridad del archivo" <<<"$PUBLIC_DETAIL" || die "La ficha current no contiene la información de integridad detrás de HTTPS."
       if ! curl -fsS --max-time 5 -H "Host: $DEADFALL_DOMAIN" http://127.0.0.1/ >/dev/null; then
         warn "El puerto HTTP/80 local no pertenece a DEADFALL (puede estar ocupado por otro servicio). HTTPS está correcto y será la ruta pública prioritaria."
       fi

@@ -41,6 +41,8 @@ For development or a new ChatGPT/Codex session, read these in order:
 4. [Download portal/version-history plan](docs/DOWNLOAD_PORTAL_PLAN.md)
 5. [Closed Beta release history](docs/beta/RELEASE_HISTORY.md)
 6. [Persistent architecture/project context](docs/PROJECT_CONTEXT.md)
+7. [Tactical presentation delivery](docs/HANDOFF_TACTICAL_PRESENTATION.md)
+8. [Portal deployment fix and main integration](docs/HANDOFF_PORTAL_MAIN.md)
 
 Older handoff/Phase 11 planning files remain historical references and should not override the documents above.
 
@@ -137,14 +139,14 @@ Never expose TCP 24562 directly to the Internet.
 
 ## Clean VPS installation
 
-The repository is private. Authenticate GitHub CLI first, then clone/check out the development branch.
+The repository is private. Authenticate GitHub CLI first, then clone/check out `main`.
 
 ```bash
 gh auth login --hostname github.com --git-protocol https
 gh auth setup-git --hostname github.com
 gh repo clone Gh0stDeveloper/NEXORA-DEADFALL
 cd NEXORA-DEADFALL
-git checkout agent/bootstrap-deadfall
+git checkout main
 ```
 
 Install:
@@ -154,7 +156,7 @@ sudo bash deploy/vps/install.sh \
   --domain beta.example.com \
   --email admin@example.com \
   --repo Gh0stDeveloper/NEXORA-DEADFALL \
-  --branch agent/bootstrap-deadfall
+  --branch main
 ```
 
 The managed `deadfall` service user also needs repository access for later automatic updates.

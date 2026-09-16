@@ -1,6 +1,6 @@
 # NEXORA: DEADFALL — VPS production installer/runbook
 
-Last updated: 2026-09-11.
+Last updated: 2026-09-16.
 
 The managed VPS is the DEADFALL control/social server, match orchestrator, dedicated game-instance host, Android Closed Beta build host and download-portal host.
 
@@ -30,17 +30,17 @@ f402f1696c0438447d76236122a5d82101a94cc0
 2. Ensure GitHub access to the private main repository and `Gh0stDeveloper/Objetos3D`.
 3. Run the installer from a clone/copy of the repository.
 
-Current development branch:
+Installation/update branch:
 
 ```bash
 sudo bash deploy/vps/install.sh \
   --domain beta.example.com \
   --email admin@example.com \
   --repo Gh0stDeveloper/NEXORA-DEADFALL \
-  --branch agent/bootstrap-deadfall
+  --branch main
 ```
 
-After an explicitly approved merge, `main` may be used instead. Do not assume PR #1 has been merged.
+The owner authorized integration of PR #1 into `main`. Existing installations retain their configured branch until changed explicitly; see the migration command below.
 
 ### GitHub authentication
 
@@ -56,6 +56,28 @@ For headless bootstrap, the installer may receive a temporary token file. Remove
 
 Do not store PATs/tokens in this repository.
 
+## Switch an existing installation to main
+
+After the approved integration, change only the saved update branch and rerun the
+full build. This uses the installed repository path, persistent state and signing key.
+
+```bash
+sudo sed -i "s|^DEADFALL_BRANCH=.*|DEADFALL_BRANCH='main'|" /etc/nexora-deadfall/nexora-deadfall.env
+sudo nexora-deadfall update --force
+```
+
+The updater fetches `main` and reexecutes its updated script before the gates/build.
+A previous failed deployment is retried; no reinstall or signing-key rotation is
+needed. On success it publishes the signed APK and updates the deployment state.
+
+### Portal 404 during the presentation update
+
+The build at `eea4df4` generated `/versions` while navigation and deployment probes
+requested `/versiones`, stopping the updater before Android export. The fix makes
+`/versiones` canonical, redirects the former English URLs, accepts historical
+records with unknown version codes, and validates the copied standalone server
+with the same route checks as the VPS. See `HANDOFF_PORTAL_MAIN.md`.
+
 ## Interrupted/partial installation recovery
 
 The installer is intended to be rerunnable. Do not rebuild the VPS from scratch or manually install competing Godot/Android versions merely because one installer run was interrupted.
@@ -64,13 +86,15 @@ Update the bootstrap clone and rerun:
 
 ```bash
 cd ~/NEXORA-DEADFALL
-git pull --ff-only origin agent/bootstrap-deadfall
+git fetch origin main
+git checkout main
+git pull --ff-only origin main
 
 sudo bash deploy/vps/install.sh \
   --domain beta.example.com \
   --email admin@example.com \
   --repo Gh0stDeveloper/NEXORA-DEADFALL \
-  --branch agent/bootstrap-deadfall
+  --branch main
 ```
 
 If Ubuntu reports `/var/run/reboot-required`, finish/verify the managed installation first and reboot afterwards. The installer does not reboot automatically.

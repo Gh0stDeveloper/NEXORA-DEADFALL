@@ -8,6 +8,7 @@ for file in \
   deploy/vps/update.sh \
   deploy/vps/nexora-deadfall \
   deploy/vps/lib/common.sh \
+  deploy/vps/lib/portal.sh \
   scripts/build/build_android_vps.sh \
   scripts/build/build_download_site.sh \
   scripts/server/run_server.sh; do
@@ -22,8 +23,8 @@ for file in \
   web/download-site/package.json \
   web/download-site/next.config.ts \
   web/download-site/src/app/page.tsx \
-  web/download-site/src/app/versions/page.tsx \
-  web/download-site/src/app/versions/[version]/page.tsx \
+  web/download-site/src/app/versiones/page.tsx \
+  web/download-site/src/app/versiones/[version]/page.tsx \
   web/download-site/src/data/releases.json \
   web/download-site/src/lib/releases.ts \
   web/download-site/scripts/publish_release_history.py \

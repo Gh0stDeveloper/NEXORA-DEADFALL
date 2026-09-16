@@ -7,9 +7,9 @@ This file is the short operational source of truth for the project. For the comp
 ## Repository state
 
 - Repository: `Gh0stDeveloper/NEXORA-DEADFALL`
-- Active development branch: `agent/bootstrap-deadfall`
-- Draft PR: `#1`
-- PR policy: keep it open and Draft; do not merge unless the user explicitly authorizes the merge.
+- Installation/update branch: `main`.
+- Integration source: `agent/bootstrap-deadfall`, PR `#1`.
+- The owner explicitly authorized merging PR #1 into main on 2026-09-16. This supersedes the earlier instruction to keep that PR Draft. Future merges still require authorization.
 - Engine: Godot `4.6.3-stable`.
 - Android target API: `36`.
 - Current Closed Beta: `0.9.0-beta.5` / versionCode `900005`.
@@ -34,7 +34,25 @@ weapons. The new graphical CI step retains logs/captures. See
 
 This is a source delivery on the active branch. A new Android APK, physical-device
 acceptance and production deployment remain pending. It does not change the last
-verified production deployment below. PR #1 remains Draft.
+verified production deployment below. See `docs/HANDOFF_PORTAL_MAIN.md` for the
+subsequent portal fix and authorized integration into main.
+
+## Portal deployment fix and main integration
+
+The user reported that the VPS passed template, compile, presentation assets,
+account/loading, gameplay/mobile, lifecycle, project, beta and Phase 11 gates at
+`eea4df4`, then stopped before Android export with a portal 404. The app exposed
+`/versions` while all links and deployment checks expected `/versiones`.
+
+The corrected source uses `/versiones` with redirects for old English URLs,
+accepts nullable historical version codes in the live catalog, and avoids tracing
+external runtime history into the standalone bundle. CI now exercises the copied
+standalone server using the production updater's route validator, including live
+catalog/SHA changes, public/static assets and missing-version 404s.
+
+The fix and main integration do not prove that the VPS completed its next build.
+Rerun `nexora-deadfall update --force` after selecting `main` in the saved VPS
+configuration; retain the production anchor below until completion is confirmed.
 
 ## Last verified production deployment
 

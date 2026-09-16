@@ -1,5 +1,9 @@
 # Tactical presentation phase — 2026-09-16
 
+> The owner subsequently authorized merging PR #1 into main. The Draft-only
+> instruction in this historical delivery is superseded; see
+> [HANDOFF_PORTAL_MAIN.md](HANDOFF_PORTAL_MAIN.md).
+
 The requested boot/account/lobby/operator/weapon/audio phase is implemented and
 locally validated on `agent/bootstrap-deadfall`. Keep PR #1 open and Draft.
 This supersedes the incomplete recovery checkpoint of 2026-09-14. It is a source
