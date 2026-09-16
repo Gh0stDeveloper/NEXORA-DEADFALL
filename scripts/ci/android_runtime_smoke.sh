@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APK="${1:-build/android/NEXORA-DEADFALL-emulator.apk}"
+PACKAGE="com.nexora.deadfall"
+LOG="/tmp/deadfall-android-logcat.txt"
+EXPECTED_VERSION="$(grep -oP 'const APP_VERSION := "\K[^"]+' src/release/BuildInfo.gd 2>/dev/null || true)"
+if [[ -z "$EXPECTED_VERSION" ]]; then
+  echo "Unable to resolve current BuildInfo version" >&2
+  exit 1
+fi
+
+if [[ ! -s "$APK" ]]; then
+  echo "APK not found or empty: $APK" >&2
+  exit 1
+fi
+
+adb wait-for-device
+adb logcat -c
+adb install -r "$APK"
+adb shell am force-stop "$PACKAGE" || true
+adb shell monkey -p "$PACKAGE" -c android.intent.category.LAUNCHER 1 >/tmp/deadfall-monkey.txt 2>&1
+sleep 8
+
+PID="$(adb shell pidof "$PACKAGE" | tr -d '\r')"
+if [[ -z "$PID" ]]; then
+  echo "DEADFALL process is not alive after launch" >&2
+  adb logcat -d || true
+  exit 1
+fi
+
+echo "DEADFALL Android process: $PID"
+
+adb shell input tap 1886 966   # SPRINT
+adb shell input tap 2268 966   # FIRE
+adb shell input tap 2088 966   # CROUCH
+adb shell input tap 1949 777   # FLASHLIGHT
+adb shell input tap 2267 837   # RELOAD
+adb shell input tap 1905 891   # INTERACT
+adb shell input tap 2088 891   # PRONE
+adb shell input tap 2268 891   # CAMERA
+adb shell input swipe 228 898 360 898 450   # joystick
+adb shell input swipe 1250 450 1600 450 450 # look area
+sleep 3
+
+adb logcat -d > "$LOG"
+
+echo "--- DEADFALL runtime markers ---"
+grep -E "DEADFALL_BETA_READY|NEXORA: DEADFALL client bootstrap ready|DEADFALL_CAMPAIGN_ARENA_READY|DEADFALL_ANDROID_READY|DEADFALL_GORE_STATS|DEADFALL_HORDE_STATS|DEADFALL_SQUAD_STATS|DEADFALL_CAMPAIGN_STATS|DEADFALL_TOUCH_" "$LOG" || true
+
+grep -Fq "DEADFALL_BETA_READY" "$LOG"
+grep -Fq "\"app_version\":\"${EXPECTED_VERSION}\"" "$LOG"
+grep -Fq '"target_android_api":36' "$LOG"
+grep -Fq "NEXORA: DEADFALL client bootstrap ready" "$LOG"
+grep -Fq "DEADFALL_CAMPAIGN_ARENA_READY" "$LOG"
+grep -Fq "DEADFALL_ANDROID_READY" "$LOG"
+grep -Fq '"landscape":true' "$LOG"
+grep -Fq '"safe_area_valid":true' "$LOG"
+grep -Fq '"gore_budget"' "$LOG"
+grep -Fq '"horde"' "$LOG"
+grep -Fq '"squad"' "$LOG"
+grep -Fq '"campaign"' "$LOG"
+grep -Fq "DEADFALL_GORE_STATS" "$LOG"
+grep -Fq "DEADFALL_HORDE_STATS" "$LOG"
+grep -Fq "DEADFALL_SQUAD_STATS" "$LOG"
+grep -Fq "DEADFALL_CAMPAIGN_STATS" "$LOG"
+grep -Fq '"mission_id":"mission_01_first_signal"' "$LOG"
+grep -Fq '"max_players":4' "$LOG"
+grep -Fq '"network_zombie_snapshots"' "$LOG"
+grep -Fq '"network_max_payload_bytes"' "$LOG"
+grep -Fq '"population_budget"' "$LOG"
+grep -Fq "DEADFALL_TOUCH_ACTION sprint" "$LOG"
+grep -Fq "DEADFALL_TOUCH_ACTION jump" "$LOG"
+grep -Fq "DEADFALL_TOUCH_ACTION crouch" "$LOG"
+grep -Fq "DEADFALL_TOUCH_ACTION interact" "$LOG"
+grep -Fq "DEADFALL_TOUCH_ACTION prone" "$LOG"
+grep -Fq "DEADFALL_TOUCH_ACTION camera_cycle" "$LOG"
+grep -Fq "DEADFALL_TOUCH_ACTION flashlight" "$LOG"
+grep -Fq "DEADFALL_TOUCH_ACTION reload" "$LOG"
+grep -Fq "DEADFALL_TOUCH_ACTION fire" "$LOG"
+grep -Fq "DEADFALL_TOUCH_JOYSTICK active" "$LOG"
+grep -Fq "DEADFALL_TOUCH_LOOK active" "$LOG"
+
+if grep -E "SCRIPT ERROR|Parse Error|Invalid call|FATAL EXCEPTION|ANR in ${PACKAGE}" "$LOG"; then
+  echo "Runtime errors detected in Android logcat" >&2
+  exit 1
+fi
+
+echo "NEXORA: DEADFALL Android runtime smoke passed"

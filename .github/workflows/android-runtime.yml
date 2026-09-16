@@ -1,0 +1,124 @@
+name: Android Runtime Validation
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "project.godot"
+      - "export_presets.cfg"
+      - "src/**"
+      - "scripts/assets/**"
+      - "scripts/ci/sync_required_models.sh"
+      - "scripts/ci/android_runtime_smoke.sh"
+      - ".github/workflows/android-runtime.yml"
+
+permissions:
+  contents: read
+
+env:
+  GODOT_VERSION: "4.6.3"
+
+jobs:
+  android-runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Sync and validate required 3D models
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.DEADFALL_MODELS_TOKEN }}
+        run: bash scripts/ci/sync_required_models.sh "$GITHUB_WORKSPACE"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Godot and export templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/godot.zip "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          sudo mv "/tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
+          sudo chmod +x /usr/local/bin/godot
+
+          curl -fsSL -o /tmp/templates.tpz "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          mkdir -p /tmp/export-templates
+          unzip -q /tmp/templates.tpz -d /tmp/export-templates
+          mkdir -p "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          cp -R /tmp/export-templates/templates/. "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable/"
+
+      - name: Configure Android SDK paths for Godot
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          EOF
+
+      - name: Import project
+        run: godot --headless --editor --path . --quit
+
+      - name: Export x86_64 emulator APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/android
+          godot --headless --path . --export-debug "Android Emulator" build/android/NEXORA-DEADFALL-emulator.apk
+          test -s build/android/NEXORA-DEADFALL-emulator.apk
+          ls -lh build/android/NEXORA-DEADFALL-emulator.apk
+
+      - name: Sign emulator APK with ephemeral CI key
+        shell: bash
+        run: |
+          set -euo pipefail
+          keytool -genkeypair -noprompt \
+            -keystore /tmp/deadfall-ci.keystore \
+            -storepass android \
+            -keypass android \
+            -alias deadfall-ci \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 2 \
+            -dname "CN=NEXORA DEADFALL CI,O=Ghost Developer,C=MX"
+
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$APKSIGNER"
+          "$APKSIGNER" sign \
+            --ks /tmp/deadfall-ci.keystore \
+            --ks-pass pass:android \
+            --key-pass pass:android \
+            --out /tmp/NEXORA-DEADFALL-emulator-signed.apk \
+            build/android/NEXORA-DEADFALL-emulator.apk
+          mv /tmp/NEXORA-DEADFALL-emulator-signed.apk build/android/NEXORA-DEADFALL-emulator.apk
+          "$APKSIGNER" verify --verbose build/android/NEXORA-DEADFALL-emulator.apk
+
+      - name: Enable KVM
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install, launch and exercise Android touch controls
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7
+          force-avd-creation: true
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: bash scripts/ci/android_runtime_smoke.sh build/android/NEXORA-DEADFALL-emulator.apk

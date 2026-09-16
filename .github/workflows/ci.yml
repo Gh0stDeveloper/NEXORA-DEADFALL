@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GODOT_VERSION: "4.6.3"
+
+jobs:
+  godot-validation:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Sync and validate required 3D models
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.DEADFALL_MODELS_TOKEN }}
+        run: bash scripts/ci/sync_required_models.sh "$GITHUB_WORKSPACE"
+
+      - name: Install Godot
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/godot.zip "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          sudo mv "/tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
+          sudo chmod +x /usr/local/bin/godot
+          godot --version
+      - name: Validate Android generated-template patch
+        run: bash scripts/ci/android_template_patch_smoke.sh
+      - name: Import project and parse scripts
+        run: godot --headless --editor --path . --quit
+      - name: Run strict gameplay compile gate
+        run: godot --headless --path . --script scripts/ci/gameplay_compile_smoke.gd
+      - name: Run project smoke test
+        run: godot --headless --path . --script scripts/ci/smoke.gd
+      - name: Run combat authority tests
+        run: godot --headless --path . --script scripts/ci/combat_smoke.gd
+      - name: Run zombie AI and combat tests
+        run: godot --headless --path . --script scripts/ci/zombie_smoke.gd
+      - name: Run gore and dismemberment tests
+        run: godot --headless --path . --script scripts/ci/gore_smoke.gd
+      - name: Run Horde tests
+        run: godot --headless --path . --script scripts/ci/horde_smoke.gd
+      - name: Run networking tests
+        run: godot --headless --path . --script scripts/ci/network_smoke.gd
+      - name: Run Squad life/revive tests
+        run: godot --headless --path . --script scripts/ci/squad_smoke.gd
+      - name: Run Campaign mission/checkpoint tests
+        run: godot --headless --path . --script scripts/ci/campaign_smoke.gd
+      - name: Run Closed Beta hardening tests
+        run: godot --headless --path . --script scripts/ci/beta_hardening_smoke.gd
+      - name: Run Phase 11 mobile/lobby tests
+        run: godot --headless --path . --script scripts/ci/phase11_smoke.gd
+      - name: Install display for presentation runtime test
+        run: sudo apt-get update && sudo apt-get install -y xvfb libgl1-mesa-dri
+      - name: Exercise rendered boot, account, lobby and combat
+        env:
+          XDG_DATA_HOME: ${{ runner.temp }}/deadfall-presentation
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: xvfb-run -a bash scripts/ci/presentation_runtime_smoke.sh
+      - name: Upload presentation captures and runtime log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tactical-presentation
+          path: |
+            build/presentation-smoke/
+            build/presentation-runtime.log
+          if-no-files-found: ignore
+      - name: Run Phase 10 VPS installer contract tests
+        run: bash scripts/ci/vps_installer_smoke.sh
+      - name: Run two-peer regression integration
+        run: bash scripts/ci/duo_integration.sh
+      - name: Run four-peer Squad integration
+        run: bash scripts/ci/squad_integration.sh
+      - name: Run four-peer Campaign integration
+        run: bash scripts/ci/campaign_integration.sh
+      - name: Validate shell/Python build scripts
+        run: |
+          bash -n scripts/server/run_server.sh scripts/assets/sync_objetos3d.sh scripts/ci/sync_required_models.sh scripts/ci/download_portal_smoke.sh scripts/ci/android_runtime_smoke.sh scripts/ci/android_template_patch_smoke.sh scripts/ci/duo_integration.sh scripts/ci/squad_integration.sh scripts/ci/campaign_integration.sh scripts/ci/vps_installer_smoke.sh scripts/beta/collect_android_report.sh deploy/vps/install.sh deploy/vps/update.sh deploy/vps/nexora-deadfall deploy/vps/lib/common.sh scripts/build/build_android_vps.sh scripts/build/build_download_site.sh
+          bash -n scripts/ci/presentation_runtime_smoke.sh
+          python3 -m py_compile scripts/build/patch_android_template.py scripts/assets/generate_original_audio.py
+
+  download-portal-validation:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+      - name: Validate release history and Next.js download portal
+        run: bash scripts/ci/download_portal_smoke.sh
+
+  docker-server-build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build dedicated server container
+        run: docker build -f deploy/docker/Dockerfile -t nexora-deadfall-server:ci .
+      - name: Boot dedicated server container
+        shell: bash
+        run: |
+          set -euo pipefail
+          trap 'docker rm -f deadfall-ci >/dev/null 2>&1 || true' EXIT
+          docker run -d --name deadfall-ci nexora-deadfall-server:ci
+          sleep 3
+          docker logs deadfall-ci 2>&1 | tee /tmp/deadfall-server.log
+          grep -q "DEADFALL_BETA_READY" /tmp/deadfall-server.log
+          grep -q "dedicated server listening on UDP 24560" /tmp/deadfall-server.log
+          grep -q "room directory listening on TCP 24561" /tmp/deadfall-server.log
+          grep -q "DEADFALL_SQUAD_ROOM" /tmp/deadfall-server.log

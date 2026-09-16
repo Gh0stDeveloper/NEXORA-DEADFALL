@@ -1,0 +1,36 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/zombies/base/ZombieData.gd" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+archetype_id = &"walker"
+display_name = "Walker"
+prototype_color = Color(0.28, 0.34, 0.27, 1)
+population_cost = 1
+score_value = 100
+unlock_wave = 1
+spawn_weight = 1.0
+max_health = 100.0
+move_speed = 3.2
+detection_range = 20.0
+lose_target_range = 30.0
+attack_range = 1.55
+attack_damage = 12.0
+attack_cooldown_seconds = 1.1
+attack_windup_seconds = 0.3
+stagger_seconds = 0.35
+search_seconds = 4.0
+scan_interval_seconds = 0.2
+repath_interval_seconds = 0.25
+sight_memory_seconds = 1.0
+head_dismember_damage = 42.0
+arm_dismember_damage = 36.0
+leg_dismember_damage = 38.0
+crawler_speed_multiplier = 0.42
+crawler_attack_range_multiplier = 0.82
+crawler_height = 0.85
+one_arm_damage_multiplier = 0.72
+two_arm_damage_multiplier = 0.45
+one_arm_cooldown_multiplier = 1.25
+two_arm_cooldown_multiplier = 1.65

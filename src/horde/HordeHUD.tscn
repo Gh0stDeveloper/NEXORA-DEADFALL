@@ -1,0 +1,184 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://src/horde/HordeHUD.gd" id="1_hud"]
+[ext_resource type="Script" path="res://src/mobile/SafeArea.gd" id="2_safe"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_stats"]
+bg_color = Color(0.018, 0.022, 0.028, 0.82)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.7, 0.07, 0.09, 0.72)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_gameover"]
+bg_color = Color(0.012, 0.020, 0.026, 0.97)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.9, 0.06, 0.08, 0.86)
+corner_radius_top_left = 20
+corner_radius_top_right = 20
+corner_radius_bottom_right = 20
+corner_radius_bottom_left = 20
+shadow_color = Color(0, 0, 0, 0.55)
+shadow_size = 12
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_restart_normal"]
+bg_color = Color(0.68, 0.035, 0.05, 0.98)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.18, 0.16, 0.9)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_restart_hover"]
+bg_color = Color(0.86, 0.045, 0.06, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.42, 0.25, 1)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_restart_pressed"]
+bg_color = Color(0.40, 0.02, 0.03, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(1, 0.68, 0.30, 1)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+
+[node name="HordeHUD" type="CanvasLayer"]
+layer = 8
+script = ExtResource("1_hud")
+director_path = NodePath("../HordeDirector")
+
+[node name="SafeArea" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2_safe")
+
+[node name="StatsPanel" type="PanelContainer" parent="SafeArea"]
+layout_mode = 0
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -278.0
+offset_top = 24.0
+offset_right = -24.0
+offset_bottom = 194.0
+grow_horizontal = 0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_stats")
+
+[node name="VBox" type="VBoxContainer" parent="SafeArea/StatsPanel"]
+layout_mode = 2
+theme_override_constants/separation = 3
+
+[node name="WaveLabel" type="Label" parent="SafeArea/StatsPanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.96, 0.97, 0.98, 1)
+theme_override_font_sizes/font_size = 22
+text = "WAVE 1"
+horizontal_alignment = 2
+
+[node name="ScoreLabel" type="Label" parent="SafeArea/StatsPanel/VBox"]
+layout_mode = 2
+text = "SCORE 0"
+horizontal_alignment = 2
+
+[node name="KillsLabel" type="Label" parent="SafeArea/StatsPanel/VBox"]
+layout_mode = 2
+text = "KILLS 0"
+horizontal_alignment = 2
+
+[node name="EnemiesLabel" type="Label" parent="SafeArea/StatsPanel/VBox"]
+layout_mode = 2
+text = "ENEMIES 0"
+horizontal_alignment = 2
+
+[node name="BudgetLabel" type="Label" parent="SafeArea/StatsPanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.72, 0.74, 0.78, 1)
+text = "POP 0/0"
+horizontal_alignment = 2
+
+[node name="CountdownLabel" type="Label" parent="SafeArea"]
+layout_mode = 0
+anchors_preset = 10
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -150.0
+offset_top = 28.0
+offset_right = 150.0
+offset_bottom = 66.0
+grow_horizontal = 2
+theme_override_font_sizes/font_size = 26
+text = "WAVE 1 IN 3"
+horizontal_alignment = 1
+mouse_filter = 2
+
+[node name="GameOverCenter" type="CenterContainer" parent="SafeArea"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+
+[node name="GameOverPanel" type="PanelContainer" parent="SafeArea/GameOverCenter"]
+visible = false
+custom_minimum_size = Vector2(390, 280)
+layout_mode = 2
+mouse_filter = 0
+theme_override_styles/panel = SubResource("StyleBox_gameover")
+
+[node name="VBox" type="VBoxContainer" parent="SafeArea/GameOverCenter/GameOverPanel"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 16
+
+[node name="Title" type="Label" parent="SafeArea/GameOverCenter/GameOverPanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.20, 0.18, 1)
+theme_override_font_sizes/font_size = 34
+text = "GAME OVER"
+horizontal_alignment = 1
+
+[node name="Summary" type="Label" parent="SafeArea/GameOverCenter/GameOverPanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.88, 0.93, 0.94, 1)
+theme_override_font_sizes/font_size = 18
+text = "OLEADA 0\nPUNTUACIÓN 0\nBAJAS 0"
+horizontal_alignment = 1
+
+[node name="RestartButton" type="Button" parent="SafeArea/GameOverCenter/GameOverPanel/VBox"]
+custom_minimum_size = Vector2(270, 64)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+theme_override_styles/normal = SubResource("StyleBox_restart_normal")
+theme_override_styles/hover = SubResource("StyleBox_restart_hover")
+theme_override_styles/pressed = SubResource("StyleBox_restart_pressed")
+text = "REINICIAR"

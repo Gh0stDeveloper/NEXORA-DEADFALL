@@ -1,0 +1,40 @@
+// NEXORA: DEADFALL Gradle init hook for Godot-generated Android projects.
+//
+// Godot writes src/release/AndroidManifest.xml immediately before invoking
+// Gradle. The VPS builder installs this file temporarily under
+// $HOME/.gradle/init.d so Gradle loads it automatically. The hook is strictly
+// scoped to DEADFALL_ROOT/android/build.
+
+gradle.projectsEvaluated {
+    def deadfallRootValue = System.getenv("DEADFALL_ROOT")
+    if (deadfallRootValue == null || deadfallRootValue.trim().isEmpty()) {
+        return
+    }
+
+    def deadfallRoot = new File(deadfallRootValue).canonicalFile
+    def expectedProject = new File(deadfallRoot, "android/build").canonicalFile
+    def root = gradle.rootProject
+    if (root.projectDir.canonicalFile != expectedProject) {
+        return
+    }
+
+    def patcher = new File(deadfallRoot, "scripts/build/patch_android_template.py")
+    if (!patcher.isFile()) {
+        throw new GradleException("DEADFALL Android template patcher missing: ${patcher}")
+    }
+
+    def sanitizeTask = root.tasks.register("deadfallSanitizeReleaseManifest", Exec) {
+        group = "deadfall"
+        description = "Remove redundant Godot release-manifest tools:replace markers before merge"
+        commandLine "python3", patcher.absolutePath, root.projectDir.absolutePath,
+            "--manifest-only", "--require-manifest"
+    }
+
+    root.allprojects { project ->
+        project.tasks.matching { task ->
+            task.name == "processStandardReleaseMainManifest"
+        }.configureEach { task ->
+            task.dependsOn(sanitizeTask)
+        }
+    }
+}

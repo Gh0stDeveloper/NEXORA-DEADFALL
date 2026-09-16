@@ -1,0 +1,202 @@
+name: Closed Beta Android Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_prerelease:
+        description: Publish GitHub prerelease after successful signed exports
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+env:
+  GODOT_VERSION: "4.6.3"
+
+jobs:
+  android-closed-beta:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Resolve release identity from BuildInfo
+        id: release_identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(grep -oP 'const APP_VERSION := "\K[^"]+' src/release/BuildInfo.gd)"
+          VERSION_CODE="$(grep -oP 'const VERSION_CODE := \K[0-9]+' src/release/BuildInfo.gd)"
+          test -n "$VERSION"
+          test -n "$VERSION_CODE"
+          grep -Fq "version/code=$VERSION_CODE" export_presets.cfg
+          grep -Fq "version/name=\"$VERSION\"" export_presets.cfg
+          echo "DEADFALL_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "DEADFALL_VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          echo "Closed Beta identity: $VERSION / $VERSION_CODE"
+
+      - name: Sync and validate required 3D models
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.DEADFALL_MODELS_TOKEN }}
+        run: bash scripts/ci/sync_required_models.sh "$GITHUB_WORKSPACE"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android 16 build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;36.1.0" \
+            "ndk;28.1.13356709" \
+            "cmake;3.10.2.4988404"
+
+      - name: Install Godot and export templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/godot.zip "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          sudo mv "/tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
+          sudo chmod +x /usr/local/bin/godot
+          curl -fsSL -o /tmp/templates.tpz "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          mkdir -p /tmp/export-templates
+          unzip -q /tmp/templates.tpz -d /tmp/export-templates
+          mkdir -p "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          cp -R /tmp/export-templates/templates/. "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable/"
+          godot --version
+
+      - name: Configure Godot Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          EOF
+
+      - name: Validate persistent signing secrets
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.DEADFALL_ANDROID_KEYSTORE_B64 }}
+          KEY_ALIAS: ${{ secrets.DEADFALL_ANDROID_KEYSTORE_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.DEADFALL_ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_B64" || { echo "Missing DEADFALL_ANDROID_KEYSTORE_B64" >&2; exit 1; }
+          test -n "$KEY_ALIAS" || { echo "Missing DEADFALL_ANDROID_KEYSTORE_ALIAS" >&2; exit 1; }
+          test -n "$KEY_PASSWORD" || { echo "Missing DEADFALL_ANDROID_KEYSTORE_PASSWORD" >&2; exit 1; }
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > /tmp/deadfall-upload.keystore
+          chmod 600 /tmp/deadfall-upload.keystore
+          keytool -list -keystore /tmp/deadfall-upload.keystore -storepass "$KEY_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+
+      - name: Import and install Android build template
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --editor --path . --quit
+          godot --headless --path . --install-android-build-template --quit
+          test -d android/build
+          bash scripts/ci/android_template_patch_smoke.sh
+          python3 scripts/build/patch_android_template.py android/build
+          mkdir -p "$HOME/.gradle/init.d"
+          cp scripts/build/deadfall_android_init.gradle "$HOME/.gradle/init.d/nexora-deadfall.gradle"
+
+      - name: Export signed AAB and APK
+        shell: bash
+        env:
+          DEADFALL_ROOT: ${{ github.workspace }}
+          GODOT_ANDROID_KEYSTORE_RELEASE_PATH: /tmp/deadfall-upload.keystore
+          GODOT_ANDROID_KEYSTORE_RELEASE_USER: ${{ secrets.DEADFALL_ANDROID_KEYSTORE_ALIAS }}
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: ${{ secrets.DEADFALL_ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          mkdir -p build/android
+          godot --verbose --headless --path . --export-release "Android Closed Beta" "build/android/NEXORA-DEADFALL-${DEADFALL_VERSION}.aab"
+          godot --verbose --headless --path . --export-release "Android Closed Beta APK" "build/android/NEXORA-DEADFALL-${DEADFALL_VERSION}.apk"
+          test -s "build/android/NEXORA-DEADFALL-${DEADFALL_VERSION}.aab"
+          test -s "build/android/NEXORA-DEADFALL-${DEADFALL_VERSION}.apk"
+
+      - name: Verify signatures and produce release manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          AAB="build/android/NEXORA-DEADFALL-${DEADFALL_VERSION}.aab"
+          APK="build/android/NEXORA-DEADFALL-${DEADFALL_VERSION}.apk"
+          jarsigner -verify -strict "$AAB" >/dev/null
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          "$APKSIGNER" verify --verbose "$APK"
+          (cd build/android && sha256sum "$(basename "$AAB")" "$(basename "$APK")" > SHA256SUMS.txt)
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib
+          root = pathlib.Path('build/android')
+          version = os.environ['DEADFALL_VERSION']
+          files = [root / f'NEXORA-DEADFALL-{version}.aab', root / f'NEXORA-DEADFALL-{version}.apk']
+          artifacts = []
+          for path in files:
+              data = path.read_bytes()
+              artifacts.append({'file': path.name, 'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()})
+          manifest = {
+              'app_version': version,
+              'version_code': int(os.environ['DEADFALL_VERSION_CODE']),
+              'build_channel': 'closed_beta',
+              'protocol': 2,
+              'content_version': 1,
+              'target_android_api': 36,
+              'git_sha': os.environ['GITHUB_SHA'],
+              'artifacts': artifacts,
+          }
+          (root / 'release-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+          PY
+          cat build/android/release-manifest.json
+          cat build/android/SHA256SUMS.txt
+
+      - name: Upload closed beta artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: NEXORA-DEADFALL-${{ steps.release_identity.outputs.version }}
+          path: |
+            build/android/NEXORA-DEADFALL-${{ steps.release_identity.outputs.version }}.aab
+            build/android/NEXORA-DEADFALL-${{ steps.release_identity.outputs.version }}.apk
+            build/android/SHA256SUMS.txt
+            build/android/release-manifest.json
+          if-no-files-found: error
+
+      - name: Publish GitHub prerelease
+        if: ${{ inputs.publish_prerelease }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="closed-beta-v${DEADFALL_VERSION}"
+          NOTES="docs/beta/RELEASE_NOTES_${DEADFALL_VERSION}.md"
+          test -f "$NOTES" || { echo "Missing release notes: $NOTES" >&2; exit 1; }
+          gh release create "$TAG" \
+            "build/android/NEXORA-DEADFALL-${DEADFALL_VERSION}.aab" \
+            "build/android/NEXORA-DEADFALL-${DEADFALL_VERSION}.apk" \
+            build/android/SHA256SUMS.txt \
+            build/android/release-manifest.json \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "NEXORA: DEADFALL ${DEADFALL_VERSION}" \
+            --notes-file "$NOTES" \
+            --prerelease

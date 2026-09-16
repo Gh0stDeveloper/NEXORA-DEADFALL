@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "current": "0.9.0-beta.5",
+  "releases": [
+    {
+      "version": "0.9.0-beta.5",
+      "version_code": 900005,
+      "channel": "closed_beta",
+      "published_unix": null,
+      "status": "current",
+      "summary": "Ciclo de vida de partidas dedicadas, recuperación con ticket y resultados autoritativos.",
+      "added": [
+        "Reconexión ligada al mismo ticket privado, identidad y entidad autoritativa.",
+        "Pantalla de resultado con victoria, derrota o partida abortada.",
+        "Métricas agregadas de ciclo de vida sin exponer datos privados."
+      ],
+      "changed": [
+        "Ventana de reconexión Android de 42 segundos y hasta 10 intentos.",
+        "Heartbeat del proceso dedicado cada 2 segundos, watchdog y expiraciones controladas.",
+        "El estado READY pasa a IN_MATCH después de la primera admisión autoritativa y no retrocede durante una reconexión temporal."
+      ],
+      "fixed": [
+        "La recuperación conserva HP, posición, vida y loadout desde el servidor.",
+        "Los procesos dedicados se limpian al terminar, expirar o entregar un resultado."
+      ],
+      "networking": [
+        "La admisión continúa usando tickets privados por jugador.",
+        "La autoridad de movimiento, daño, salud, munición, zombies, progreso y resultado sigue en el servidor."
+      ],
+      "android": [
+        "Compatibilidad declarada con Android ARM64, API objetivo 36 y escuadras de hasta 4 jugadores."
+      ],
+      "known_issues": [
+        "La aceptación física de Solo, Duo, 3 y 4 jugadores, reconexión, rendimiento y térmicas sigue pendiente de completar."
+      ],
+      "min_client_version_code": 900005,
+      "max_client_version_code": 900999,
+      "protocol": 2,
+      "content_version": 1,
+      "target_android_api": 36,
+      "max_players": 4,
+      "bytes": null,
+      "sha256": null,
+      "git_sha": "f402f1696c0438447d76236122a5d82101a94cc0",
+      "download": "/downloads/NEXORA-DEADFALL-latest.apk",
+      "download_available": true,
+      "compatibility": {
+        "platform": "Android",
+        "architecture": "ARM64",
+        "network": "closed_beta",
+        "server_authority": true
+      }
+    },
+    {
+      "version": "0.9.0-beta.4",
+      "version_code": 900004,
+      "channel": "closed_beta",
+      "published_unix": null,
+      "status": "superseded",
+      "summary": "Pass de presentación, modelos/animaciones y rendimiento móvil sobre la base de gameplay de beta.3.",
+      "added": [
+        "Lobby 2.0 con escenario central 3D, ambiente animado y preview giratorio.",
+        "Driver compartido de animaciones importadas para lobby, jugadores y zombies.",
+        "Fallback genérico seguro para modelos que sólo exponen un clip neutral.",
+        "Mapeos verificados de Idle, Walk, Run, Crawl y Attack para el zombie Quaternius."
+      ],
+      "changed": [
+        "Escala de render, LOD, MSAA, objetivo de FPS y distancia visual de zombies por calidad.",
+        "Los modelos de presentación se suprimen en procesos dedicados/headless.",
+        "La carga de modelos mantiene separadas las dimensiones visuales de las colisiones autoritativas."
+      ],
+      "fixed": [
+        "El fallback genérico evita una bind/T-pose cuando el modelo sólo tiene un clip neutral.",
+        "La sanitización del template Android elimina de forma reproducible los atributos redundantes de Manifest Merger."
+      ],
+      "networking": [
+        "Se conserva la autoridad del servidor y el transporte FastLZ en chunks de 900 bytes.",
+        "La ruta de lobby a matchmaking, carga de partida y tickets privados se mantiene."
+      ],
+      "android": [
+        "Objetivo Android API 36.",
+        "La sintonización de calidad reduce el coste visual sin modificar IA, hitboxes, salud ni autoridad de red."
+      ],
+      "known_issues": [
+        "operator_02 sólo expone mixamo_com como fallback genérico.",
+        "No había clips Hurt/Death de zombie verificados por separado.",
+        "La aceptación física en Android y el soak de Duo/Squad seguían pendientes."
+      ],
+      "min_client_version_code": null,
+      "max_client_version_code": null,
+      "protocol": 2,
+      "content_version": null,
+      "target_android_api": 36,
+      "max_players": 4,
+      "bytes": null,
+      "sha256": null,
+      "git_sha": null,
+      "download": null,
+      "download_available": false,
+      "compatibility": {
+        "platform": "Android",
+        "architecture": "ARM64",
+        "network": "closed_beta",
+        "server_authority": true
+      }
+    },
+    {
+      "version": "0.9.0-beta.1",
+      "version_code": null,
+      "channel": "closed_beta",
+      "published_unix": null,
+      "status": "superseded",
+      "summary": "Primer candidato documentado de la Closed Beta con la base de supervivencia, combate, Horde, campaña y Squad.",
+      "added": [
+        "Movimiento FPS/TPS y controles táctiles para Android.",
+        "Rifle NXR-4, daño autoritativo y zonas corporales.",
+        "Walker, Runner, Crawler, Tank y Screamer para Horde.",
+        "Presupuestos de gore y desmembramiento.",
+        "Horde offline.",
+        "Squad autoritativa de 1 a 4 jugadores con DOWNED, revive y base de reconnect.",
+        "Campaña con Mission 01 — First Signal y Mission 02 — Last Broadcast.",
+        "Recuperación de checkpoints, compatibilidad de Closed Beta, defensas de abuso, diagnósticos y saves endurecidos."
+      ],
+      "changed": [],
+      "fixed": [],
+      "networking": [
+        "La base multijugador usa autoridad del servidor para la experiencia online."
+      ],
+      "android": [
+        "Candidato orientado a Android; la nota original exige validación física de compatibilidad y térmicas."
+      ],
+      "known_issues": [
+        "La nota de este candidato exigía completar gates automatizados y validación física antes de ampliar su distribución.",
+        "Voice chat no está incluido."
+      ],
+      "min_client_version_code": null,
+      "max_client_version_code": null,
+      "protocol": null,
+      "content_version": null,
+      "target_android_api": null,
+      "max_players": 4,
+      "bytes": null,
+      "sha256": null,
+      "git_sha": null,
+      "download": null,
+      "download_available": false,
+      "compatibility": {
+        "platform": "Android",
+        "architecture": "ARM64",
+        "network": "closed_beta",
+        "server_authority": true
+      }
+    }
+  ]
+}

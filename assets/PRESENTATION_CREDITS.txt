@@ -1,0 +1,26 @@
+NEXORA: DEADFALL — Presentation credits
+
+Original project assets
+The quarantine hangar background was generated with AI for this project and
+converted to WebP. It contains no Free Fire or Call of Duty assets or logos.
+The tactical UI icons, procedural weapon geometry, equipment and character
+animation code were authored for DEADFALL.
+All 13 sound effects and the two music/ambience loops were synthesized for this
+project. Reproduction source: scripts/assets/generate_original_audio.py.
+
+Font
+Rajdhani SemiBold — Copyright 2014 The Indian Type Foundry Authors.
+Source: https://github.com/google/fonts/tree/main/ofl/rajdhani
+Licensed under the SIL Open Font License, Version 1.1.
+Full license: assets/fonts/OFL.txt (included in game exports).
+
+Provisional 3D character sources
+Daren — low poly survival character
+J-Toastie — Animated Character Base
+Quaternius — Animated Zombie
+cs_aaron — Zombie
+Supplied through Gh0stDeveloper/Objetos3D, pinned at
+28ea7a10a18fbe05a91fb3d920678991fff4afef.
+The project adds normalization, uniforms, equipment, rig behavior and presentation.
+These credits do not establish redistribution permission. Per-asset source and
+license verification remains recorded in docs/THIRD_PARTY_3D_ASSETS.md.

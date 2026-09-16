@@ -1,0 +1,125 @@
+extends SceneTree
+
+const CAMPAIGN_ARENA_PATH := "res://src/maps/campaign/OutbreakDistrict.tscn"
+const PROBE_TIMEOUT_SECONDS := 7.0
+const EXPECTED_SESSION_PATH := "/root/Main/CampaignArena/NetworkSession"
+
+var _session: Node
+var _arena: Node
+var _main_wrapper: Node
+var _finished := false
+var _closing_intentionally := false
+
+func _initialize() -> void:
+	call_deferred("_run")
+
+func _run() -> void:
+	await process_frame
+	if root.get_node_or_null("Game") == null or root.get_node_or_null("Settings") == null:
+		_finish(2, "DEADFALL_PHASE12_PROBE_ERROR autoloads_missing")
+		return
+
+	var args := OS.get_cmdline_user_args()
+	var host := _arg_value(args, "--host=", "127.0.0.1")
+	var port := int(_arg_value(args, "--port=", "0"))
+	var ticket := _arg_value(args, "--ticket=")
+	var player_name := _arg_value(args, "--name=", "LifecycleProbe")
+	if port <= 0:
+		_finish(2, "DEADFALL_PHASE12_PROBE_ERROR invalid_port")
+		return
+
+	var campaign_scene: PackedScene = load(CAMPAIGN_ARENA_PATH) as PackedScene
+	if campaign_scene == null or not campaign_scene.can_instantiate():
+		_finish(2, "DEADFALL_PHASE12_PROBE_ERROR arena_load_failed")
+		return
+
+	# RPC NodePaths must be identical on both peers. Production mounts the
+	# Campaign arena below the Main node (`/root/Main/CampaignArena`) on both the
+	# Android client and dedicated server. `--script` probes do not create Main,
+	# so reproduce that hierarchy explicitly instead of weakening RPC checks.
+	_main_wrapper = Node.new()
+	_main_wrapper.name = "Main"
+	root.add_child(_main_wrapper)
+
+	_arena = campaign_scene.instantiate()
+	if _arena == null:
+		_finish(2, "DEADFALL_PHASE12_PROBE_ERROR arena_instantiate_failed")
+		return
+	_arena.name = "CampaignArena"
+	_main_wrapper.add_child(_arena)
+	await process_frame
+
+	_session = _arena.get_node_or_null("NetworkSession")
+	if _session == null or not _session.has_method("start_client"):
+		_finish(2, "DEADFALL_PHASE12_PROBE_ERROR session_missing")
+		return
+	var session_path := String(_session.get_path())
+	if session_path != EXPECTED_SESSION_PATH:
+		_finish(2, "DEADFALL_PHASE12_PROBE_ERROR rpc_path_mismatch:%s" % session_path)
+		return
+	print("DEADFALL_PHASE12_PROBE_RPC_PATH %s" % session_path)
+
+	for signal_name in ["joined", "join_failed", "disconnected"]:
+		if not _session.has_signal(signal_name):
+			_finish(2, "DEADFALL_PHASE12_PROBE_ERROR signal_missing:%s" % signal_name)
+			return
+	_session.connect("joined", Callable(self, "_on_joined"), CONNECT_ONE_SHOT)
+	_session.connect("join_failed", Callable(self, "_on_join_failed"), CONNECT_ONE_SHOT)
+	_session.connect("disconnected", Callable(self, "_on_disconnected"), CONNECT_ONE_SHOT)
+	var error := int(_session.call("start_client", host, port, player_name, "", ticket))
+	if error != OK:
+		_finish(2, "DEADFALL_PHASE12_PROBE_ERROR create_client:%s" % error_string(error))
+		return
+	var timer := create_timer(PROBE_TIMEOUT_SECONDS)
+	timer.timeout.connect(_on_timeout, CONNECT_ONE_SHOT)
+
+func _on_joined(entity_id: int, _resume_token: String, room_code: String) -> void:
+	if _finished:
+		return
+	print("DEADFALL_PHASE12_PROBE_JOINED entity=%d room=%s" % [entity_id, room_code])
+	_graceful_close()
+	await create_timer(0.20).timeout
+	_finish(0, "DEADFALL_PHASE12_PROBE_CLOSED entity=%d" % entity_id)
+
+func _on_join_failed(reason: String) -> void:
+	if _finished:
+		return
+	print("DEADFALL_PHASE12_PROBE_REJECTED reason=%s" % reason)
+	_graceful_close()
+	await create_timer(0.10).timeout
+	_finish(0, "DEADFALL_PHASE12_PROBE_CLOSED rejected=%s" % reason)
+
+func _on_disconnected(reason: String) -> void:
+	if _finished or _closing_intentionally:
+		return
+	_finish(3, "DEADFALL_PHASE12_PROBE_ERROR disconnected:%s" % reason)
+
+func _on_timeout() -> void:
+	if _finished:
+		return
+	_graceful_close()
+	_finish(4, "DEADFALL_PHASE12_PROBE_ERROR timeout")
+
+func _graceful_close() -> void:
+	_closing_intentionally = true
+	if _session != null:
+		var client_peer := _session.get("_client_peer") as ENetMultiplayerPeer
+		if client_peer != null:
+			client_peer.close()
+	root.multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+	var game := root.get_node_or_null("Game")
+	if game != null and game.has_method("is_network_client") and bool(game.call("is_network_client")) and game.has_method("stop_session"):
+		game.call("stop_session")
+
+func _finish(code: int, marker: String) -> void:
+	if _finished:
+		return
+	_finished = true
+	print(marker)
+	quit(code)
+
+func _arg_value(args: PackedStringArray, prefix: String, fallback: String = "") -> String:
+	for arg in args:
+		if arg.begins_with(prefix):
+			return arg.trim_prefix(prefix)
+	return fallback

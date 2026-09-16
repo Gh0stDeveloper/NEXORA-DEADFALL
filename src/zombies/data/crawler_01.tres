@@ -1,0 +1,33 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/zombies/base/ZombieData.gd" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+archetype_id = &"crawler"
+display_name = "Crawler"
+prototype_color = Color(0.31, 0.29, 0.18, 1)
+population_cost = 1
+score_value = 150
+unlock_wave = 3
+spawn_weight = 0.62
+native_crawler = true
+max_health = 75.0
+move_speed = 3.8
+detection_range = 18.0
+lose_target_range = 27.0
+attack_range = 1.35
+attack_damage = 10.0
+attack_cooldown_seconds = 0.95
+attack_windup_seconds = 0.22
+stagger_seconds = 0.28
+search_seconds = 3.6
+scan_interval_seconds = 0.18
+repath_interval_seconds = 0.20
+sight_memory_seconds = 0.90
+head_dismember_damage = 36.0
+arm_dismember_damage = 31.0
+leg_dismember_damage = 34.0
+crawler_speed_multiplier = 0.72
+crawler_attack_range_multiplier = 0.88
+crawler_height = 0.78

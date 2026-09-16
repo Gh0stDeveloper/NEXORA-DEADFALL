@@ -1,0 +1,51 @@
+[gd_resource type="Resource" script_class="DeadfallCampaignMissionData" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://src/campaign/CampaignMissionData.gd" id="1_mission"]
+[ext_resource type="Script" path="res://src/campaign/CampaignObjectiveData.gd" id="2_objective"]
+
+[sub_resource type="Resource" id="ReachGate"]
+script = ExtResource("2_objective")
+objective_id = &"reach_street_gate"
+objective_type = 0
+title = "Reach the quarantine gate"
+description = "Move through the abandoned block and reach the first quarantine barrier."
+target_id = &"StreetGate"
+radius = 3.5
+checkpoint_id = &"StreetGate"
+
+[sub_resource type="Resource" id="ClearStreet"]
+script = ExtResource("2_objective")
+objective_id = &"clear_infected"
+objective_type = 1
+title = "Clear the infected"
+description = "Eliminate the infected blocking the route."
+required_count = 8
+checkpoint_id = &"HoldPoint"
+
+[sub_resource type="Resource" id="HoldPosition"]
+script = ExtResource("2_objective")
+objective_id = &"hold_street"
+objective_type = 2
+title = "Hold the street"
+description = "Survive while the evacuation route is prepared."
+duration_seconds = 18.0
+checkpoint_id = &"HoldPoint"
+
+[sub_resource type="Resource" id="Extract"]
+script = ExtResource("2_objective")
+objective_id = &"extract"
+objective_type = 4
+title = "Reach extraction"
+description = "Regroup at the marked evacuation point."
+target_id = &"EvacPoint"
+radius = 4.0
+checkpoint_id = &"EvacPoint"
+
+[resource]
+script = ExtResource("1_mission")
+mission_id = &"mission_01_first_signal"
+campaign_id = &"deadfall_outbreak"
+title = "Mission 01 — First Signal"
+description = "Push through the first quarantine block, clear the infected and reach extraction."
+objectives = Array[Resource]([SubResource("ReachGate"), SubResource("ClearStreet"), SubResource("HoldPosition"), SubResource("Extract")])
+next_mission_id = &"mission_02_last_broadcast"

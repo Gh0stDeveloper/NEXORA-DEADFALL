@@ -1,0 +1,41 @@
+# Godot
+.godot/
+.import/
+export.cfg
+export_credentials.cfg
+
+# Build outputs
+build/
+dist/
+*.apk
+*.aab
+*.pck
+*.zip
+
+# Third-party 3D model source is pinned under vendor/Objetos3D.
+# Canonical runtime GLB paths under assets/external/objetos3d are tracked links
+# to that vendored source and must remain version-controlled.
+
+# Node / Next.js
+node_modules/
+.next/
+package-lock.json
+
+# Android signing
+*.keystore
+*.jks
+
+# Local configuration
+.env
+.env.*
+!.env.example
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/

@@ -1,0 +1,36 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/zombies/base/ZombieData.gd" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+archetype_id = &"tank"
+display_name = "Tank"
+prototype_color = Color(0.24, 0.30, 0.19, 1)
+population_cost = 3
+score_value = 350
+unlock_wave = 4
+spawn_weight = 0.34
+max_health = 260.0
+move_speed = 2.15
+detection_range = 22.0
+lose_target_range = 32.0
+attack_range = 1.75
+attack_damage = 24.0
+attack_cooldown_seconds = 1.45
+attack_windup_seconds = 0.48
+stagger_seconds = 0.22
+search_seconds = 5.0
+scan_interval_seconds = 0.24
+repath_interval_seconds = 0.30
+sight_memory_seconds = 1.25
+head_dismember_damage = 95.0
+arm_dismember_damage = 82.0
+leg_dismember_damage = 90.0
+crawler_speed_multiplier = 0.34
+crawler_attack_range_multiplier = 0.88
+crawler_height = 0.95
+one_arm_damage_multiplier = 0.80
+two_arm_damage_multiplier = 0.58
+one_arm_cooldown_multiplier = 1.18
+two_arm_cooldown_multiplier = 1.42

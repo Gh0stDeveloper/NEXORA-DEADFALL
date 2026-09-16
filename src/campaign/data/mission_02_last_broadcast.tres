@@ -1,0 +1,61 @@
+[gd_resource type="Resource" script_class="DeadfallCampaignMissionData" load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://src/campaign/CampaignMissionData.gd" id="1_mission"]
+[ext_resource type="Script" path="res://src/campaign/CampaignObjectiveData.gd" id="2_objective"]
+
+[sub_resource type="Resource" id="ReachYard"]
+script = ExtResource("2_objective")
+objective_id = &"reach_radio_yard"
+objective_type = 0
+title = "Reach the radio yard"
+description = "Move toward the emergency broadcast relay."
+target_id = &"RadioYard"
+radius = 4.0
+checkpoint_id = &"RadioYard"
+
+[sub_resource type="Resource" id="RestoreRadio"]
+script = ExtResource("2_objective")
+objective_id = &"restore_radio"
+objective_type = 3
+title = "Restore the emergency transmitter"
+description = "Hold INTERACT at the transmitter control panel."
+target_id = &"RadioConsole"
+radius = 2.5
+interact_hold_seconds = 2.0
+checkpoint_id = &"RadioConsole"
+
+[sub_resource type="Resource" id="ClearRelay"]
+script = ExtResource("2_objective")
+objective_id = &"clear_relay"
+objective_type = 1
+title = "Defend the relay"
+description = "Eliminate the infected converging on the broadcast site."
+required_count = 12
+checkpoint_id = &"RadioConsole"
+
+[sub_resource type="Resource" id="Broadcast"]
+script = ExtResource("2_objective")
+objective_id = &"broadcast_window"
+objective_type = 2
+title = "Keep the transmitter online"
+description = "Survive until the emergency broadcast finishes."
+duration_seconds = 22.0
+checkpoint_id = &"RadioConsole"
+
+[sub_resource type="Resource" id="Escape"]
+script = ExtResource("2_objective")
+objective_id = &"service_tunnel_extract"
+objective_type = 4
+title = "Escape through the service tunnel"
+description = "Reach the service tunnel before the district is overrun."
+target_id = &"ServiceTunnel"
+radius = 4.0
+checkpoint_id = &"ServiceTunnel"
+
+[resource]
+script = ExtResource("1_mission")
+mission_id = &"mission_02_last_broadcast"
+campaign_id = &"deadfall_outbreak"
+title = "Mission 02 — Last Broadcast"
+description = "Restore the district relay, broadcast the warning and escape through the service tunnel."
+objectives = Array[Resource]([SubResource("ReachYard"), SubResource("RestoreRadio"), SubResource("ClearRelay"), SubResource("Broadcast"), SubResource("Escape")])

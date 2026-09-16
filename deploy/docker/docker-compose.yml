@@ -1,0 +1,14 @@
+services:
+  deadfall-server:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    container_name: nexora-deadfall-server
+    restart: unless-stopped
+    ports:
+      - "24560:24560/udp"
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
