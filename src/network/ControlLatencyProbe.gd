@@ -14,6 +14,7 @@ var _busy := false
 var _started_usec := 0
 var _sent_usec := 0
 var _connection_ms := 0
+var _connecting := false
 var _body := PackedByteArray()
 var _code := 0
 var _body_length := -1
@@ -38,7 +39,10 @@ func measure(base: String) -> void:
 	_body_length = -1
 	_body.clear()
 	_path = address.get_string(4).trim_suffix("/") + "/v1/health"
-	if base != _base or _client.get_status() != HTTPClient.STATUS_CONNECTED:
+	if _client.get_status() == HTTPClient.STATUS_CONNECTED:
+		_client.poll() # Notice a closed idle socket before issuing the next GET.
+	_connecting = base != _base or _client.get_status() != HTTPClient.STATUS_CONNECTED
+	if _connecting:
 		_client.close()
 		_base = base
 		var secure := address.get_string(1) == "https"
@@ -62,7 +66,7 @@ func _process(_delta: float) -> void:
 		return
 	if _sent_usec == 0 and status == HTTPClient.STATUS_CONNECTED:
 		_sent_usec = Time.get_ticks_usec()
-		_connection_ms = int(round(float(_sent_usec - _started_usec) / 1000.0))
+		_connection_ms = int(round(float(_sent_usec - _started_usec) / 1000.0)) if _connecting else 0
 		if _client.request(HTTPClient.METHOD_GET, _path, PackedStringArray(["Accept: application/json", "Cache-Control: no-store", "Connection: keep-alive"])) != OK:
 			_finish(false)
 		return

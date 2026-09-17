@@ -87,7 +87,7 @@ func _physics_process(delta: float) -> void:
 		State.CHASE: _process_chase(delta)
 		State.ATTACK: _process_attack()
 		State.STAGGER: _process_stagger()
-	move_and_slide()
+	preload("res://src/core/CharacterMovement.gd").move(self, delta)
 
 func set_authority_override(value: RefCounted) -> void: authority_override = value
 func has_simulation_authority() -> bool:

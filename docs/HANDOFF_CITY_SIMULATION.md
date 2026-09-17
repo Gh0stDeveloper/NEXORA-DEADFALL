@@ -89,3 +89,41 @@ HTTPClient persistente con tiempo de conexión separado: pendiente prueba espec�
 Pendientes: regresiones históricas adaptadas a escenas visuales separadas, prueba
 ENet con cuatro clientes y mediciones. La nueva ciudad está en construcción y aún
 no sustituye el mapa en este checkpoint.
+
+### Checkpoint 2 — ciudad y operadora (2026-09-17)
+
+La ciudad compartida por campaña/dúo/escuadra mide 192 × 192 m: calles de asfalto,
+aceras, cruces, quince casas con puertas de 3 m, interiores y cubiertas parciales,
+parque, vegetación, catorce autos destruidos y cuatro incendios del cliente.
+CityLayout describe las colisiones; CityPresentation carga materiales, modelos,
+vegetación, luces y humo exclusivamente en el cliente. Las hordas eligen puntos
+seguros próximos a los jugadores para mantener presión en el mapa ampliado.
+
+La nueva prueba de navegación pasó con 11 puntos de ruta y llegada a 1.79 m del
+jugador. Se corrigió el paso de bordillos compartiendo CharacterMovement entre
+predicción del cliente y autoridad: subir hasta 25 cm con comprobación de techo,
+obstáculo y apoyo. No se permite atravesar paredes ni vehículos.
+
+VALERIA sustituye el aspecto anterior de operator_01 con cuerpo ajustado sobre la
+base ponderada de J-Toastie, rostro, cabello recogido y equipo de comunicación
+originales. DANTE conserva su diseño. El ID de cuenta no cambia. Ambos pasaron la
+prueba renderizada de agarre para rifle, pistola y machete. Se corrigió la altura
+al arrastrarse para la nueva base. La atribución de la base debe mantenerse.
+
+El sondeo de lobby usa HTTPClient persistente: la prueba real HTTP/1.1 confirmó
+reutilización de conexión, rechazo de una respuesta de salud inválida y que 25 ms
+se muestran como 25. La conexión TLS/DNS se informa aparte del tiempo de petición.
+Las partidas siguen midiendo ENet; una partida sin respuesta no usa el ping HTTP
+como sustituto.
+
+Validaciones históricas iniciales: combate, IA/daño, hordas, red, escuadra,
+campaña, hardening, Phase 11, Android template, instalador y partidas reales de
+2/4 participantes pasaron. Tres pruebas de presentación/escenas requirieron
+adaptación por separar los recursos visuales y ajustar la nueva operadora; deben
+repetirse antes de cerrar. Pendiente la medición nueva de carga con 4 clientes,
+revisión final de capturas, compatibilidad de contenido/versión y gates finales.
+
+Archivos clave nuevos: src/maps/campaign/City*.gd y shaders,
+src/assets/FemaleOperatorDesign.gd, src/core/CharacterMovement.gd,
+scripts/ci/server_navigation_smoke.gd, control_latency_smoke.py,
+match_load_smoke.py, city_visual_smoke.gd y operators_visual_smoke.gd.

@@ -14,21 +14,21 @@ func _run() -> void:
 	var player := (load("res://src/player/Player.tscn") as PackedScene).instantiate() as Node3D
 	player.set("control_mode", 2)
 	arena.get_node("NetworkPlayers").add_child(player)
-	player.position = Vector3(-14, 0.05, 4)
+	player.position = Vector3(-34, 0.15, -8)
 	var zombie := (load("res://src/zombies/base/Zombie.tscn") as PackedScene).instantiate() as Node3D
 	arena.get_node("HordeZombies").add_child(zombie)
-	zombie.position = Vector3(-14, 0.05, -25)
+	zombie.position = Vector3(-34, 0.15, -47)
 	var other := (load("res://src/zombies/base/Zombie.tscn") as PackedScene).instantiate() as Node3D
 	arena.add_child(other)
 	other.set_physics_process(false)
-	other.position = Vector3(28, 0.05, 24)
+	other.position = Vector3(56, 0.05, 70)
 	var original_height := float(other.get_node("CollisionShape3D").shape.height)
 	zombie.call("_on_crawler_required", null)
 	_check(is_equal_approx(other.get_node("CollisionShape3D").shape.height, original_height), "Crawling must not resize another zombie")
 	zombie.free()
 	zombie = (load("res://src/zombies/base/Zombie.tscn") as PackedScene).instantiate() as Node3D
 	arena.get_node("HordeZombies").add_child(zombie)
-	zombie.position = Vector3(-14, 0.05, -25)
+	zombie.position = Vector3(-34, 0.15, -47)
 	var pickup := (load("res://src/horde/AmmoPickup.tscn") as PackedScene).instantiate()
 	pickup.position = Vector3(25, 0.05, 25)
 	arena.add_child(pickup)

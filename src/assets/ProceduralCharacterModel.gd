@@ -42,19 +42,12 @@ static func create_fallback_operator(character_id: StringName = &"operator_01", 
 	M.box(root,"Holster",Vector3(0.09,0.24,0.10),Vector3(0.23,0.77,0.02),dark)
 	M.capsule(root,"Neck",0.062,0.14,Vector3(0,1.43,0),skin)
 	var head := M.joint(root,"Head",Vector3(0,1.56,0))
-	var skull := M.capsule(head,"Face",0.102,0.23,Vector3.ZERO,skin)
-	skull.scale.z = 0.88
-	M.box(head,"Mask",Vector3(0.17,0.08,0.06),Vector3(0,-0.047,-0.075),dark)
 	if mara:
-		var hood := M.capsule(head,"Hood",0.116,0.23,Vector3(0,0.013,0.035),cloth)
-		hood.scale.z = 0.8
-		M.box(head,"GoggleFrame",Vector3(0.19,0.059,0.045),Vector3(0,0.028,-0.084),dark)
-		for side in [-1,1]:
-			M.box(head,"Lens%d"%side,Vector3(0.063,0.029,0.012),Vector3(side*0.049,0.03,-0.113),M.material(Color("9bdaed"),0.5,0.2,0.22))
-		M.box(root,"ScarfCollar",Vector3(0.23,0.065,0.20),Vector3(0,1.415,-0.005),accent)
-		var scarf := M.box(torso,"ScarfTail",Vector3(0.08,0.14,0.025),Vector3(-0.07,0.18,-0.185),accent)
-		scarf.rotation.z = -0.20
+		preload("res://src/assets/FemaleOperatorDesign.gd").add_head(head, Vector3.ZERO, Vector3(0.21, 0.23, 0.20))
 	else:
+		var skull := M.capsule(head,"Face",0.102,0.23,Vector3.ZERO,skin)
+		skull.scale.z = 0.88
+		M.box(head,"Mask",Vector3(0.17,0.08,0.06),Vector3(0,-0.047,-0.075),dark)
 		var helmet := M.capsule(head,"Helmet",0.119,0.24,Vector3(0,0.045,0.02),armor)
 		helmet.scale.y = 0.68
 		M.box(head,"Visor",Vector3(0.19,0.06,0.045),Vector3(0,0.02,-0.1),M.material(Color("377e8f"),0.65,0.17))

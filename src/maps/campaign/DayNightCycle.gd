@@ -118,13 +118,13 @@ func _apply_lighting() -> void:
 	var moon_strength := clampf(1.0 - daylight, 0.0, 1.0)
 	var horizon_factor := clampf(1.0 - absf(solar_height) * 3.0, 0.0, 1.0)
 
-	_sun.rotation_degrees = Vector3(normalized_time * 360.0 - 105.0, -28.0, 0.0)
+	_sun.rotation_degrees = Vector3(-normalized_time * 360.0, -28.0, 0.0)
 	_sun.light_energy = 0.14 + sun_strength * 1.30
 	_sun.light_color = Color(1.0, 0.70, 0.48).lerp(Color(1.0, 0.95, 0.84), sun_strength)
 	_sun.shadow_enabled = _dynamic_sun_shadows and daylight > 0.18
 
-	_moon.rotation_degrees = Vector3(normalized_time * 360.0 + 75.0, 148.0, 0.0)
-	_moon.light_energy = 0.30 + moon_strength * 0.66
+	_moon.rotation_degrees = Vector3(180.0 - normalized_time * 360.0, 148.0, 0.0)
+	_moon.light_energy = 0.04 + moon_strength * 0.55
 	_moon.light_color = Color(0.56, 0.70, 1.0)
 	_moon.shadow_enabled = _dynamic_moon_shadows and moon_strength > 0.34
 
@@ -134,8 +134,14 @@ func _apply_lighting() -> void:
 	var background := night_bg.lerp(day_bg, daylight)
 	background = background.lerp(sunset_bg, horizon_factor * (1.0 - sun_strength) * 0.48)
 	_environment.background_color = background
+	if _environment.sky != null and _environment.sky.sky_material is ProceduralSkyMaterial:
+		var sky := _environment.sky.sky_material as ProceduralSkyMaterial
+		sky.sky_top_color = night_bg.lerp(Color(0.24, 0.46, 0.67), daylight)
+		sky.sky_horizon_color = background.lightened(0.12)
+		sky.ground_horizon_color = background
+		_environment.fog_light_color = background.lightened(0.06)
 	_environment.ambient_light_color = Color(0.38, 0.46, 0.60).lerp(Color(0.82, 0.86, 0.82), daylight)
-	_environment.ambient_light_energy = lerpf(0.72, 1.18, daylight)
-	_environment.tonemap_exposure = lerpf(1.34, 1.10, daylight)
+	_environment.ambient_light_energy = lerpf(0.36, 0.60, daylight)
+	_environment.tonemap_exposure = lerpf(1.15, 1.0, daylight)
 	_environment.adjustment_brightness = lerpf(1.18, 1.07, daylight)
 	time_changed.emit(normalized_time, daylight)

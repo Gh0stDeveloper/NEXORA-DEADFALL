@@ -51,6 +51,8 @@ func _test_prepared_rig_contract() -> bool:
 	var zombie := ZombieScene.instantiate() as Node3D
 	if zombie == null:
 		return _fail("Zombie scene could not be instantiated for gore contract")
+	# Inspect the client-only prepared rig explicitly; server actors omit it.
+	zombie.add_child((load("res://src/zombies/base/ZombiePresentation.tscn") as PackedScene).instantiate())
 	root.add_child(zombie)
 	for path in [
 		"VisualRoot/PreparedRig/Head",
@@ -175,6 +177,7 @@ func _spawn_authoritative_zombie(entity_id: int) -> Dictionary:
 		_fail("Zombie fixture could not be instantiated")
 		return {}
 	zombie.set("entity_id", entity_id)
+	zombie.add_child((load("res://src/zombies/base/ZombiePresentation.tscn") as PackedScene).instantiate())
 	root.add_child(zombie)
 	zombie.call("set_authority_override", authority)
 	var health := zombie.get_node_or_null("Health")

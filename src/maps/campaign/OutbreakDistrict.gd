@@ -1,14 +1,12 @@
 class_name DeadfallOutbreakDistrict
-extends Node3D
+extends "res://src/maps/campaign/CityArena.gd"
 
 const PlayerScene = preload("res://src/player/Player.tscn")
 const PlayerControllerScript = preload("res://src/player/PlayerController.gd")
 const MobileHUDScene = preload("res://src/mobile/MobileHUD.tscn")
 const HordeHUDScene = preload("res://src/horde/HordeHUD.tscn")
-const EnvironmentArt = preload("res://src/maps/campaign/ProceduralEnvironmentArt.gd")
 const Mission1 = preload("res://src/campaign/data/mission_01_first_signal.tres")
 const Mission2 = preload("res://src/campaign/data/mission_02_last_broadcast.tres")
-const NAV_SOURCE_GROUP: StringName = &"deadfall_nav_source"
 
 @export var mission_id: StringName = &"mission_01_first_signal"
 
@@ -17,15 +15,10 @@ const NAV_SOURCE_GROUP: StringName = &"deadfall_nav_source"
 @onready var horde: Node = $HordeDirector
 @onready var campaign: Node = $CampaignDirector
 
-var _navigation_region: NavigationRegion3D
-
 func _ready() -> void:
-	_build_environment()
-	_build_geometry()
+	super._ready()
 	var selected := Mission2 if mission_id == &"mission_02_last_broadcast" else Mission1
 	campaign.set("mission", selected)
-	if not Game.is_network_client():
-		call_deferred("_build_navigation")
 	if Game.is_local_session():
 		_spawn_local_player()
 	campaign.call_deferred("start_mission", selected, true)
@@ -66,87 +59,3 @@ func _build_local_huds(player: Node3D) -> void:
 		horde_hud.set("director_path", NodePath("../HordeDirector"))
 		add_child(horde_hud)
 
-func _build_environment() -> void:
-	if DisplayServer.get_name() == "headless":
-		return
-	var environment_node := WorldEnvironment.new()
-	environment_node.name = "WorldEnvironment"
-	var environment := Environment.new()
-	environment.background_mode = Environment.BG_COLOR
-	environment.background_color = Color(0.09, 0.13, 0.18)
-	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = Color(0.58, 0.64, 0.74)
-	environment.ambient_light_energy = 0.96
-	environment.ambient_light_sky_contribution = 0.18
-	environment.tonemap_exposure = 1.38
-	environment.adjustment_enabled = true
-	environment.adjustment_brightness = 1.16
-	environment.adjustment_contrast = 1.04
-	environment.fog_enabled = true
-	environment.fog_light_color = Color(0.20, 0.24, 0.29)
-	environment.fog_light_energy = 0.58
-	environment.fog_density = 0.0035
-	environment.fog_sky_affect = 0.20
-	environment_node.environment = environment
-	add_child(environment_node)
-
-	var moon := DirectionalLight3D.new()
-	moon.name = "MoonLight"
-	moon.rotation_degrees = Vector3(-48, -32, 0)
-	moon.light_color = Color(0.62, 0.75, 1.0)
-	moon.light_energy = 0.92
-	moon.shadow_enabled = true
-	moon.shadow_blur = 1.35
-	add_child(moon)
-
-	var fill := DirectionalLight3D.new()
-	fill.name = "ColdStreetFill"
-	fill.rotation_degrees = Vector3(-24, 142, 0)
-	fill.light_color = Color(0.34, 0.42, 0.54)
-	fill.light_energy = 0.34
-	fill.shadow_enabled = false
-	add_child(fill)
-
-func _build_geometry() -> void:
-	_create_box("DistrictFloor", Vector3(0, -0.25, 0), Vector3(72, 0.5, 72), Color(0.10, 0.11, 0.12), &"ground")
-	_create_box("NorthBlock", Vector3(0, 4.0, -31), Vector3(54, 8, 5), Color(0.12, 0.14, 0.16), &"perimeter")
-	_create_box("WestBlock", Vector3(-31, 3.0, -2), Vector3(5, 6, 46), Color(0.13, 0.14, 0.16), &"perimeter")
-	_create_box("EastBlock", Vector3(31, 3.5, 2), Vector3(5, 7, 46), Color(0.13, 0.14, 0.16), &"perimeter")
-	_create_box("Clinic", Vector3(-14, 2.5, -12), Vector3(10, 5, 8), Color(0.16, 0.18, 0.19), &"building")
-	_create_box("Market", Vector3(14, 2.0, -8), Vector3(11, 4, 9), Color(0.17, 0.16, 0.15), &"building")
-	_create_box("QuarantineBarrierLeft", Vector3(-6, 1.25, 2), Vector3(9, 2.5, 0.8), Color(0.24, 0.24, 0.20), &"barrier")
-	_create_box("QuarantineBarrierRight", Vector3(6, 1.25, 2), Vector3(9, 2.5, 0.8), Color(0.24, 0.24, 0.20), &"barrier")
-	_create_box("RadioBase", Vector3(14, 1.0, 14), Vector3(8, 2, 8), Color(0.20, 0.22, 0.23), &"facility")
-	_create_box("TunnelWallLeft", Vector3(-8, 1.5, 29), Vector3(12, 3, 2), Color(0.16, 0.17, 0.18), &"perimeter")
-	_create_box("TunnelWallRight", Vector3(8, 1.5, 29), Vector3(12, 3, 2), Color(0.16, 0.17, 0.18), &"perimeter")
-	for position in [Vector3(-9, 0.75, 9), Vector3(8, 0.75, 7), Vector3(-16, 0.75, 18), Vector3(20, 0.75, 22)]:
-		_create_box("StreetCover_%d" % int(abs(position.x * 10.0 + position.z)), position, Vector3(2.4, 1.5, 1.2), Color(0.20, 0.21, 0.22), &"cover")
-
-func _build_navigation() -> void:
-	if _navigation_region != null:
-		return
-	_navigation_region = NavigationRegion3D.new()
-	_navigation_region.name = "NavigationRegion"
-	var nav_mesh := NavigationMesh.new()
-	nav_mesh.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
-	nav_mesh.geometry_source_geometry_mode = NavigationMesh.SOURCE_GEOMETRY_GROUPS_EXPLICIT
-	nav_mesh.geometry_source_group_name = NAV_SOURCE_GROUP
-	nav_mesh.geometry_collision_mask = 1
-	# Keep agent dimensions aligned to the default 0.25 m navigation voxel grid.
-	# This avoids runtime rounding/mismatch warnings on the dedicated server while
-	# preserving the intended human-sized navigation clearance.
-	nav_mesh.agent_radius = 0.50
-	nav_mesh.agent_height = 1.75
-	nav_mesh.agent_max_climb = 0.25
-	nav_mesh.cell_size = 0.25
-	nav_mesh.cell_height = 0.25
-	nav_mesh.filter_walkable_low_height_spans = true
-	_navigation_region.navigation_mesh = nav_mesh
-	add_child(_navigation_region)
-	_navigation_region.bake_navigation_mesh(true)
-
-func _create_box(node_name: String, position_value: Vector3, size_value: Vector3, color: Color, detail: StringName = &"building") -> void:
-	var body := EnvironmentArt.create_structure(self, node_name, position_value, size_value, color, detail)
-	if body == null:
-		return
-	body.add_to_group(NAV_SOURCE_GROUP)

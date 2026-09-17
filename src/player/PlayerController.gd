@@ -95,7 +95,7 @@ func _physics_process(delta: float) -> void:
 		if command.is_empty():
 			_process_vertical_velocity(delta, false)
 			_process_planar_velocity(delta, Vector2.ZERO, false, _life_move_multiplier())
-			move_and_slide()
+			preload("res://src/core/CharacterMovement.gd").move(self, delta)
 			return
 		_apply_authoritative_orientation(command)
 	else:
@@ -109,7 +109,7 @@ func _physics_process(delta: float) -> void:
 	var jump_requested := _serial_triggered(command, "jump_serial", _processed_jump_serial, not downed)
 	_process_vertical_velocity(delta, jump_requested)
 	_process_planar_velocity(delta, Vector2(command.get("move", Vector2.ZERO)), bool(command.get("sprint", false)) and not downed, _life_move_multiplier())
-	move_and_slide()
+	preload("res://src/core/CharacterMovement.gd").move(self, delta)
 
 	if control_mode == ControlMode.NETWORK_PREDICTED:
 		var wire := command.duplicate(true)
