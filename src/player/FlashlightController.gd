@@ -10,9 +10,14 @@ var _light: SpotLight3D
 
 func _ready() -> void:
 	_input = get_node_or_null(input_path)
+	call_deferred("_bind_light")
+
+func _bind_light() -> void:
 	_light = get_node_or_null(light_path) as SpotLight3D
 	if _light != null:
 		_light.visible = starts_enabled
+	else:
+		set_process(false)
 
 func _process(_delta: float) -> void:
 	if _input == null or _light == null:

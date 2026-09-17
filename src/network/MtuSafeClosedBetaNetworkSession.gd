@@ -35,6 +35,7 @@ func _physics_process(delta: float) -> void:
 		_send_snapshot_chunks(int(peer_id))
 
 func _send_snapshot_chunks(peer_id: int) -> void:
+	var started_usec := Time.get_ticks_usec()
 	var snapshot := _build_server_snapshot_with_pickups(peer_id)
 	var raw := var_to_bytes(snapshot)
 	if raw.is_empty() or raw.size() > SNAPSHOT_MAX_RAW_BYTES:
@@ -54,6 +55,7 @@ func _send_snapshot_chunks(peer_id: int) -> void:
 		var end := mini(begin + SNAPSHOT_CHUNK_BYTES, compressed.size())
 		var chunk := compressed.slice(begin, end)
 		rpc_id(peer_id, "_client_receive_snapshot_chunk", tick, raw.size(), total_chunks, chunk_index, chunk)
+	get_tree().call_group("deadfall_server_performance", "record_snapshot", Time.get_ticks_usec() - started_usec, compressed.size())
 
 func _build_server_snapshot_with_pickups(peer_id: int) -> Dictionary:
 	var snapshot: Dictionary = super._build_server_snapshot_for_peer(peer_id)

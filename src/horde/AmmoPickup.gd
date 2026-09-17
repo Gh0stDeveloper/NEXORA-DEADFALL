@@ -12,6 +12,10 @@ var _age := 0.0
 var _collected := false
 var _visual: Node3D
 
+func _enter_tree() -> void:
+	if preload("res://src/core/PresentationRuntime.gd").enabled() and not has_node("Visual"):
+		add_child((load("res://src/horde/AmmoPickupPresentation.tscn") as PackedScene).instantiate())
+
 func _ready() -> void:
 	_visual = get_node_or_null("Visual") as Node3D
 	body_entered.connect(_on_body_entered)
@@ -65,7 +69,7 @@ func _on_body_entered(body: Node3D) -> void:
 	if added <= 0:
 		return
 	_collected = true
-	monitoring = false
+	set_deferred("monitoring", false)
 	var entity_value = body.get("player_entity_id")
 	var entity_id := int(entity_value) if entity_value != null else 0
 	collected.emit(pickup_id, added, entity_id)

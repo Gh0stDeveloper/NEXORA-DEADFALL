@@ -187,7 +187,7 @@ func add_reserve_ammo(amount: int) -> int:
 func _build_shot_intent(sequence: int, simulation_tick: int):
 	if _camera_rig == null or not _camera_rig.has_method("get_aim_camera"):
 		return null
-	var aim_camera = _camera_rig.get_aim_camera() as Camera3D
+	var aim_camera = _camera_rig.get_aim_camera() as Node3D
 	if aim_camera == null:
 		return null
 	var intent = ShotIntentScript.new()

@@ -39,6 +39,12 @@ func start(
 	match_config_path: String = ""
 ) -> Error:
 	listen_port = port
+	# Headless rendering has no vsync. Bound idle polling while retaining 60 Hz
+	# physics/ENet processing; avoid an unbounded loop competing with match workers.
+	Engine.max_fps = 60
+	var performance := preload("res://src/server/ServerPerformance.gd").new()
+	performance.name = "SimulationPerformance"
+	add_child(performance)
 	_campaign_mode = campaign_mode
 	_is_match_instance = match_instance
 	room_code = RoomCodeScript.normalize(requested_room_code)

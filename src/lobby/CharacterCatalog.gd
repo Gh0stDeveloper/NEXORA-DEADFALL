@@ -4,11 +4,12 @@ extends RefCounted
 const CHARACTERS := [
 	{
 		"id": &"operator_01",
-		"name": "MARA",
-		"role": "SUPERVIVIENTE",
-		"description": "Operadora equilibrada para reconocimiento y combate urbano.",
-		"accent": Color(0.74, 0.08, 0.10, 1.0),
-		"model_scene": "res://assets/external/objetos3d/operator_01.glb",
+		"name": "VALERIA",
+		"role": "RECONOCIMIENTO",
+		"description": "Especialista en reconocimiento urbano y rescate de supervivientes.",
+		"accent": Color(0.42, 0.68, 0.52, 1.0),
+		"model_scene": "res://assets/external/objetos3d/operator_02.glb",
+		"design": "valeria",
 	},
 	{
 		"id": &"operator_02",

@@ -22,8 +22,9 @@ var _match_quality := "SIN CONEXIÓN"
 var _last_match_ping_usec := 0
 var _control_elapsed := 0.0
 var _presence_elapsed := 0.0
-var _request_in_flight := false
-var _request_started_usec := 0
+var _control_probe: Node
+var _control_connection_ms := 0
+var _control_total_ms := 0
 var _overlay_label: Label
 var _ping_panel: PanelContainer
 
@@ -84,45 +85,33 @@ func snapshot() -> Dictionary:
 		"quality": _quality,
 		"source": _source,
 		"online": is_online(),
+		"control_connection_ms": _control_connection_ms,
+		"control_total_ms": _control_total_ms,
 	}
 
 func _start_control_ping() -> void:
-	if _request_in_flight:
+	# Gameplay has its own ENet ping. Do not add HTTPS traffic during a match.
+	if Game.is_network_client():
 		return
 	var social := get_node_or_null("/root/SocialClient")
 	if social == null:
 		_set_control_ping(999)
 		return
-	var base := String(social.get("api_base")).trim_suffix("/v1").trim_suffix("/")
+	var base := String(social.get("api_base")).trim_suffix("/").trim_suffix("/v1")
 	if base.is_empty():
 		_set_control_ping(999)
 		return
-	var request := HTTPRequest.new()
-	request.name = "PingRequest"
-	request.timeout = REQUEST_TIMEOUT_SECONDS
-	add_child(request)
-	request.request_completed.connect(_on_control_ping_completed.bind(request))
-	_request_in_flight = true
-	_request_started_usec = Time.get_ticks_usec()
-	var error := request.request("%s/v1/health" % base, PackedStringArray(["Accept: application/json", "Cache-Control: no-store"]), HTTPClient.METHOD_GET)
-	if error != OK:
-		_request_in_flight = false
-		request.queue_free()
-		_set_control_ping(999)
+	if _control_probe == null:
+		_control_probe = preload("res://src/network/ControlLatencyProbe.gd").new()
+		_control_probe.name = "ControlLatencyProbe"
+		add_child(_control_probe)
+		_control_probe.connect("completed", _on_control_ping_completed)
+	_control_probe.call("measure", base)
 
-func _on_control_ping_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray, request: HTTPRequest) -> void:
-	_request_in_flight = false
-	if is_instance_valid(request):
-		request.queue_free()
-	if result != HTTPRequest.RESULT_SUCCESS or response_code < 200 or response_code >= 300:
-		_set_control_ping(999)
-		return
-	var parsed = JSON.parse_string(body.get_string_from_utf8())
-	if typeof(parsed) != TYPE_DICTIONARY or not bool(Dictionary(parsed).get("ok", false)):
-		_set_control_ping(999)
-		return
-	var elapsed_ms := clampi(int(round(float(Time.get_ticks_usec() - _request_started_usec) / 1000.0)), 0, 999)
-	_set_control_ping(elapsed_ms)
+func _on_control_ping_completed(request_ms: int, connection_ms: int, total_ms: int) -> void:
+	_control_connection_ms = connection_ms
+	_control_total_ms = total_ms
+	_set_control_ping(request_ms)
 
 func _set_control_ping(raw_ms: int) -> void:
 	_control_raw_ping = clampi(raw_ms, 0, 999)
@@ -130,7 +119,7 @@ func _set_control_ping(raw_ms: int) -> void:
 		_control_display_ping = 999
 		_control_quality = "SIN CONEXIÓN"
 	elif _control_raw_ping <= EXCELLENT_PING_THRESHOLD_MS:
-		_control_display_ping = 0
+		_control_display_ping = _control_raw_ping
 		_control_quality = "EXCELENTE"
 	elif _control_raw_ping <= 70:
 		_control_display_ping = _control_raw_ping
@@ -149,6 +138,11 @@ func _apply_effective_ping() -> void:
 		_display_ping_ms = _match_display_ping
 		_raw_ping_ms = _match_raw_ping
 		_quality = _match_quality
+		_source = "match"
+	elif Game.is_network_client():
+		_display_ping_ms = 999
+		_raw_ping_ms = 999
+		_quality = "SIN CONEXIÓN"
 		_source = "match"
 	else:
 		_display_ping_ms = _control_display_ping
@@ -214,10 +208,10 @@ func _refresh_overlay() -> void:
 	if _overlay_label == null:
 		return
 	var ping_text := "+999" if _display_ping_ms >= 999 else str(_display_ping_ms)
-	_overlay_label.text = "PING %s · %s" % [ping_text, _quality]
+	_overlay_label.text = "%s %s ms" % ["PARTIDA" if _source == "match" else "API LOBBY", ping_text]
 	if _display_ping_ms >= 999:
 		_overlay_label.add_theme_color_override("font_color", Color(0.88, 0.20, 0.22))
-	elif _display_ping_ms == 0:
+	elif _display_ping_ms <= EXCELLENT_PING_THRESHOLD_MS:
 		_overlay_label.add_theme_color_override("font_color", Color(0.35, 0.92, 0.58))
 	elif _display_ping_ms <= 70:
 		_overlay_label.add_theme_color_override("font_color", Color(0.60, 0.88, 0.58))
