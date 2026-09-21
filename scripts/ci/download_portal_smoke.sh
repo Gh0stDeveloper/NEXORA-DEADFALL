@@ -51,35 +51,82 @@ PY
 
 # The updater builds the portal before Android. Keep the existing signed APK
 # and matching version visible, then advance atomically after the APK export.
-python3 - "$SITE/scripts/publish_release_history.py" "$SITE/src/data/releases.json" "$TMP_DIR" <<'PY'
-import json, subprocess, sys
+python3 - "$ROOT" "$TMP_DIR" <<'PY'
+import json, os, subprocess, sys
 from pathlib import Path
-publisher, source, temporary = sys.argv[1:]
-root = Path(temporary)
+repository, temporary = map(Path, sys.argv[1:])
+site = repository / 'web/download-site'
+publisher = site / 'scripts/publish_release_history.py'
+source = site / 'src/data/releases.json'
+root = temporary / 'upgrade'
+root.mkdir()
 catalog = json.loads(Path(source).read_text())
+
+def production_command(name):
+    # Execute the actual publisher invocation, including its flags and paths.
+    # Reconstructing a command here hid a missing flag in the production caller.
+    script = (repository / 'scripts/build' / name).read_text().replace('\\\n', '')
+    commands = [line for line in script.splitlines()
+                if line.startswith('python3 "$HISTORY_PUBLISHER" ')]
+    assert len(commands) == 1, f'{name}: expected one history publisher invocation'
+    return commands[0]
+
+portal = production_command('build_download_site.sh')
+android = production_command('build_android_vps.sh')
+environment = dict(os.environ, HISTORY_PUBLISHER=str(publisher), SITE=str(site),
+                   DEADFALL_ROOT=str(repository), DEADFALL_PUBLIC_DIR=str(root))
+
+def publish(command, expected_error=None):
+    result = subprocess.run(['bash', '-euc', command], env=environment,
+                            capture_output=True, text=True)
+    if expected_error:
+        assert result.returncode != 0 and expected_error in result.stderr, result
+    else:
+        assert result.returncode == 0, result.stderr
+        print(result.stdout, end='')
+
+manifest_path, history_path = root / 'release.json', root / 'releases.json'
+# A fresh installation must not advertise an APK that has not been exported.
+publish(portal)
+history = json.loads(history_path.read_text())
+current = next(item for item in history['releases'] if item['status'] == 'current')
+assert current['version'] == catalog['current']
+assert current['download_available'] is False and current['download'] is None
+
 previous = next(item for item in catalog['releases'] if item['status'] == 'superseded')
 manifest = {'version': previous['version'], 'bytes': 123456, 'sha256': 'b' * 64,
             'git_sha': 'c' * 40, 'published_unix': 1789588800,
             'download': '/downloads/NEXORA-DEADFALL-latest.apk'}
-manifest_path, history_path = root / 'upgrade-release.json', root / 'upgrade-history.json'
 manifest_path.write_text(json.dumps(manifest))
-command = [sys.executable, publisher, '--source', source, '--current', str(manifest_path), '--output', str(history_path)]
-strict = subprocess.run(command, capture_output=True, text=True)
-assert strict.returncode != 0, 'Final APK publisher must reject a mismatched manifest'
-subprocess.run([*command, '--keep-published-version'], check=True)
+before = history_path.read_bytes()
+publish(android, 'release.json no coincide')
+assert history_path.read_bytes() == before, 'Failed publication changed live history'
+publish(portal)
 history = json.loads(history_path.read_text())
 assert history['current'] == previous['version']
 assert all(item['version'] != catalog['current'] for item in history['releases'])
 published = next(item for item in history['releases'] if item['status'] == 'current')
 assert published['download_available'] and published['sha256'] == 'b' * 64
+assert all(published[key] == value for key, value in manifest.items())
+assert json.loads(manifest_path.read_text()) == manifest, 'Portal changed the APK manifest'
+# Retrying after an interrupted build must leave the prior download intact.
+publish(portal)
+assert json.loads(history_path.read_text()) == history
+manifest_path.write_text(json.dumps(dict(manifest, sha256='invalid')))
+publish(portal, 'release.json.sha256')
+assert json.loads(history_path.read_text()) == history
+
 manifest.update(version=catalog['current'], sha256='a' * 64)
 manifest_path.write_text(json.dumps(manifest))
-subprocess.run(command, check=True)
+publish(android)
 history = json.loads(history_path.read_text())
 assert history['current'] == catalog['current']
+assert sum(item['status'] == 'current' for item in history['releases']) == 1
 published = next(item for item in history['releases'] if item['status'] == 'current')
 assert published['download_available'] and published['sha256'] == 'a' * 64
-print('NEXORA: release upgrade publication smoke passed')
+publish(portal)
+assert json.loads(history_path.read_text()) == history
+print('NEXORA: production release upgrade publication smoke passed')
 PY
 
 cd "$SITE"

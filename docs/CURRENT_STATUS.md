@@ -13,13 +13,31 @@ This file is the short operational source of truth for the project. For the comp
 - Engine: Godot `4.6.3-stable`.
 - Android target API: `36`.
 - Deployed Closed Beta: beta.5; owner confirmed the portal/main update works.
-- Current source candidate: `0.9.0-beta.6` / versionCode `900006`.
-- Candidate branch: `agent/city-simulation-upgrade`, PR `#16`; main remains the previous delivery.
+- Current source: `0.9.0-beta.6` / versionCode `900006`.
+- The owner merged PR `#16` into main at `668347bb8444380bc2245fdcbdf01c5cd968b6dc`.
+- The VPS passed the beta.6 Godot gates, then stopped at release history publication before portal build / Android export. The last confirmed published APK remains beta.5.
+- Publication fix: `agent/fix-beta6-release-transition`; merge its PR before retrying the main updater.
 - Network protocol: `2`.
 - Candidate content version: `2` (update all clients and server together).
 - Maximum party size: `4`.
 
-## City/simulation candidate — beta.6
+## Release history update failure — beta.6
+
+The source catalog advances to beta.6 before the updater builds Android, so the
+existing `release.json` still describes beta.5. The Python publisher supported
+`--keep-published-version`, but that option was omitted from the production portal
+build script in PR #16. The fix adds it to `scripts/build/build_download_site.sh`;
+the Android publisher keeps its strict version check after APK export.
+
+The regression now executes the publisher calls extracted from both production
+scripts instead of constructing a separate command with the correct flag. It
+reproduces the failure using the caller from main, then passes with the fix:
+fresh installation, previous APK preservation, interrupted-build retry, corrupt
+manifest rejection, strict final publication and subsequent portal rebuild.
+Installer checks and the full standalone portal build/routes smoke passed locally.
+No new signed APK or completed VPS deployment is claimed yet.
+
+## City/simulation source — beta.6
 
 A shared 192 × 192 m city now contains fifteen enterable buildings, streets,
 curbs, natural surfaces, vegetation, wrecks and client-side fire. VALERIA replaces
