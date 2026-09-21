@@ -1,15 +1,6 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://src/horde/AmmoPickup.gd" id="1_pickup"]
-
-[sub_resource type="StandardMaterial3D" id="AmmoMaterial"]
-albedo_color = Color(0.96, 0.55, 0.08, 1)
-metallic = 0.42
-roughness = 0.38
-
-[sub_resource type="BoxMesh" id="AmmoMesh"]
-material = SubResource("AmmoMaterial")
-size = Vector3(0.42, 0.22, 0.28)
 
 [sub_resource type="BoxShape3D" id="PickupShape"]
 size = Vector3(1.25, 1.0, 1.25)
@@ -20,17 +11,6 @@ collision_mask = 2
 monitoring = true
 monitorable = true
 script = ExtResource("1_pickup")
-
-[node name="Visual" type="Node3D" parent="."]
-position = Vector3(0, 0.16, 0)
-
-[node name="Crate" type="MeshInstance3D" parent="Visual"]
-mesh = SubResource("AmmoMesh")
-cast_shadow = 1
-
-[node name="BandA" type="MeshInstance3D" parent="Visual"]
-scale = Vector3(1.08, 1.08, 0.20)
-mesh = SubResource("AmmoMesh")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 position = Vector3(0, 0.45, 0)

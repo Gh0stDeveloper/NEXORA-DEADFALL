@@ -21,6 +21,7 @@ var current_account: Dictionary = {}
 var current_party: Dictionary = {}
 var friends: Dictionary = {}
 var _pending_operations: Dictionary = {}
+var _queued_character: StringName = &""
 var _emitted_match_id := ""
 
 func _ready() -> void:
@@ -47,7 +48,18 @@ func load_profile(account_id: String = "") -> bool:
 	return _request_json("profile", HTTPClient.METHOD_GET, "/profile/%s" % target, {}, true)
 
 func update_selected_character(character_id: StringName) -> bool:
+	if bool(_pending_operations.get("character_update", false)):
+		_queued_character = character_id
+		return true
+	_queued_character = &""
 	return _request_json("character_update", HTTPClient.METHOD_POST, "/profile/character", {"character_id": String(character_id)}, true)
+
+func _flush_queued_character() -> void:
+	if _queued_character.is_empty():
+		return
+	var character_id := _queued_character
+	_queued_character = &""
+	update_selected_character(character_id)
 
 func report_presence(ping_ms: int) -> bool:
 	return _request_json("presence", HTTPClient.METHOD_POST, "/presence", {"ping_ms": clampi(ping_ms, 0, 999)}, true)
@@ -134,6 +146,8 @@ func _request_json(operation: String, method: int, path: String, payload: Dictio
 
 func _on_request_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray, request: HTTPRequest, operation: String, context: Dictionary) -> void:
 	_pending_operations.erase(operation)
+	if operation == "character_update" and not _queued_character.is_empty():
+		call_deferred("_flush_queued_character")
 	if is_instance_valid(request):
 		request.queue_free()
 	if result != HTTPRequest.RESULT_SUCCESS:

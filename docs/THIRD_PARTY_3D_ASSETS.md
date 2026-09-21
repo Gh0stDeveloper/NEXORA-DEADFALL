@@ -50,7 +50,7 @@ Use a fine-grained token with read-only Contents access to `Gh0stDeveloper/Objet
 
 The VPS path does not require this Actions secret because its existing `gh auth`/Git credential helper is used for private repository access.
 
-## Current mapped assets
+## Pinned source assets
 
 | Runtime ID | Canonical file | Vendored source filename | Source attribution in filename |
 |---|---|---|---|
@@ -58,6 +58,14 @@ The VPS path does not require this Actions secret because its existing `gh auth`
 | `operator_02` | `operator_02.glb` | `Animated Character Base by J-Toastie - AZzoJo1FBm.glb` | J-Toastie |
 | zombie animated | `zombie_animated.glb` | `Animated Zombie by Quaternius - jkrEvQZb8J.glb` | Quaternius |
 | zombie fallback/static | `zombie_static.glb` | `Zombie by cs_aaron - ftpTNkeqGWc.glb` | cs_aaron |
+
+As of beta.6, both active operators use the weighted J-Toastie base.
+`operator_01` selects **VALERIA**: reshaped body, original head/face, tied hair,
+communications headset and reconnaissance uniform. `operator_02` remains
+**DANTE**. `FemaleOperatorDesign.gd` applies the derivative geometry at load time;
+account IDs and the pinned source gitlink stay stable. The legacy Daren GLB/link
+is retained for source provenance and staging compatibility, but the active
+operator rig no longer presents that model.
 
 The vendored source snapshot also contains ZIP packages for these models. ZIP files remain source/archive material only and are not copied into the Godot runtime path.
 

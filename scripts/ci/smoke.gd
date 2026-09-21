@@ -138,6 +138,9 @@ const MTU_SAFE_SESSION_PATH := "res://src/network/MtuSafeClosedBetaNetworkSessio
 const LIFECYCLE_SESSION_PATH := "res://src/network/LifecycleMtuSafeNetworkSession.gd"
 
 func _initialize() -> void:
+	call_deferred("_run")
+
+func _run() -> void:
 	for path in REQUIRED_FILES:
 		if not FileAccess.file_exists(path):
 			_fail("Missing required project file: %s" % path)
@@ -194,8 +197,8 @@ func _initialize() -> void:
 	if player.get_node_or_null("PlayerInput") == null or player.get_node_or_null("Health") == null or player.get_node_or_null("LifeState") == null or player.get_node_or_null("PrimaryWeapon") == null or player.get_node_or_null("SecondaryWeapon") == null or player.get_node_or_null("MacheteWeapon") == null or player.get_node_or_null("WeaponLoadout") == null:
 		_fail("Player combat/Squad/loadout components missing")
 		return
-	if player.get_node_or_null("CameraRig/Pitch/FirstPerson") == null or player.get_node_or_null("CameraRig/Pitch/ThirdPersonRear") == null or player.get_node_or_null("CameraRig/Pitch/ThirdPersonFront") == null:
-		_fail("Player camera rig incomplete")
+	if player.get_node_or_null("CameraRig/Pitch/FirstPerson") == null:
+		_fail("Authoritative player aim transform missing")
 		return
 	if range_instance.get_node_or_null("MobileHUD") == null:
 		_fail("Mobile HUD missing")

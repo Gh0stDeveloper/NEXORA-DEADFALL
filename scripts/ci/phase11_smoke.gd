@@ -165,27 +165,33 @@ func _run() -> void:
 	if player == null:
 		_fail("Phase 11 Player scene could not instantiate")
 		return
-	if player.get_node_or_null("FlashlightController") == null or player.get_node_or_null("VisualRoot/ModelPresenter") == null:
-		_fail("Phase 11 Player flashlight/model presenter contract missing")
+	root.add_child(player)
+	if player.get_node_or_null("FlashlightController") == null or not player.get_node("CameraRig").call("get_aim_camera") is Node3D:
+		_fail("Authoritative player flashlight state/aim transform missing")
 		return
-	var flashlight := player.get_node_or_null("CameraRig/Pitch/FirstPerson/Flashlight") as SpotLight3D
-	if flashlight == null or flashlight.spot_range < 10.0 or flashlight.spot_angle <= 0.0:
-		_fail("Phase 11 flashlight SpotLight3D is not configured")
+	if DisplayServer.get_name() == "headless" and player.get_node_or_null("VisualRoot/ModelPresenter") != null:
+		_fail("Dedicated player must not allocate a model presenter")
 		return
 	if not InputMap.has_action(&"flashlight"):
-		_fail("Phase 11 flashlight input action missing")
+		_fail("Flashlight input action missing")
 		return
 	player.free()
-
+	var presentation := (load("res://src/player/PlayerPresentation.tscn") as PackedScene).instantiate()
+	if presentation.get_node_or_null("ModelPresenter") == null:
+		_fail("Client player presentation missing")
+		return
+	presentation.free()
 	var zombie_scene := load("res://src/zombies/base/Zombie.tscn") as PackedScene
 	var zombie := zombie_scene.instantiate() if zombie_scene != null else null
-	if zombie == null or zombie.get_node_or_null("VisualRoot/ModelPresenter") == null:
-		_fail("Phase 11 zombie external model presenter missing")
-		return
-	if zombie.get_node_or_null("VisualRoot/PreparedRig") == null or zombie.get_node_or_null("Gore") == null:
-		_fail("Phase 11 gore-ready zombie fallback missing")
+	if zombie == null or zombie.get_node_or_null("Gore") == null:
+		_fail("Zombie simulation/gore state missing")
 		return
 	zombie.free()
+	var zombie_presentation := (load("res://src/zombies/base/ZombiePresentation.tscn") as PackedScene).instantiate()
+	if zombie_presentation.get_node_or_null("ModelPresenter") == null or zombie_presentation.get_node_or_null("PreparedRig") == null:
+		_fail("Client zombie model/fallback presentation missing")
+		return
+	zombie_presentation.free()
 
 	var horde_scene := load("res://src/horde/HordeHUD.tscn") as PackedScene
 	var horde_hud := horde_scene.instantiate() if horde_scene != null else null

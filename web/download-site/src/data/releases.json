@@ -1,13 +1,66 @@
 {
   "schema_version": 1,
-  "current": "0.9.0-beta.5",
+  "current": "0.9.0-beta.6",
   "releases": [
+    {
+      "version": "0.9.0-beta.6",
+      "version_code": 900006,
+      "channel": "closed_beta",
+      "published_unix": null,
+      "status": "current",
+      "summary": "Ciudad ampliada, persecución de hordas corregida, servidor de simulación y nueva operadora VALERIA.",
+      "added": [
+        "Ciudad de 192 × 192 m con quince edificios accesibles, calles, vegetación, catorce autos destruidos y cuatro incendios.",
+        "VALERIA sustituye la presentación de operator_01; DANTE conserva su identidad.",
+        "Métricas del servidor y prueba real de carga con cuatro clientes ENet."
+      ],
+      "changed": [
+        "Colisiones y objetivos deterministas compartidos por campaña, dúo y escuadra.",
+        "Mallas, cámaras, luces, música y efectos se instancian exclusivamente en el cliente.",
+        "Vegetación y geometría agrupadas por sectores para reducir llamadas de dibujo."
+      ],
+      "fixed": [
+        "Zombis inmóviles por desfase entre navegación y suelo; persecución persistente y paso de bordillos.",
+        "Referencias a jugadores desconectados y relay entre pares innecesario.",
+        "El ping de partida usa RTT ENet real; el lobby separa conexión y respuesta HTTP persistente."
+      ],
+      "networking": [
+        "El servidor conserva autoridad sobre movimiento, colisiones, IA, daño y estado.",
+        "Content version 2 exige actualizar servidor y todos los APK; se rechaza el mapa anterior.",
+        "Límite de 60 frames/s y física a 60 Hz en el dedicado."
+      ],
+      "android": [
+        "Android ARM64, API objetivo 36.",
+        "Conservar la clave de firma existente al compilar beta.6."
+      ],
+      "known_issues": [
+        "La latencia WAN desde los teléfonos y el rendimiento térmico/GPU requieren medición física.",
+        "Este catálogo de fuente no acredita un APK compilado; el despliegue completa su fecha, SHA y enlace."
+      ],
+      "min_client_version_code": 900006,
+      "max_client_version_code": 900999,
+      "protocol": 2,
+      "content_version": 2,
+      "target_android_api": 36,
+      "max_players": 4,
+      "bytes": null,
+      "sha256": null,
+      "git_sha": null,
+      "download": null,
+      "download_available": false,
+      "compatibility": {
+        "platform": "Android",
+        "architecture": "ARM64",
+        "network": "closed_beta",
+        "server_authority": true
+      }
+    },
     {
       "version": "0.9.0-beta.5",
       "version_code": 900005,
       "channel": "closed_beta",
       "published_unix": null,
-      "status": "current",
+      "status": "superseded",
       "summary": "Ciclo de vida de partidas dedicadas, recuperación con ticket y resultados autoritativos.",
       "added": [
         "Reconexión ligada al mismo ticket privado, identidad y entidad autoritativa.",
@@ -42,8 +95,8 @@
       "bytes": null,
       "sha256": null,
       "git_sha": "f402f1696c0438447d76236122a5d82101a94cc0",
-      "download": "/downloads/NEXORA-DEADFALL-latest.apk",
-      "download_available": true,
+      "download": null,
+      "download_available": false,
       "compatibility": {
         "platform": "Android",
         "architecture": "ARM64",

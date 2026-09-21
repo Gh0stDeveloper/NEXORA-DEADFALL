@@ -1,6 +1,6 @@
 # NEXORA: DEADFALL — Closed Beta Release History
 
-Last updated: 2026-09-11.
+Last updated: 2026-09-21.
 
 This file is the human-readable release-history index used by maintainers and as the planning source for the future public version-history page.
 
@@ -12,7 +12,26 @@ This file is the human-readable release-history index used by maintainers and as
 - A source/documentation commit is not automatically a new game version.
 - A version becomes a deployed runtime version only after the intended build/deployment gate completes.
 
-## Current release
+## Current source candidate
+
+### 0.9.0-beta.6 — versionCode 900006
+
+Status: source candidate on `agent/city-simulation-upgrade`, PR #16.
+No signed APK or production deployment is claimed by this entry.
+
+- 192 × 192 m city, fifteen enterable buildings, natural ground/asphalt,
+  vegetation, fourteen wrecks and four client-side fires.
+- Corrected zombie navigation height, persistent pursuit, curb stepping and
+  target disposal on disconnect.
+- Dedicated simulation/collision/AI/networking without presentation nodes.
+- Independent ENet game RTT, reusable HTTP lobby probe and process metrics.
+- VALERIA replaces the other active operator design; DANTE remains.
+- Content version 2; server and all testers must update together.
+- Portal preserves the previously published APK while exporting the new one.
+
+Validation and recovery details: `../HANDOFF_CITY_SIMULATION.md`.
+
+## Previous deployed release
 
 ### 0.9.0-beta.5 — versionCode 900005
 

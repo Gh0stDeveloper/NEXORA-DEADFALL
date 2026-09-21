@@ -20,7 +20,7 @@ var _fallback: Node3D
 var _head_bounds := AABB(Vector3(-0.11, 1.47, -0.1), Vector3(0.22, 0.22, 0.22))
 
 func _ready() -> void:
-	var config := Catalog.character(character_id)
+	var config := Catalog.character(&"operator_02" if character_id == &"operator_01" else character_id)
 	if not Catalog.model_exists(config):
 		_use_fallback()
 		return
@@ -69,11 +69,11 @@ func _use_fallback() -> void:
 func _color_uniform(model: Node3D) -> void:
 	# Vertex colors are baked once. No texture downloads or per-frame skinning
 	# on the CPU: Godot continues to deform the original mesh on the GPU.
-	var mara := character_id == &"operator_01"
-	var fabric := Color("64746a") if mara else Color("596c7b")
-	var trousers := Color("46504a") if mara else Color("394754")
+	var female := character_id == &"operator_01"
+	var fabric := Color("64746a") if female else Color("596c7b")
+	var trousers := Color("46504a") if female else Color("394754")
 	var boots := Color("293235")
-	var skin := Color("a9785b") if mara else Color("856049")
+	var skin := Color("a9785b") if female else Color("856049")
 	for value in model.find_children("*", "MeshInstance3D", true, false):
 		var instance := value as MeshInstance3D
 		var cache_key := "%s:%s" % [character_id, instance.name]
@@ -82,6 +82,8 @@ func _color_uniform(model: Node3D) -> void:
 			instance.material_override = _uniform_meshes[cache_key][1]
 			_head_bounds = _uniform_meshes[cache_key][2]
 			continue
+		if female:
+			preload("res://src/assets/FemaleOperatorDesign.gd").reshape_body(instance, self)
 		var points := Normalizer._skinned_points(instance, self)
 		if points.is_empty():
 			continue
@@ -133,10 +135,10 @@ func _equipment_group(bone: String) -> Node3D:
 	return group
 
 func _add_equipment() -> void:
-	var mara := character_id == &"operator_01"
+	var female := character_id == &"operator_01"
 	var armor := M.material(Color("33454a"), 0.1, 0.82)
 	var dark := M.material(Color("263338"), 0.05, 0.85)
-	var accent := M.material(Color("c89a5e") if mara else Color("58a9b8"), 0.1, 0.65)
+	var accent := M.material(Color("c89a5e") if female else Color("58a9b8"), 0.1, 0.65)
 	var glass := M.material(Color("4b91a3"), 0.35, 0.24)
 	var chest := _equipment_group("Spine2")
 	var center := _bone_transform(_bones.Spine2).origin + Vector3(0, 0.045, -0.035)
@@ -155,14 +157,17 @@ func _add_equipment() -> void:
 	# face on the two supplied rigs (their bind poses have different offsets).
 	var head_at := _head_bounds.get_center()
 	var radius := maxf(0.105, _head_bounds.size.x * 0.52)
-	var helmet := M.capsule(head, "Hood" if mara else "Helmet", radius, radius * 2, Vector3(head_at.x, _head_bounds.end.y - 0.055, head_at.z + 0.008), armor)
-	helmet.scale = Vector3(1, 0.62, maxf(1.0, _head_bounds.size.z / (radius * 2)))
-	var face := Vector3(head_at.x, head_at.y, _head_bounds.position.z - 0.015)
-	M.box(head, "Respirator", Vector3(0.15, 0.09, 0.065), face + Vector3(0, -0.04, 0), dark)
-	M.box(head, "GoggleFrame", Vector3(0.195, 0.062, 0.038), face + Vector3(0, 0.035, -0.005), dark)
-	for side in [-1, 1]:
-		M.box(head, "Lens%d" % side, Vector3(0.07, 0.036, 0.01), face + Vector3(side * 0.048, 0.036, -0.028), glass)
-		M.capsule(head, "Headset%d" % side, 0.035, 0.07, head_at + Vector3(side * radius, 0, 0.008), dark)
+	if female:
+		preload("res://src/assets/FemaleOperatorDesign.gd").add_head(head, head_at, _head_bounds.size)
+	else:
+		var helmet := M.capsule(head, "Helmet", radius, radius * 2, Vector3(head_at.x, _head_bounds.end.y - 0.055, head_at.z + 0.008), armor)
+		helmet.scale = Vector3(1, 0.62, maxf(1.0, _head_bounds.size.z / (radius * 2)))
+		var face := Vector3(head_at.x, head_at.y, _head_bounds.position.z - 0.015)
+		M.box(head, "Respirator", Vector3(0.15, 0.09, 0.065), face + Vector3(0, -0.04, 0), dark)
+		M.box(head, "GoggleFrame", Vector3(0.195, 0.062, 0.038), face + Vector3(0, 0.035, -0.005), dark)
+		for side in [-1, 1]:
+			M.box(head, "Lens%d" % side, Vector3(0.07, 0.036, 0.01), face + Vector3(side * 0.048, 0.036, -0.028), glass)
+			M.capsule(head, "Headset%d" % side, 0.035, 0.07, head_at + Vector3(side * radius, 0, 0.008), dark)
 	M.combine_static(head)
 	var hips := _equipment_group("Hips")
 	var hip_at := _bone_transform(_bones.Hips).origin
@@ -224,7 +229,7 @@ func animate_pose(time: float, speed: float, action: StringName = &"idle") -> vo
 		(attachment.node as Node3D).transform = _bone_transform(attachment.bone) * (attachment.inverse as Transform3D)
 	if action == &"crawl":
 		rotation.x = -1.43
-		position.y = 0.37 if character_id == &"operator_02" else 0.24
+		position.y = 0.37
 	elif action == &"death":
 		rotation.x = 1.48
 		position.y = 0.17

@@ -115,19 +115,17 @@ func _notification(what: int) -> void:
 		_pause(false)
 
 func _pause(value: bool) -> void:
-	for player in _world_voices + _ui_voices:
-		player.stream_paused = value
-	if _music != null:
-		_music.stream_paused = value
-	if _ambience != null:
-		_ambience.stream_paused = value
+	for player in _world_voices + _ui_voices + [_music, _ambience]:
+		# Unpausing an already stopped voice can revive its pending mixer state.
+		# Touch only voices that are active or were actually paused.
+		if is_instance_valid(player) and (player.playing or player.stream_paused):
+			player.stream_paused = value
 
 func stop_all() -> void:
 	if _fade != null and _fade.is_valid():
 		_fade.kill()
 	for player in _world_voices + _ui_voices + [_music, _ambience]:
 		if is_instance_valid(player):
-			player.stream_paused = false
 			player.stop()
 			player.stream = null
 	_streams.clear()

@@ -1,8 +1,8 @@
 # NEXORA: DEADFALL — Current Status
 
-Last updated: 2026-09-16.
+Last updated: 2026-09-21.
 
-This file is the short operational source of truth for the project. For the complete development sequence read `docs/ROADMAP.md`; for a new-chat continuation read `docs/HANDOFF_BETA_5.md`.
+This file is the short operational source of truth for the project. For the complete development sequence read `docs/ROADMAP.md`; for a new-chat continuation read `docs/HANDOFF_CITY_SIMULATION.md`.
 
 ## Repository state
 
@@ -12,10 +12,28 @@ This file is the short operational source of truth for the project. For the comp
 - The owner explicitly authorized merging PR #1 into main on 2026-09-16. This supersedes the earlier instruction to keep that PR Draft. Future merges still require authorization.
 - Engine: Godot `4.6.3-stable`.
 - Android target API: `36`.
-- Current Closed Beta: `0.9.0-beta.5` / versionCode `900005`.
+- Deployed Closed Beta: beta.5; owner confirmed the portal/main update works.
+- Current source candidate: `0.9.0-beta.6` / versionCode `900006`.
+- Candidate branch: `agent/city-simulation-upgrade`, PR `#16`; main remains the previous delivery.
 - Network protocol: `2`.
-- Content version: `1`.
+- Candidate content version: `2` (update all clients and server together).
 - Maximum party size: `4`.
+
+## City/simulation candidate — beta.6
+
+A shared 192 × 192 m city now contains fifteen enterable buildings, streets,
+curbs, natural surfaces, vegetation, wrecks and client-side fire. VALERIA replaces
+the previous operator_01 presentation; DANTE and account character IDs stay stable.
+Dedicated actors/maps instantiate no visual, camera, light or audio nodes.
+Server-authoritative collision, navigation and AI remain active. Horde pursuit
+fixes the navigation height mismatch, distant spawns, curbs and freed targets.
+
+Source checkpoint: `d74038c8e6d7621e175c3b543a50fba750c09518`. Local gates passed.
+Remote Actions failed before job execution (runner ID 0, empty steps, no logs);
+no remote green check or Android artifact is claimed.
+
+See HANDOFF_CITY_SIMULATION.md for phase checklists, measured local results,
+known physical acceptance limits and the branch update command.
 
 ## Tactical presentation phase — implemented and locally validated
 
@@ -50,9 +68,9 @@ external runtime history into the standalone bundle. CI now exercises the copied
 standalone server using the production updater's route validator, including live
 catalog/SHA changes, public/static assets and missing-version 404s.
 
-The fix and main integration do not prove that the VPS completed its next build.
-Rerun `nexora-deadfall update --force` after selecting `main` in the saved VPS
-configuration; retain the production anchor below until completion is confirmed.
+The owner subsequently confirmed that this update works. Its exact deployed SHA
+was not supplied. The historical full-log anchor below is retained for traceability.
+Beta.6 is a separate candidate and must not be confused with that deployed update.
 
 ## Last verified production deployment
 

@@ -36,7 +36,7 @@ const PlayerCommandScript = preload("res://src/network/PlayerCommand.gd")
 @onready var life_state: Node = $LifeState
 @onready var collision_shape: CollisionShape3D = $CollisionShape3D
 @onready var visual_root: Node3D = $VisualRoot
-@onready var visual_body: MeshInstance3D = $VisualRoot/Body
+@onready var visual_body: MeshInstance3D = get_node_or_null("VisualRoot/Body")
 @onready var camera_rig: DeadfallCameraRig = $CameraRig
 
 var stance: Stance = Stance.STAND
@@ -50,6 +50,9 @@ var _processed_crouch_serial := 0
 var _processed_prone_serial := 0
 var _last_server_sequence := -1
 var _server_command: Dictionary = {}
+
+func _enter_tree() -> void:
+	preload("res://src/core/PresentationRuntime.gd").attach_actor(self, "res://src/player/PlayerPresentation.tscn", false)
 
 func _ready() -> void:
 	_gravity = float(ProjectSettings.get_setting("physics/3d/default_gravity", 9.8))
@@ -92,7 +95,7 @@ func _physics_process(delta: float) -> void:
 		if command.is_empty():
 			_process_vertical_velocity(delta, false)
 			_process_planar_velocity(delta, Vector2.ZERO, false, _life_move_multiplier())
-			move_and_slide()
+			preload("res://src/core/CharacterMovement.gd").move(self, delta)
 			return
 		_apply_authoritative_orientation(command)
 	else:
@@ -106,7 +109,7 @@ func _physics_process(delta: float) -> void:
 	var jump_requested := _serial_triggered(command, "jump_serial", _processed_jump_serial, not downed)
 	_process_vertical_velocity(delta, jump_requested)
 	_process_planar_velocity(delta, Vector2(command.get("move", Vector2.ZERO)), bool(command.get("sprint", false)) and not downed, _life_move_multiplier())
-	move_and_slide()
+	preload("res://src/core/CharacterMovement.gd").move(self, delta)
 
 	if control_mode == ControlMode.NETWORK_PREDICTED:
 		var wire := command.duplicate(true)
@@ -248,8 +251,9 @@ func _apply_stance_geometry(target: Stance) -> void:
 	if capsule != null:
 		capsule.height = target_height
 		collision_shape.position.y = target_height * 0.5
-	visual_body.scale.y = target_height / standing_height
-	visual_body.position.y = target_height * 0.5
+	if visual_body != null:
+		visual_body.scale.y = target_height / standing_height
+		visual_body.position.y = target_height * 0.5
 	camera_rig.position.y = _eye_height_for_stance(target)
 
 func _height_for_stance(value: Stance) -> float:

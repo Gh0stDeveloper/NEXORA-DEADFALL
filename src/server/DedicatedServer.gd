@@ -39,6 +39,12 @@ func start(
 	match_config_path: String = ""
 ) -> Error:
 	listen_port = port
+	# Headless rendering has no vsync. Bound idle polling while retaining 60 Hz
+	# physics/ENet processing; avoid an unbounded loop competing with match workers.
+	Engine.max_fps = 60
+	var performance := preload("res://src/server/ServerPerformance.gd").new()
+	performance.name = "SimulationPerformance"
+	add_child(performance)
 	_campaign_mode = campaign_mode
 	_is_match_instance = match_instance
 	room_code = RoomCodeScript.normalize(requested_room_code)
@@ -57,6 +63,10 @@ func start(
 	if error != OK:
 		push_error("Unable to start ENet server on UDP %d: %s" % [listen_port, error_string(error)])
 		return error
+	# Clients exchange gameplay only with the authority. Disable the unused
+	# peer-to-peer relay before accepting connections; simultaneous departures
+	# otherwise try to notify ENet peers whose channels are already closing.
+	(multiplayer as SceneMultiplayer).server_relay = false
 	multiplayer.multiplayer_peer = peer
 	Game.start_dedicated_server_session()
 

@@ -1,6 +1,4 @@
-[gd_scene load_steps=24 format=3]
-
-[ext_resource type="Script" path="res://src/audio/ActorAudio.gd" id="audio"]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://src/zombies/base/ZombieController.gd" id="1_controller"]
 [ext_resource type="Script" path="res://src/core/health/HealthComponent.gd" id="2_health"]
@@ -8,47 +6,9 @@
 [ext_resource type="Resource" path="res://src/zombies/data/walker_01.tres" id="4_data"]
 [ext_resource type="Script" path="res://src/gore/GoreComponent.gd" id="5_gore"]
 [ext_resource type="Script" path="res://src/zombies/base/ZombieArchetypeBehavior.gd" id="6_archetype"]
-[ext_resource type="Script" path="res://src/zombies/base/ZombieModelPresenter.gd" id="7_model"]
-
 [sub_resource type="CapsuleShape3D" id="BodyShape"]
 radius = 0.36
 height = 1.62
-
-[sub_resource type="StandardMaterial3D" id="ZombieMaterial"]
-albedo_color = Color(0.24, 0.30, 0.23, 1)
-roughness = 0.9
-
-[sub_resource type="BoxMesh" id="TorsoMesh"]
-size = Vector3(0.64, 0.56, 0.42)
-material = SubResource("ZombieMaterial")
-
-[sub_resource type="BoxMesh" id="HeadMesh"]
-size = Vector3(0.40, 0.34, 0.36)
-material = SubResource("ZombieMaterial")
-
-[sub_resource type="BoxMesh" id="ArmMesh"]
-size = Vector3(0.22, 0.52, 0.24)
-material = SubResource("ZombieMaterial")
-
-[sub_resource type="BoxMesh" id="LegMesh"]
-size = Vector3(0.25, 0.46, 0.28)
-material = SubResource("ZombieMaterial")
-
-[sub_resource type="StandardMaterial3D" id="WoundMaterial"]
-albedo_color = Color(0.34, 0.01, 0.018, 1)
-roughness = 0.72
-
-[sub_resource type="BoxMesh" id="HeadWoundMesh"]
-size = Vector3(0.30, 0.10, 0.32)
-material = SubResource("WoundMaterial")
-
-[sub_resource type="BoxMesh" id="ArmWoundMesh"]
-size = Vector3(0.15, 0.18, 0.20)
-material = SubResource("WoundMaterial")
-
-[sub_resource type="BoxMesh" id="LegWoundMesh"]
-size = Vector3(0.22, 0.18, 0.25)
-material = SubResource("WoundMaterial")
 
 [sub_resource type="BoxShape3D" id="HeadShape"]
 size = Vector3(0.40, 0.34, 0.36)
@@ -99,71 +59,6 @@ avoidance_enabled = false
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 position = Vector3(0, 0.81, 0)
 shape = SubResource("BodyShape")
-
-[node name="VisualRoot" type="Node3D" parent="."]
-
-[node name="PreparedRig" type="Node3D" parent="VisualRoot"]
-
-[node name="Torso" type="MeshInstance3D" parent="VisualRoot/PreparedRig"]
-position = Vector3(0, 0.91, 0)
-mesh = SubResource("TorsoMesh")
-
-[node name="Head" type="MeshInstance3D" parent="VisualRoot/PreparedRig"]
-position = Vector3(0, 1.43, 0)
-mesh = SubResource("HeadMesh")
-
-[node name="LeftArm" type="MeshInstance3D" parent="VisualRoot/PreparedRig"]
-position = Vector3(-0.49, 1.00, 0)
-mesh = SubResource("ArmMesh")
-
-[node name="RightArm" type="MeshInstance3D" parent="VisualRoot/PreparedRig"]
-position = Vector3(0.49, 1.00, 0)
-mesh = SubResource("ArmMesh")
-
-[node name="LeftLeg" type="MeshInstance3D" parent="VisualRoot/PreparedRig"]
-position = Vector3(-0.19, 0.29, 0)
-mesh = SubResource("LegMesh")
-
-[node name="RightLeg" type="MeshInstance3D" parent="VisualRoot/PreparedRig"]
-position = Vector3(0.19, 0.29, 0)
-mesh = SubResource("LegMesh")
-
-[node name="ModelPresenter" type="Node3D" parent="VisualRoot"]
-script = ExtResource("7_model")
-prepared_rig_path = NodePath("../PreparedRig")
-variant = &"animated"
-
-[node name="Wounds" type="Node3D" parent="VisualRoot"]
-
-[node name="Head" type="MeshInstance3D" parent="VisualRoot/Wounds"]
-position = Vector3(0, 1.24, 0)
-visible = false
-mesh = SubResource("HeadWoundMesh")
-
-[node name="LeftArm" type="MeshInstance3D" parent="VisualRoot/Wounds"]
-position = Vector3(-0.36, 1.18, 0)
-visible = false
-mesh = SubResource("ArmWoundMesh")
-
-[node name="RightArm" type="MeshInstance3D" parent="VisualRoot/Wounds"]
-position = Vector3(0.36, 1.18, 0)
-visible = false
-mesh = SubResource("ArmWoundMesh")
-
-[node name="LeftLeg" type="MeshInstance3D" parent="VisualRoot/Wounds"]
-position = Vector3(-0.19, 0.55, 0)
-visible = false
-mesh = SubResource("LegWoundMesh")
-
-[node name="RightLeg" type="MeshInstance3D" parent="VisualRoot/Wounds"]
-position = Vector3(0.19, 0.55, 0)
-visible = false
-mesh = SubResource("LegWoundMesh")
-
-[node name="StateLabel" type="Label3D" parent="."]
-position = Vector3(0, 1.98, 0)
-text = "IDLE"
-font_size = 24
 
 [node name="Hitboxes" type="Node3D" parent="."]
 
@@ -243,7 +138,3 @@ body_part = 6
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Hitboxes/RightLeg"]
 shape = SubResource("LegShape")
-
-[node name="ActorAudio" type="Node" parent="."]
-script = ExtResource("audio")
-infected = true

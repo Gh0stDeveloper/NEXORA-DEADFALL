@@ -91,6 +91,8 @@ prepare_validation_project(){
 run_strict_gameplay_compile_gate(){
   log "Validando compilación estricta de gameplay/HUD/loadout/ciclo día-noche..."
   run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/gameplay_compile_smoke.gd
+  log "Validando ciudad, interiores y persecución en servidor sin presentación..."
+  run_deadfall_home godot --headless --path "$DEADFALL_ROOT" --script scripts/ci/server_navigation_smoke.gd
 }
 
 run_android_template_patch_gate(){

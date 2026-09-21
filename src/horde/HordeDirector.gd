@@ -345,6 +345,8 @@ func _spawn_zombie(data: Resource) -> Node3D:
 	zombie.name = "%s_%d" % [String(data.get("display_name")).replace(" ", ""), entity_id]
 	_zombie_parent.add_child(zombie)
 	zombie.global_position = spawn_point.global_position
+	if zombie.has_method("enable_horde_pursuit"):
+		zombie.call("enable_horde_pursuit")
 	var health := zombie.get_node_or_null("Health")
 	if health == null:
 		zombie.queue_free()
@@ -363,6 +365,7 @@ func _choose_spawn_point() -> Node3D:
 		return null
 	var all_points: Array[Node3D] = []
 	var safe_points: Array[Node3D] = []
+	var nearby_safe_points: Array[Node3D] = []
 	for child in _spawn_root.get_children():
 		var point := child as Node3D
 		if point == null:
@@ -370,7 +373,13 @@ func _choose_spawn_point() -> Node3D:
 		all_points.append(point)
 		if _spawn_is_safe(point.global_position):
 			safe_points.append(point)
-	var pool: Array[Node3D] = safe_points if not safe_points.is_empty() else all_points
+			for record in _players.values():
+				var player := record.get("node") as Node3D
+				if _record_player_recoverable(record) and player != null and player.global_position.distance_squared_to(point.global_position) <= 44.0 * 44.0:
+					nearby_safe_points.append(point)
+					break
+	# Keep pressure near survivors on a large map without spawning on top of them.
+	var pool: Array[Node3D] = nearby_safe_points if not nearby_safe_points.is_empty() else (safe_points if not safe_points.is_empty() else all_points)
 	return null if pool.is_empty() else pool[_rng.randi_range(0, pool.size() - 1)]
 
 func _spawn_is_safe(position: Vector3) -> bool:

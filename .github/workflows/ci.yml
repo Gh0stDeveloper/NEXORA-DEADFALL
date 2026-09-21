@@ -40,6 +40,19 @@ jobs:
         run: godot --headless --editor --path . --quit
       - name: Run strict gameplay compile gate
         run: godot --headless --path . --script scripts/ci/gameplay_compile_smoke.gd
+      - name: Validate dedicated navigation and enterable city
+        run: godot --headless --path . --script scripts/ci/server_navigation_smoke.gd
+      - name: Validate persistent lobby latency probe
+        run: python3 scripts/ci/control_latency_smoke.py
+      - name: Measure four-peer city simulation and disconnections
+        run: python3 scripts/ci/match_load_smoke.py
+      - name: Upload city simulation metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: city-server-load
+          path: build/server-load/
+          if-no-files-found: ignore
       - name: Run project smoke test
         run: godot --headless --path . --script scripts/ci/smoke.gd
       - name: Run combat authority tests
@@ -62,6 +75,11 @@ jobs:
         run: godot --headless --path . --script scripts/ci/phase11_smoke.gd
       - name: Install display for presentation runtime test
         run: sudo apt-get update && sudo apt-get install -y xvfb libgl1-mesa-dri
+      - name: Render city and both operators with all weapons
+        env:
+          XDG_DATA_HOME: ${{ runner.temp }}/deadfall-city
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: xvfb-run -a bash scripts/ci/city_presentation_smoke.sh
       - name: Exercise rendered boot, account, lobby and combat
         env:
           XDG_DATA_HOME: ${{ runner.temp }}/deadfall-presentation
@@ -75,6 +93,7 @@ jobs:
           path: |
             build/presentation-smoke/
             build/presentation-runtime.log
+            build/city-smoke/
           if-no-files-found: ignore
       - name: Run Phase 10 VPS installer contract tests
         run: bash scripts/ci/vps_installer_smoke.sh
@@ -87,8 +106,8 @@ jobs:
       - name: Validate shell/Python build scripts
         run: |
           bash -n scripts/server/run_server.sh scripts/assets/sync_objetos3d.sh scripts/ci/sync_required_models.sh scripts/ci/download_portal_smoke.sh scripts/ci/android_runtime_smoke.sh scripts/ci/android_template_patch_smoke.sh scripts/ci/duo_integration.sh scripts/ci/squad_integration.sh scripts/ci/campaign_integration.sh scripts/ci/vps_installer_smoke.sh scripts/beta/collect_android_report.sh deploy/vps/install.sh deploy/vps/update.sh deploy/vps/nexora-deadfall deploy/vps/lib/common.sh scripts/build/build_android_vps.sh scripts/build/build_download_site.sh
-          bash -n scripts/ci/presentation_runtime_smoke.sh
-          python3 -m py_compile scripts/build/patch_android_template.py scripts/assets/generate_original_audio.py
+          bash -n scripts/ci/presentation_runtime_smoke.sh scripts/ci/city_presentation_smoke.sh
+          python3 -m py_compile scripts/build/patch_android_template.py scripts/assets/generate_original_audio.py scripts/ci/control_latency_smoke.py scripts/ci/match_load_smoke.py
 
   download-portal-validation:
     runs-on: ubuntu-24.04

@@ -41,10 +41,14 @@ func _test_build_compatibility() -> bool:
 		return _fail("Wrong content version was accepted")
 	if BuildInfoScript.MIN_CLIENT_VERSION_CODE > 0 and bool(BuildInfoScript.validate_client(BuildInfoScript.NETWORK_PROTOCOL, BuildInfoScript.MIN_CLIENT_VERSION_CODE - 1, BuildInfoScript.CONTENT_VERSION).get("compatible", true)):
 		return _fail("Obsolete client version was accepted")
-	if BuildInfoScript.VERSION_CODE != 900005 or BuildInfoScript.APP_VERSION != "0.9.0-beta.5":
-		return _fail("Current lifecycle candidate must be 0.9.0-beta.5 / 900005")
+	if BuildInfoScript.VERSION_CODE != 900006 or BuildInfoScript.APP_VERSION != "0.9.0-beta.6":
+		return _fail("Current city candidate must be 0.9.0-beta.6 / 900006")
 	if BuildInfoScript.MIN_CLIENT_VERSION_CODE != BuildInfoScript.VERSION_CODE or BuildInfoScript.MIN_SERVER_VERSION_CODE != BuildInfoScript.VERSION_CODE:
-		return _fail("Beta.5 compatibility floor must reject older lifecycle clients/servers")
+		return _fail("Beta.6 compatibility floor must reject older lifecycle clients/servers")
+	if bool(BuildInfoScript.validate_client(2, 900005, 1).get("compatible", true)):
+		return _fail("The previous city collision layout must be rejected")
+	if bool(BuildInfoScript.validate_server_snapshot({"protocol": 2, "version_code": 900005, "content_version": 1}).get("compatible", true)):
+		return _fail("The previous server collision layout must be rejected")
 	return true
 
 func _test_abuse_guard() -> bool:
