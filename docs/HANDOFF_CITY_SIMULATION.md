@@ -191,8 +191,18 @@ de personaje, checkpoints por ID y la clave de firma existente se conservan.
   Next.js y servidor standalone con rutas `/versiones`, redirecciones, assets,
   404 y actualización del catálogo en caliente. Pasó.
 
-GitHub Actions ejecuta los gates nuevos y conserva capturas/logs. Su estado remoto
-se consulta en el PR; los resultados locales no equivalen a un workflow remoto verde.
+GitHub Actions tiene configurados los gates nuevos y la conservación de capturas.
+En el cierre de código `d74038c`, los workflows CI, Android Debug Build y Android
+Runtime Validation terminaron en failure antes de ejecutar pasos. La API de jobs
+muestra `runner_id: 0`, `runner_name: ""` y `steps: []`; el log devuelve 404 porque
+no fue generado. No se atribuye esto a un error de compilación ni se afirma una
+causa de cuenta/facturación sin acceso a esa anotación. La anotación de fallo no
+está disponible mediante los endpoints habilitados del conector.
+
+Evidencia: https://github.com/Gh0stDeveloper/NEXORA-DEADFALL/actions/runs/35569025529
+No se deshabilitaron pruebas ni se modificaron permisos para ocultar el fallo.
+La validación remota sigue pendiente de que GitHub asigne un runner; las pruebas
+locales completas y el despliegue físico pendiente se documentan por separado.
 
 ### Límites de esta entrega
 
@@ -224,7 +234,8 @@ xvfb-run -a bash scripts/ci/presentation_runtime_smoke.sh
 Usar Godot 4.6.3; si su ejecutable tiene otro nombre, exportar `GODOT_BIN` para
 los wrappers Python/shell. Continuar leyendo este archivo primero. Checkpoints
 remotos anteriores: `6095aa1` (plan), `1de2b96` (persecución/separación), `7cfe5e2`
-(ciudad/VALERIA). El HEAD de la rama/PR es el cierre posterior a esos checkpoints.
+(ciudad/VALERIA). Cierre de código validado: `d74038c8e6d7621e175c3b543a50fba750c09518`.
+El HEAD puede incluir documentación posterior; no implica un despliegue.
 
 ### Actualizar y compilar en el VPS desde esta rama
 

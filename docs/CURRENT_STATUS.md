@@ -28,6 +28,10 @@ Dedicated actors/maps instantiate no visual, camera, light or audio nodes.
 Server-authoritative collision, navigation and AI remain active. Horde pursuit
 fixes the navigation height mismatch, distant spawns, curbs and freed targets.
 
+Source checkpoint: `d74038c8e6d7621e175c3b543a50fba750c09518`. Local gates passed.
+Remote Actions failed before job execution (runner ID 0, empty steps, no logs);
+no remote green check or Android artifact is claimed.
+
 See HANDOFF_CITY_SIMULATION.md for phase checklists, measured local results,
 known physical acceptance limits and the branch update command.
 
