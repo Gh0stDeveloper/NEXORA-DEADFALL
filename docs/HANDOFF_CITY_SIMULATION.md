@@ -51,8 +51,11 @@ DANTE y sustituir la presentación del otro operador por una mujer.
 Leer primero este archivo, luego CURRENT_STATUS.md y los commits de la rama.
 Los cambios de la fase anterior ya están integrados en main y no deben repetirse.
 Guardar checkpoints remotos después de cambios coherentes y antes de interrumpir.
-No incluir cachés .godot, build, node_modules, importaciones generadas, credenciales
-ni claves de firma. Conservar el gitlink vendor/Objetos3D en
+No incluir cachés .godot, salidas /build/ y android/build/, node_modules,
+importaciones generadas, credenciales ni claves de firma. `scripts/build/` contiene
+código de producción: incluir sus cambios explícitamente en cada publicación;
+no excluir cualquier ruta que contenga un componente llamado `build`.
+Conservar el gitlink vendor/Objetos3D en
 `28ea7a10a18fbe05a91fb3d920678991fff4afef` y sus enlaces canónicos.
 
 La copia local recuperada es un snapshot con ascendencia Git artificial. Publicar
@@ -219,7 +222,7 @@ etiquetas 3D ni reproductores de audio. El cliente crea toda la presentación.
 ### Recuperar el trabajo
 
 ```bash
-git clone --branch agent/city-simulation-upgrade https://github.com/Gh0stDeveloper/NEXORA-DEADFALL.git
+git clone --branch agent/fix-beta6-release-transition https://github.com/Gh0stDeveloper/NEXORA-DEADFALL.git
 cd NEXORA-DEADFALL
 git submodule update --init --recursive
 bash scripts/ci/sync_required_models.sh "$PWD"
@@ -237,12 +240,49 @@ remotos anteriores: `6095aa1` (plan), `1de2b96` (persecución/separación), `7cf
 (ciudad/VALERIA). Cierre de código validado: `d74038c8e6d7621e175c3b543a50fba750c09518`.
 El HEAD puede incluir documentación posterior; no implica un despliegue.
 
-### Actualizar y compilar en el VPS desde esta rama
+### Incidente de publicación beta.6 — 2026-09-21
 
-La integración previa en `main` no contiene beta.6. Hasta fusionar el PR #16:
+El propietario fusionó PR #16 en main, commit
+`668347bb8444380bc2245fdcbdf01c5cd968b6dc`. Su VPS pasó los gates de importación,
+template Android, gameplay, presentación, navegación/interiores, hardening y
+Phase 11. Se detuvo antes de compilar el portal y exportar el APK con:
+
+```text
+DEADFALL_RELEASE_HISTORY_ERROR release.json no coincide con la versión current del registro estructurado
+```
+
+La llamada publicada en `scripts/build/build_download_site.sh` omitía
+`--keep-published-version`, aunque el publicador Python ya implementaba esa opción.
+La selección de archivos de la entrega anterior excluyó por error `scripts/build/`.
+El catálogo fuente beta.6 se estaba comparando con el manifiesto del APK beta.5
+todavía publicado. No fue un fallo del juego, de la IA ni del daemon ADB.
+
+Corrección en `agent/fix-beta6-release-transition`: la preparación del portal
+conserva el APK anterior; la llamada posterior a la exportación Android sigue
+exigiendo que la versión coincida. No cambiar `release.json` a mano para anunciar
+un APK sin compilar. El historial se actualiza cuando el exportador publica el APK.
+
+Validación local del arreglo:
+
+- La nueva prueba falla con la llamada exacta del main afectado y pasa con el
+  arreglo. Ejecuta las invocaciones reales de ambos scripts sobre manifiestos
+  temporales, sin construir argumentos que puedan ocultar un fallo del caller.
+- Cubre instalación sin APK, conservación de versión/hash/tamaño/URL anteriores,
+  rechazo estricto del manifiesto antiguo en el paso Android, reintento del portal,
+  rechazo de hash inválido sin sobrescribir el historial y avance a beta.6.
+- `bash scripts/ci/vps_installer_smoke.sh`: pasó.
+- `bash scripts/ci/download_portal_smoke.sh`: pasó, incluido build Next.js,
+  servidor standalone, rutas, assets y actualización del historial en caliente.
+
+La prueba de publicación usa metadatos de fixture; no exporta ni firma un APK.
+El despliegue completo de beta.6 sigue pendiente de reejecutar el updater en el VPS.
+
+### Actualizar y compilar en el VPS
+
+Fusionar primero el PR de `agent/fix-beta6-release-transition` en main. Después:
 
 ```bash
-sudo sed -i "s|^DEADFALL_BRANCH=.*|DEADFALL_BRANCH='agent/city-simulation-upgrade'|" /etc/nexora-deadfall/nexora-deadfall.env
+sudo sed -i "s|^DEADFALL_BRANCH=.*|DEADFALL_BRANCH='main'|" /etc/nexora-deadfall/nexora-deadfall.env
 sudo nexora-deadfall update --force
 ```
 

@@ -8,7 +8,11 @@ DEST="$DEADFALL_HOME/download-site"
 HISTORY_PUBLISHER="$SITE/scripts/publish_release_history.py"
 
 [[ -f "$HISTORY_PUBLISHER" ]] || die "Falta el publicador de historial durable: $HISTORY_PUBLISHER"
-python3 "$HISTORY_PUBLISHER"   --source "$SITE/src/data/releases.json"   --current "$DEADFALL_PUBLIC_DIR/release.json"   --output "$DEADFALL_PUBLIC_DIR/releases.json"
+# The updater builds the portal before exporting Android. Keep the published
+# APK's version until build_android_vps.sh verifies and publishes its replacement.
+python3 "$HISTORY_PUBLISHER" --source "$SITE/src/data/releases.json" \
+  --current "$DEADFALL_PUBLIC_DIR/release.json" --keep-published-version \
+  --output "$DEADFALL_PUBLIC_DIR/releases.json"
 chown www-data:www-data "$DEADFALL_PUBLIC_DIR/releases.json"
 chmod 0644 "$DEADFALL_PUBLIC_DIR/releases.json"
 
