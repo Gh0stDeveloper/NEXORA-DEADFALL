@@ -32,7 +32,7 @@ func _run() -> void:
 	if _api.start(24862) != OK:
 		_fail("Cannot start isolated control API")
 		return
-	_social.api_base = "http://127.0.0.1:1/v1"
+	_social.api_base = "http://127.0.0.1:24862/v1"
 	var started := Time.get_ticks_msec()
 	change_scene_to_file("res://src/main/Boot.tscn")
 	await process_frame
@@ -43,16 +43,24 @@ func _run() -> void:
 	print("DEADFALL_RENDER_BOOT_TO_LOGIN_MS=", Time.get_ticks_msec() - started)
 	var gate: Node = _main.get_node("LoginGate")
 	await _capture("02-login")
-	gate._begin_login_flow()
-	gate._on_guest_account_pressed()
+	_social.api_base = "http://127.0.0.1:1/v1"
+	_press_text(gate, "TOCA PARA INICIAR")
+	_press_text(gate, "CREAR CUENTA DE INVITADO")
+	_main._notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
+	if quit_on_go_back or gate._stage != gate.Stage.ACCOUNT_CHOICE:
+		_fail("Android Back must return to account choice without quitting")
+		return
+	_press_text(gate, "CREAR CUENTA DE INVITADO")
 	gate._username_edit.text = "GhostDev"
-	gate._submit_username()
+	_press_text(gate, "CONFIRMAR IDENTIDAD")
+	print("DEADFALL_RENDER_ACCOUNT_RETRY_STARTED")
 	if not await _until(func() -> bool: return not gate._busy):
 		return
 	if gate._stage != gate.Stage.ERROR:
 		_fail("Connection failure must return to a usable retry screen")
 		return
 	await _capture("03-account-retry")
+	print("DEADFALL_RENDER_ACCOUNT_RETRY_SCREEN")
 	_social.api_base = "http://127.0.0.1:24862/v1"
 	gate._on_guest_account_pressed()
 	if gate._username_edit.text != "GhostDev":
@@ -64,6 +72,33 @@ func _run() -> void:
 	if not _social.has_session():
 		_fail("Lobby opened before a real HTTP account session was validated")
 		return
+	# Existing credentials whose server record is missing must register once,
+	# preserving the device identity and returning through the real HTTP flow.
+	var original_guest: String = identity.guest_id
+	print("DEADFALL_RENDER_FRESH_ACCOUNT_VERIFIED")
+	_store._accounts.erase(original_guest)
+	_store._username_index.erase("ghostdev")
+	_social.session_token = ""
+	_main.get_node("Lobby").queue_free()
+	await process_frame
+	_main._boot_login_gate(&"mission_01_first_signal")
+	gate = _main.get_node("LoginGate")
+	_press_text(gate, "TOCA PARA INICIAR")
+	if not await _until(func() -> bool: return _main.has_node("Lobby") and _social.has_session()):
+		return
+	if identity.guest_id != original_guest or _store.public_account(original_guest).is_empty():
+		_fail("Missing-account recovery lost the existing device identity")
+		return
+	print("DEADFALL_RENDER_MISSING_ACCOUNT_RECOVERED")
+	var update: CanvasLayer = load("res://src/ui/UpdateGate.gd").new()
+	root.add_child(update)
+	var next_build: Dictionary = load("res://src/release/BuildInfo.gd").snapshot()
+	next_build["version_code"] += 1
+	next_build["app_version"] = "SIGUIENTE VERSIÓN"
+	update._on_response(HTTPRequest.RESULT_SUCCESS, 200, PackedStringArray(), JSON.stringify({"ok": true, "service": "deadfall-control", "build": next_build}).to_utf8_buffer())
+	await _capture("03a-update-required")
+	update.queue_free()
+	await process_frame
 	var lobby := _main.get_node("Lobby")
 	await _capture("04-lobby-solo")
 	for capacity in [2, 4]:
@@ -110,8 +145,9 @@ func _run() -> void:
 	await create_timer(0.6).timeout
 	await _capture("09-gameplay-rifle")
 	var loadout := player.get_node("WeaponLoadout")
+	var hud := _main.get_node("CampaignArena/MobileHUD")
 	for slot in [1, 2, 0]:
-		loadout.request_slot(slot)
+		hud._weapon_buttons[slot].pressed.emit()
 		await process_frame
 		var weapon: Node = loadout.get_active_weapon()
 		if weapon._view_model == null or not weapon._view_model.visible:
@@ -119,6 +155,17 @@ func _run() -> void:
 			return
 		await _capture("10-weapon-%d" % slot)
 	var input := player.get_node("PlayerInput")
+	var start_position: Vector3 = player.global_position
+	var sprint := hud.get_node("SafeArea/GameplayControls/SprintButton")
+	sprint.router_touch_down(8)
+	sprint.router_touch_up(8)
+	await create_timer(0.3).timeout
+	if player.global_position.distance_to(start_position) < 0.2:
+		_fail("Latched sprint did not move the player without a joystick")
+		return
+	sprint.router_touch_down(8)
+	sprint.router_touch_up(8)
+	input.clear_mobile_actions()
 	var rifle: Node = loadout.get_active_weapon()
 	var before: Dictionary = rifle.get_authoritative_state()
 	input.set_mobile_action(&"fire", true)
@@ -137,15 +184,56 @@ func _run() -> void:
 		return
 	_audio._pause(false)
 	await _capture("11-combat")
-	_main.free()
+	for zombie in _main.get_node("CampaignArena/HordeZombies").get_children():
+		zombie.queue_free()
+	horde.set_process(false)
+	var drops := _main.get_node("CampaignArena/AmmoDropDirector")
+	drops._spawn_ammo(player.global_position + Vector3(-0.6, 0, -2), 30, "ammo")
+	drops._spawn_ammo(player.global_position + Vector3(0.6, 0, -2), 25, "health")
+	await _capture("12-pickups")
+	var telemetry := root.get_node("NetworkTelemetry")
+	root.get_node("Game").start_network_client_session()
+	telemetry.set_match_ping(120, 120, "MEDIO")
+	await _capture("13-match-ping")
+	telemetry._last_match_ping_usec = Time.get_ticks_usec() - 6000000
+	telemetry._apply_effective_ping()
+	await _capture("14-match-disconnected")
+	root.get_node("Game").start_local_session()
+	hud.get_node("SafeArea/ExitMatchButton").pressed.emit()
+	if not hud._leave_dialog.visible or input.get_move_vector() != Vector2.ZERO:
+		_fail("Exit did not show confirmation and neutralize input")
+		return
+	await _capture("15-leave-confirmation")
+	hud._leave_dialog.get_ok_button().pressed.emit()
+	if not await _until(func() -> bool: return _main.has_node("Lobby") and not _main.has_node("CampaignArena")):
+		return
+	if root.get_node("Game").is_network_client() or is_instance_valid(_main._active_network_session):
+		_fail("Leaving match retained the old network transport")
+		return
+	await _capture("16-returned-lobby")
+	print("DEADFALL_RENDER_RETURNED_LOBBY")
+	# Leave the frame_post_draw callback before releasing rendered scenes.
+	await process_frame
+	_main.queue_free()
 	current_scene = null
-	_api.free()
-	_service.free()
-	_store.free()
+	_api.queue_free()
+	_service.queue_free()
+	_store.queue_free()
+	await process_frame
 	_audio.stop_all()
-	await create_timer(0.15).timeout
+	print("DEADFALL_RENDER_SCENES_RELEASED")
+	await create_timer(0.3).timeout
 	print("NEXORA: DEADFALL rendered presentation runtime smoke passed")
 	quit(0)
+
+func _press_text(node: Node, text: String) -> bool:
+	if node is Button and node.text == text:
+		node.pressed.emit()
+		return true
+	for child in node.get_children():
+		if _press_text(child, text):
+			return true
+	return false
 
 func _capture(name_value: String) -> void:
 	await process_frame

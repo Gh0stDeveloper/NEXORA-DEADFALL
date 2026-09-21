@@ -134,6 +134,21 @@ func _run() -> void:
 		_fail("Member still sees a party after leaving")
 		return
 
+	# Leaving an active match removes only the departing member and cannot
+	# accidentally remove a new party when an old HTTP retry arrives late.
+	_service.join_party(member_token, code)
+	_service.set_party_match_assignment(code, assignment)
+	var abandoned: Dictionary = _service.leave_match(leader_token, MATCH_ID)
+	var remaining: Dictionary = _service.party_snapshot_for_token(member_token)
+	if not bool(abandoned.get("ok", false)) or not Dictionary(_service.party_snapshot_for_token(leader_token)).is_empty() or String(remaining.get("leader_guest_id", "")) != MEMBER_GUEST or String(Dictionary(remaining.get("match", {})).get("match_id", "")) != MATCH_ID:
+		_fail("Abandoning match disrupted the remaining teammate or retained departing membership")
+		return
+	_service.create_party(leader_token, 4)
+	var new_party: Dictionary = _service.party_snapshot_for_token(leader_token)
+	_service.leave_match(leader_token, MATCH_ID)
+	if Dictionary(_service.party_snapshot_for_token(leader_token)) != new_party:
+		_fail("Late leave retry removed the player's new party")
+		return
 	_cleanup()
 	print("NEXORA: DEADFALL Phase 11.3 social matchmaking privacy/lock smoke passed")
 	quit(0)

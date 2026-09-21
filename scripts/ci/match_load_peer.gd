@@ -20,6 +20,8 @@ func _run() -> void:
 		return
 	var arena := session.get_parent()
 	if _server:
+		arena.get_node("AmmoDropDirector")._spawn_ammo(Vector3(2, 0.1, 20), 30, "ammo")
+		arena.get_node("AmmoDropDirector")._spawn_ammo(Vector3(-2, 0.1, 20), 25, "health")
 		var horde := arena.get_node("HordeDirector")
 		horde.set_process(false)
 		for index in range(int(horde.call("get_population_budget"))):
@@ -37,6 +39,7 @@ func _run() -> void:
 	var seen_positions: Dictionary = {}
 	var moving_zombies: Dictionary = {}
 	var max_zombies := 0
+	var seen_pickup_kinds: Dictionary = {}
 	for second in range(20):
 		var player := arena.get_node_or_null("NetworkPlayers/Player_%d" % int(session.get("local_entity_id"))) as Node3D
 		if player != null:
@@ -48,6 +51,8 @@ func _run() -> void:
 		var ping := int(status.get("raw_ping_ms", 999))
 		if ping < 999: pings.append(ping)
 		var zombies := arena.get_node("HordeZombies")
+		for pickup in arena.get_node("WorldPickups").get_children():
+			seen_pickup_kinds[String(pickup.pickup_kind)] = true
 		max_zombies = maxi(max_zombies, zombies.get_child_count())
 		for zombie: Node3D in zombies.get_children():
 			var id := int(zombie.get("entity_id"))
@@ -59,6 +64,9 @@ func _run() -> void:
 		_fail("Missing ping/moving replicated zombies: samples=%d moving=%d" % [pings.size(), moving_zombies.size()])
 		return
 	pings.sort()
+	if not seen_pickup_kinds.has("ammo") or not seen_pickup_kinds.has("health"):
+		_fail("ENet clients did not receive both medical and ammunition drops")
+		return
 	var p95 := pings[int(floor(float(pings.size() - 1) * 0.95))]
 	if p95 > 300:
 		_fail("Loopback RTT regressed above 300 ms under four-peer load")

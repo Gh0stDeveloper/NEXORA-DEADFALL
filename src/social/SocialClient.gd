@@ -23,6 +23,8 @@ var friends: Dictionary = {}
 var _pending_operations: Dictionary = {}
 var _queued_character: StringName = &""
 var _emitted_match_id := ""
+var _pending_leave_match_id := ""
+var _abandoned_match_ids: Dictionary = {}
 
 func _ready() -> void:
 	api_base = String(ProjectSettings.get_setting("deadfall/social_api_base", DEFAULT_API_BASE)).trim_suffix("/")
@@ -62,6 +64,8 @@ func _flush_queued_character() -> void:
 	update_selected_character(character_id)
 
 func report_presence(ping_ms: int) -> bool:
+	if not _pending_leave_match_id.is_empty():
+		leave_current_match(_pending_leave_match_id)
 	return _request_json("presence", HTTPClient.METHOD_POST, "/presence", {"ping_ms": clampi(ping_ms, 0, 999)}, true)
 
 func create_party(capacity: int) -> bool:
@@ -201,6 +205,13 @@ func _handle_success(operation: String, response: Dictionary, context: Dictionar
 			_adopt_party(Dictionary(response.get("party", {})))
 			if operation == "party_chat":
 				chat_updated.emit("party", Array(current_party.get("chat", [])).duplicate(true))
+		"match_leave":
+			var left_id := String(context.get("match_id", ""))
+			if _pending_leave_match_id == left_id:
+				_pending_leave_match_id = ""
+			if String(Dictionary(current_party.get("match", {})).get("match_id", "")) == left_id:
+				current_party = {}
+			party_updated.emit(current_party)
 		"party_leave":
 			current_party = {}
 			_emitted_match_id = ""
@@ -214,6 +225,8 @@ func _handle_success(operation: String, response: Dictionary, context: Dictionar
 			pass
 
 func _adopt_party(party: Dictionary) -> void:
+	if _abandoned_match_ids.has(String(Dictionary(party.get("match", {})).get("match_id", ""))):
+		return
 	current_party = party.duplicate(true)
 	party_updated.emit(current_party)
 	var match: Dictionary = Dictionary(current_party.get("match", {}))
@@ -253,3 +266,12 @@ func _fail_operation(operation: String, reason: String) -> void:
 		login_failed.emit(reason)
 	else:
 		request_failed.emit(operation, reason)
+
+func leave_current_match(match_id: String) -> bool:
+	_abandoned_match_ids[match_id] = true
+	if _abandoned_match_ids.size() > 32:
+		_abandoned_match_ids.erase(_abandoned_match_ids.keys()[0])
+	_pending_leave_match_id = match_id
+	if String(Dictionary(current_party.get("match", {})).get("match_id", "")) == match_id:
+		current_party = {}
+	return _request_json("match_leave", HTTPClient.METHOD_POST, "/match/leave", {"match_id": match_id}, true, {"match_id": match_id})

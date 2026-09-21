@@ -559,3 +559,17 @@ func _save() -> void:
 		"direct_messages": _direct_messages,
 		"message_sequence": _message_sequence,
 	}, "\t"))
+
+func leave_match(token: String, match_id: String) -> Dictionary:
+	var guest_id := guest_for_token(token)
+	if guest_id.is_empty():
+		return _reject("unauthorized")
+	var party := server_party_record_for_guest(guest_id)
+	var assignment: Dictionary = party.get("match", {})
+	if match_id.is_empty():
+		return _reject("match_missing")
+	# A late retry must never remove the player from a newly created party.
+	if String(assignment.get("match_id", "")) != match_id:
+		return {"ok": true, "already_left": true}
+	_leave_party_internal(guest_id)
+	return {"ok": true, "left_match_id": match_id}

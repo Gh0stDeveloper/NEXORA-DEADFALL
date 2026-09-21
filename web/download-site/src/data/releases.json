@@ -1,13 +1,71 @@
 {
   "schema_version": 1,
-  "current": "0.9.0-beta.6",
+  "current": "0.9.0-beta.7",
   "releases": [
+    {
+      "version": "0.9.0-beta.7",
+      "version_code": 900007,
+      "channel": "closed_beta",
+      "published_unix": null,
+      "status": "current",
+      "summary": "Controles táctiles rediseñados, carrera automática, ping en partida, botines de salud y acceso actualizado.",
+      "added": [
+        "Selector directo de rifle, pistola y machete con siluetas y munición visible.",
+        "Carrera automática al tocar el botón, sin mantener el joystick.",
+        "Botiquines que restauran hasta 25 HP y cartuchos de munición reconocibles.",
+        "Botón SALIR con confirmación y regreso al lobby.",
+        "Pantalla de actualización obligatoria con descarga y comprobación de versión."
+      ],
+      "changed": [
+        "HUD inspirado en la distribución solicitada: joystick y carrera a la izquierda, acciones a la derecha y salud abajo.",
+        "Ping ENet visible dentro de partidas online, con 999 ms al perder datos de conexión.",
+        "Se mantienen los ajustes guardados de posición, tamaño y opacidad del HUD. Restablecer HUD aplica la nueva distribución."
+      ],
+      "fixed": [
+        "La recogida vuelve a comprobar las necesidades mientras el jugador permanece sobre el botín.",
+        "Una pistola llena ya no impide reponer el rifle; recoger salud no supera el máximo ni revive por sí solo.",
+        "Transiciones de acceso con liberación diferida y botón Atrás de Android sin cerrar el juego.",
+        "Registro y recuperación de cuentas inexistentes con reintento ante pérdida de conexión.",
+        "Abandonar evita volver automáticamente a la partida anterior sin interrumpir a los compañeros."
+      ],
+      "networking": [
+        "Salud, inventario, recogida, IA y colisiones mantienen autoridad del servidor.",
+        "Los botines replican su tipo; sus mallas y etiquetas se crean solamente en clientes.",
+        "Servidor y cliente requieren versionCode 900007. Protocolo 2 y mapa/content version 2 se conservan."
+      ],
+      "android": [
+        "Android ARM64, API objetivo 36.",
+        "Actualizar sobre la instalación existente y conservar la misma clave de firma para mantener la cuenta local."
+      ],
+      "known_issues": [
+        "La comprobación de versión requiere conexión al servicio incluso antes de iniciar Solo.",
+        "Las pruebas locales no sustituyen la compilación firmada y la validación táctil en teléfonos Android.",
+        "Este catálogo de fuente no acredita un APK publicado; el despliegue completa su fecha, SHA y enlace."
+      ],
+      "min_client_version_code": 900007,
+      "max_client_version_code": 900999,
+      "protocol": 2,
+      "content_version": 2,
+      "target_android_api": 36,
+      "max_players": 4,
+      "bytes": null,
+      "sha256": null,
+      "git_sha": null,
+      "download": null,
+      "download_available": false,
+      "compatibility": {
+        "platform": "Android",
+        "architecture": "ARM64",
+        "network": "closed_beta",
+        "server_authority": true
+      }
+    },
     {
       "version": "0.9.0-beta.6",
       "version_code": 900006,
       "channel": "closed_beta",
       "published_unix": null,
-      "status": "current",
+      "status": "superseded",
       "summary": "Ciudad ampliada, persecución de hordas corregida, servidor de simulación y nueva operadora VALERIA.",
       "added": [
         "Ciudad de 192 × 192 m con quince edificios accesibles, calles, vegetación, catorce autos destruidos y cuatro incendios.",

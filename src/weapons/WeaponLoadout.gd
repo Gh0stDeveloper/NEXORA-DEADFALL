@@ -101,13 +101,16 @@ func get_active_display_name() -> String:
 func add_ammo(amount: int) -> int:
 	if amount <= 0 or not Game.is_simulation_authority():
 		return 0
-	var target := get_active_weapon()
-	if target == _melee or target == null or not target.has_method("add_reserve_ammo"):
-		target = _primary
-	var added := int(target.call("add_reserve_ammo", amount)) if target != null and target.has_method("add_reserve_ammo") else 0
-	if added <= 0 and _secondary != null and _secondary.has_method("add_reserve_ammo"):
-		added = int(_secondary.call("add_reserve_ammo", amount))
-	return added
+	var remaining := amount
+	var visited: Array[Node] = []
+	for weapon in [get_active_weapon(), _primary, _secondary]:
+		if weapon == null or weapon == _melee or weapon in visited or not weapon.has_method("add_reserve_ammo"):
+			continue
+		visited.append(weapon)
+		remaining -= int(weapon.call("add_reserve_ammo", remaining))
+		if remaining <= 0:
+			break
+	return amount - remaining
 
 func get_authoritative_state() -> Dictionary:
 	return {

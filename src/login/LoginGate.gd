@@ -56,7 +56,8 @@ func _show_stage(stage: Stage) -> void:
 	if is_instance_valid(_username_edit):
 		_candidate_username = _username_edit.text
 	for child in _body.get_children():
-		child.free()
+		_body.remove_child(child)
+		child.queue_free()
 	_username_edit = null
 	_progress = null
 	match stage:
@@ -102,6 +103,8 @@ func _begin_login_flow() -> void:
 	if _busy:
 		return
 	_registration_recovery_attempted = false
+	if not GuestIdentity.has_local_credentials():
+		GuestIdentity.call("_ensure_identity")
 	if GuestIdentity.has_complete_profile():
 		_busy = true
 		_show_stage(Stage.CONNECTING)
@@ -171,3 +174,13 @@ func _process(delta: float) -> void:
 		_elapsed += delta
 		if _elapsed > 9.0:
 			_status.text = "La conexión está tardando. Esperando respuesta…"
+
+func handle_back() -> void:
+	if DisplayServer.has_feature(DisplayServer.FEATURE_VIRTUAL_KEYBOARD):
+		DisplayServer.virtual_keyboard_hide()
+	if _busy:
+		return
+	if _stage == Stage.USERNAME:
+		_show_stage(Stage.ACCOUNT_CHOICE)
+	elif _stage != Stage.TAP_TO_START:
+		_show_stage(Stage.TAP_TO_START)

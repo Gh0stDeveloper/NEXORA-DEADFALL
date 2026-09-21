@@ -14,10 +14,31 @@ This file is the human-readable release-history index used by maintainers and as
 
 ## Current source candidate
 
+### 0.9.0-beta.7 — versionCode 900007
+
+Status: source candidate on `agent/android-playtest-beta7`; no signed APK claimed.
+
+- Original silhouette controls and direct three-slot weapon selection.
+- Automatic forward sprint, cancellation by backward movement, stance, aiming,
+  menus or backgrounding; existing HUD customization is retained.
+- Match-only real ENet ping with stale/disconnected 999 ms indication.
+- Confirmed match abandonment, transport cleanup and lobby return without
+  pulling remaining teammates out of the active match.
+- Server-authoritative ammunition and +25 HP medical drops with client visuals.
+- New-account registration/recovery and Android Back that keeps the app open.
+- Branded mandatory update gate at entry, resume and match start; unavailable
+  verification blocks entry with a retry. Download opens the trusted portal.
+- Client/server minimum 900007; protocol 2 and content version 2 remain.
+
+Validation and recovery: `../HANDOFF_ANDROID_PLAYTEST.md`.
+
+## Owner-tested release
+
 ### 0.9.0-beta.6 — versionCode 900006
 
-Status: source candidate on `agent/city-simulation-upgrade`, PR #16.
-No signed APK or production deployment is claimed by this entry.
+Status: PR #16 and its publication fix PR #17 are merged. The owner tested the
+Android update and reported improved map/gameplay and about 100–120 ms game RTT.
+The exact deployed APK SHA was not supplied; no new WAN measurement is claimed.
 
 - 192 × 192 m city, fifteen enterable buildings, natural ground/asphalt,
   vegetation, fourteen wrecks and four client-side fires.

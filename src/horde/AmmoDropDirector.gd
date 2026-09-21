@@ -14,6 +14,7 @@ var _pickups_root: Node3D
 var _rng := RandomNumberGenerator.new()
 var _next_pickup_id := 700001
 var _tracked: Dictionary = {}
+var _drop_count := 0
 
 func _ready() -> void:
 	_rng.randomize()
@@ -52,9 +53,10 @@ func _on_zombie_exiting(zombie: Node, key: int) -> void:
 	if _rng.randf() > drop_chance:
 		return
 	var amount := _rng.randi_range(mini(min_ammo, max_ammo), maxi(min_ammo, max_ammo))
-	_spawn_ammo(zombie.global_position, amount)
+	_drop_count += 1
+	_spawn_ammo(zombie.global_position, 25 if _drop_count % 4 == 0 else amount, "health" if _drop_count % 4 == 0 else "ammo")
 
-func _spawn_ammo(position: Vector3, amount: int) -> void:
+func _spawn_ammo(position: Vector3, amount: int, kind: String = "ammo") -> void:
 	if _pickups_root == null or not is_instance_valid(_pickups_root):
 		return
 	var pickup := AmmoPickupScene.instantiate() as Area3D
@@ -64,12 +66,13 @@ func _spawn_ammo(position: Vector3, amount: int) -> void:
 	_next_pickup_id += 1
 	pickup.name = "AmmoPickup_%d" % id
 	if pickup.has_method("configure"):
-		pickup.call("configure", id, amount, false)
+		pickup.call("configure", id, amount, false, kind)
 	_pickups_root.add_child(pickup)
 	pickup.global_position = position + Vector3(0.0, 0.08, 0.0)
 	print("DEADFALL_AMMO_DROP id=%d amount=%d" % [id, amount])
 
 func _on_run_restarted() -> void:
+	_drop_count = 0
 	if not _has_simulation_authority() or _pickups_root == null:
 		return
 	for child in _pickups_root.get_children():
