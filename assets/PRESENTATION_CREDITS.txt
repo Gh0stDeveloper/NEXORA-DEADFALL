@@ -5,6 +5,9 @@ The quarantine hangar background was generated with AI for this project and
 converted to WebP. It contains no Free Fire or Call of Duty assets or logos.
 The tactical UI icons, procedural weapon geometry, equipment and character
 animation code were authored for DEADFALL.
+The beta.6 city layout, modular buildings, wrecks, vegetation, surface/fire
+shaders and VALERIA head/hair design are original project work. VALERIA and
+DANTE both retain the J-Toastie weighted body base and its source attribution.
 All 13 sound effects and the two music/ambience loops were synthesized for this
 project. Reproduction source: scripts/assets/generate_original_audio.py.
 

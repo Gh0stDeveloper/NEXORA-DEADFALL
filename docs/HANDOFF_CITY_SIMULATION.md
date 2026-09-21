@@ -16,19 +16,19 @@ DANTE y sustituir la presentación del otro operador por una mujer.
 ## Fases y criterios de aceptación
 
 - [x] 0. Recuperar la base y guardar este plan en una rama remota.
-- [ ] 1. Persecución y servidor: hordas persiguen a jugadores aunque aparezcan
+- [x] 1. Persecución y servidor: hordas persiguen a jugadores aunque aparezcan
   fuera de su visión; navegan alrededor de obstáculos; el dedicado no instancia
   mallas, cámaras, luces, etiquetas 3D ni audio. Conservar colisiones autoritativas.
   Separar RTT de partida del tiempo HTTP del lobby, mostrar mediciones reales
   y obtener métricas de carga con cuatro clientes.
-- [ ] 2. Ciudad: aumentar superficie transitable, calles y aceras, patios de
+- [x] 2. Ciudad: aumentar superficie transitable, calles y aceras, patios de
   tierra/pasto, varias casas accesibles, ruinas, vehículos y fuego del cliente.
   Compartir exactamente la geometría de colisión y los objetivos entre cliente
   y servidor. Verificar caminos hasta interiores y puntos de misión.
-- [ ] 3. Personajes: mantener DANTE y reemplazar el otro aspecto por una operadora
+- [x] 3. Personajes: mantener DANTE y reemplazar el otro aspecto por una operadora
   femenina reconocible; conservar identificadores de cuenta compatibles.
   Revisar lobby, dúo, escuadra, tercera persona y agarre de armas.
-- [ ] 4. Integración: compilar scripts, ejecutar navegación real y partidas ENet,
+- [x] 4. Integración: compilar scripts, ejecutar navegación real y partidas ENet,
   inspeccionar imágenes renderizadas y registrar resultados, límites y comandos
   de actualización. Publicar cada fase como checkpoint sin forzar historial.
 
@@ -63,7 +63,7 @@ dispositivos/VPS del propietario; no presentar pruebas locales como esas medidas
 
 ## Registro de validación
 
-Pendiente para estas nuevas fases. Godot local disponible: 4.6.3 estable.
+Cierre de fuente: 2026-09-21. Godot local: 4.6.3 estable. Resultados finales abajo.
 La compilación y pruebas de presentación de beta.5 y el portal se validaron en
 la fase anterior; no sustituyen las pruebas de esta ciudad y nueva simulación.
 
@@ -127,3 +127,133 @@ Archivos clave nuevos: src/maps/campaign/City*.gd y shaders,
 src/assets/FemaleOperatorDesign.gd, src/core/CharacterMovement.gd,
 scripts/ci/server_navigation_smoke.gd, control_latency_smoke.py,
 match_load_smoke.py, city_visual_smoke.gd y operators_visual_smoke.gd.
+
+
+## Cierre de fuente — beta.6 (2026-09-21)
+
+Las cuatro fases están implementadas y verificadas localmente. PR #16:
+https://github.com/Gh0stDeveloper/NEXORA-DEADFALL/pull/16
+
+Versión de fuente: **0.9.0-beta.6 / 900006 / protocol 2 / content 2**.
+El cambio de colisiones exige actualizar servidor y todos los APK. Se comprueba
+el rechazo de clientes y servidores beta.5/content 1. Las cuentas, identificadores
+de personaje, checkpoints por ID y la clave de firma existente se conservan.
+
+### Correcciones finales
+
+- Colisiones de fachadas superiores y troncos incluidas en CityLayout para que
+  la autoridad y el cliente bloqueen lo mismo. Puertas y rutas interiores libres.
+- Validación de objetivos de IA antes de convertirlos a Node3D: desconectar un
+  jugador ya no produce errores por referencias liberadas.
+- Relay entre clientes desactivado antes de abrir la sesión dedicada. Todo el
+  gameplay sigue pasando por la autoridad; se evita notificar cierres a canales
+  ENet que ya se estaban cerrando en desconexiones simultáneas.
+- HTTP del lobby con conexión reutilizable; Solo no muestra un ping de API sobre
+  el juego. Una partida online mide exclusivamente su RTT ENet.
+- Cambio rápido de operador conserva la última elección pendiente y la sincroniza
+  cuando termina la petición anterior.
+- Pausar/reanudar audio sólo afecta a voces activas/pausadas; detenerlas no revive
+  estados del mezclador ni deja recursos de reproducción retenidos al salir.
+- El portal conserva la versión del APK publicado durante la compilación nueva.
+  La publicación final exige que manifiesto y versión coincidan; sólo entonces
+  cambia el historial público a beta.6. No se anuncia un APK inexistente.
+
+### Evidencia reproducible
+
+- 16 gates de regresión pasaron: compilación estricta y pruebas hijas de
+  presentación/carga/gameplay/lifecycle, smoke, combate, zombis, gore, hordas,
+  red, escuadra, campaña, hardening, Phase 11, parche Android, instalador y
+  partidas reales de dos/cuatro clientes (Squad y Campaign).
+- `server_navigation_smoke.gd`: quince interiores y todos los objetivos de misión
+  alcanzables; recorrido real de 13 puntos hasta 1.79 m del jugador, luego entrada
+  por la puerta de la clínica hasta 1.80 m. También verifica la retirada del
+  objetivo desconectado, cápsulas independientes y ausencia de presentación.
+- `match_load_smoke.py`: cuatro procesos cliente ENet, 23 zombis simulados y
+  replicados en movimiento para cada cliente; cero nodos de presentación en el
+  dedicado. Verifica además los ticks posteriores a la desconexión de los cuatro.
+- Medición local conservada: mediana RTT 16 ms por cliente; p95 19/18/217/17 ms,
+  máximo 217 ms. CPU del servidor 24.09% de un núcleo; pico RSS 155.47 MiB;
+  59.8–60.7 ticks/s. Los picos reflejan variabilidad del entorno compartido; esta
+  prueba no representa la ruta de Internet México–Los Ángeles ni un benchmark
+  de los teléfonos. Datos completos: `media/city-beta6/local-server-load.json`.
+- `control_latency_smoke.py`: tres peticiones HTTP/1.1 comparten conexión,
+  respuesta inválida rechazada y 25 ms se muestran como 25 ms.
+- `city_presentation_smoke.sh`: ciudad y ambos operadores con rifle/pistola/machete
+  renderizados en OpenGL Compatibility; agarres y carga real de la base ponderada.
+  Captura final de calle: 131 draw calls frente a 432 antes de agrupar por sector/forma;
+  vista interior 63. Son medidas de esa vista local, sin prometer FPS Android.
+- `presentation_runtime_smoke.sh`: boot/login (~0.9 s hasta pantalla de acceso en
+  esta ejecución), fallo/reintento HTTP real, cuenta verificada, lobby Solo/Duo/
+  Squad, armory, cambios de DANTE/VALERIA guardados en servidor, ajustes persistentes,
+  campaña, HUD, tres armas, disparo real, audio y pausa/reanudación. Sin errores
+  de script/shader ni fugas de audio al cerrar la prueba final.
+- `download_portal_smoke.sh`: historial, transición de APK previo a nuevo, build
+  Next.js y servidor standalone con rutas `/versiones`, redirecciones, assets,
+  404 y actualización del catálogo en caliente. Pasó.
+
+GitHub Actions ejecuta los gates nuevos y conserva capturas/logs. Su estado remoto
+se consulta en el PR; los resultados locales no equivalen a un workflow remoto verde.
+
+### Límites de esta entrega
+
+No se dispone de acceso al VPS ni de teléfonos conectados en este entorno. Quedan
+la exportación del APK firmado y la aceptación física de rendimiento, temperatura,
+controles y WAN. El mapa y los modelos tienen arte modular estilizado; no se afirma
+que sean assets AAA ni arte de Free Fire/Call of Duty. No se importó material de
+esos juegos. Los modelos base provisionales mantienen su atribución existente.
+
+El servidor conserva formas de colisión 3D y navegación porque las necesita para
+validar movimiento/disparos y ejecutar IA; no crea mallas visibles, cámaras, luces,
+etiquetas 3D ni reproductores de audio. El cliente crea toda la presentación.
+
+### Recuperar el trabajo
+
+```bash
+git clone --branch agent/city-simulation-upgrade https://github.com/Gh0stDeveloper/NEXORA-DEADFALL.git
+cd NEXORA-DEADFALL
+git submodule update --init --recursive
+bash scripts/ci/sync_required_models.sh "$PWD"
+godot --headless --editor --path . --quit
+godot --headless --path . --script scripts/ci/server_navigation_smoke.gd
+python3 scripts/ci/control_latency_smoke.py
+python3 scripts/ci/match_load_smoke.py
+xvfb-run -a bash scripts/ci/city_presentation_smoke.sh
+xvfb-run -a bash scripts/ci/presentation_runtime_smoke.sh
+```
+
+Usar Godot 4.6.3; si su ejecutable tiene otro nombre, exportar `GODOT_BIN` para
+los wrappers Python/shell. Continuar leyendo este archivo primero. Checkpoints
+remotos anteriores: `6095aa1` (plan), `1de2b96` (persecución/separación), `7cfe5e2`
+(ciudad/VALERIA). El HEAD de la rama/PR es el cierre posterior a esos checkpoints.
+
+### Actualizar y compilar en el VPS desde esta rama
+
+La integración previa en `main` no contiene beta.6. Hasta fusionar el PR #16:
+
+```bash
+sudo sed -i "s|^DEADFALL_BRANCH=.*|DEADFALL_BRANCH='agent/city-simulation-upgrade'|" /etc/nexora-deadfall/nexora-deadfall.env
+sudo nexora-deadfall update --force
+```
+
+El instalador usa la copia administrada y conserva la firma. No regenerar el
+keystore ni cambiar a un checkout sin credenciales. Después de compilar, los
+cuatro testers deben instalar el APK beta.6 del portal antes de entrar juntos.
+
+Para medir el problema original, iniciar una partida con cuatro dispositivos y
+observar **PARTIDA** (ENet). Comparar con las líneas `DEADFALL_SERVER_PERF` del
+proceso de esa partida: ticks/s, p95, CPU física y costo de snapshots. Si los ticks
+se mantienen a 60 y el RTT sigue alto, investigar la ruta/Wi-Fi/operador y pérdida
+UDP con esas medidas; no atribuirlo al renderizado ni inventar un ping garantizado.
+
+### Referencias técnicas de implementación
+
+- https://docs.godotengine.org/en/4.6/tutorials/navigation/navigation_using_navigationagents.html
+- https://docs.godotengine.org/en/4.6/classes/class_scenemultiplayer.html#class-scenemultiplayer-property-server-relay
+- https://docs.godotengine.org/en/4.6/classes/class_httpclient.html
+
+### Capturas reales del motor
+
+![Ciudad ampliada](media/city-beta6/city_overview.webp)
+![Interior accesible](media/city-beta6/city_interior.webp)
+![Vehículo y fuego](media/city-beta6/city_wreck.webp)
+![DANTE y VALERIA](media/city-beta6/operators_slot_0.webp)

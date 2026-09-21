@@ -44,18 +44,16 @@ func _spawn_local_player() -> void:
 		horde.call("start_run")
 	_build_local_huds(player)
 
-func _build_local_huds(player: Node3D) -> void:
+func _build_local_huds(_player: Node3D) -> void:
 	if DisplayServer.get_name() == "headless":
 		return
 	if get_node_or_null("MobileHUD") == null:
 		var mobile := MobileHUDScene.instantiate()
 		mobile.name = "MobileHUD"
+		mobile.set("player_path", NodePath("../NetworkPlayers/Player_1"))
 		add_child(mobile)
-		if mobile.has_method("bind_player"):
-			mobile.call("bind_player", player)
 	if get_node_or_null("HordeHUD") == null:
 		var horde_hud := HordeHUDScene.instantiate()
 		horde_hud.name = "HordeHUD"
 		horde_hud.set("director_path", NodePath("../HordeDirector"))
 		add_child(horde_hud)
-

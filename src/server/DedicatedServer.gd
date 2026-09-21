@@ -63,6 +63,10 @@ func start(
 	if error != OK:
 		push_error("Unable to start ENet server on UDP %d: %s" % [listen_port, error_string(error)])
 		return error
+	# Clients exchange gameplay only with the authority. Disable the unused
+	# peer-to-peer relay before accepting connections; simultaneous departures
+	# otherwise try to notify ENet peers whose channels are already closing.
+	(multiplayer as SceneMultiplayer).server_relay = false
 	multiplayer.multiplayer_peer = peer
 	Game.start_dedicated_server_session()
 

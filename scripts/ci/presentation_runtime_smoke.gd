@@ -79,6 +79,10 @@ func _run() -> void:
 	lobby._select_character(&"operator_02")
 	if not await _until(func() -> bool: return String(_store.public_account(identity.guest_id).get("selected_character", "")) == "operator_02"):
 		return
+	lobby._select_character(&"operator_01")
+	if not await _until(func() -> bool: return String(_store.public_account(identity.guest_id).get("selected_character", "")) == "operator_01"):
+		return
+	await _capture("07-valeria-selected")
 	lobby._open_settings()
 	var settings := root.get_node("Settings")
 	settings.set_audio_volume(0.0, "SFX")

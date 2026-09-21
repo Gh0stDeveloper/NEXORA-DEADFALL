@@ -1,0 +1,73 @@
+{
+  "scope": "local loopback, not WAN/VPS measurement",
+  "seconds": 22.21,
+  "server_cpu_one_core_percent": 24.09,
+  "server_peak_rss_mb": 155.47,
+  "clients": [
+    {
+      "max_replicated_zombies": 23,
+      "moving_zombies": 23,
+      "rtt_max_ms": 26,
+      "rtt_p50_ms": 16,
+      "rtt_p95_ms": 19,
+      "samples": 20
+    },
+    {
+      "max_replicated_zombies": 23,
+      "moving_zombies": 23,
+      "rtt_max_ms": 139,
+      "rtt_p50_ms": 16,
+      "rtt_p95_ms": 18,
+      "samples": 20
+    },
+    {
+      "max_replicated_zombies": 23,
+      "moving_zombies": 23,
+      "rtt_max_ms": 217,
+      "rtt_p50_ms": 16,
+      "rtt_p95_ms": 217,
+      "samples": 20
+    },
+    {
+      "max_replicated_zombies": 23,
+      "moving_zombies": 23,
+      "rtt_max_ms": 18,
+      "rtt_p50_ms": 16,
+      "rtt_p95_ms": 17,
+      "samples": 20
+    }
+  ],
+  "server": [
+    {
+      "frame_cap": 60,
+      "physics_cpu_ms": 6.552,
+      "physics_hz": 60,
+      "pid": 5,
+      "players": 4,
+      "process_cpu_ms": 2.168,
+      "snapshot_avg_ms": 0.902050505050505,
+      "snapshot_max_ms": 74.691,
+      "snapshot_payload_bytes_per_second": 111703,
+      "tick_interval_max_ms": 108.207,
+      "tick_interval_p95_ms": 17.069,
+      "ticks_per_second": 60.7,
+      "zombies": 23
+    },
+    {
+      "frame_cap": 60,
+      "physics_cpu_ms": 17.217,
+      "physics_hz": 60,
+      "pid": 5,
+      "players": 4,
+      "process_cpu_ms": 3.34,
+      "snapshot_avg_ms": 0.937112416107382,
+      "snapshot_max_ms": 20.244,
+      "snapshot_payload_bytes_per_second": 139188,
+      "tick_interval_max_ms": 186.689,
+      "tick_interval_p95_ms": 17.447,
+      "ticks_per_second": 59.8,
+      "zombies": 23
+    }
+  ],
+  "build": "0.9.0-beta.6 / 900006 / content 2"
+}

@@ -52,6 +52,9 @@ def main():
             seconds = time.monotonic() - started
             cpu_percent = (cpu_seconds(server.pid) - cpu_started) * 100.0 / seconds
             rss = next(line.split()[1] for line in Path(f"/proc/{server.pid}/status").read_text().splitlines() if line.startswith("VmHWM:"))
+            # Let the dedicated process handle all departures and subsequent AI
+            # ticks. Errors after the final client exits must fail this gate too.
+            assert server.wait(timeout=12) == 0, "Dedicated failed after clients disconnected"
             results = []
             for index in range(4):
                 text = (output / f"client-{index}.log").read_text()

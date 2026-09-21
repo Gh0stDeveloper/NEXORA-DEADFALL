@@ -138,6 +138,9 @@ const MTU_SAFE_SESSION_PATH := "res://src/network/MtuSafeClosedBetaNetworkSessio
 const LIFECYCLE_SESSION_PATH := "res://src/network/LifecycleMtuSafeNetworkSession.gd"
 
 func _initialize() -> void:
+	call_deferred("_run")
+
+func _run() -> void:
 	for path in REQUIRED_FILES:
 		if not FileAccess.file_exists(path):
 			_fail("Missing required project file: %s" % path)

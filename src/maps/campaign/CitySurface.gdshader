@@ -21,19 +21,19 @@ void fragment() {
 	float broad = noise(p * 0.36);
 	float grain = hash(floor(p * 65.0));
 	vec3 color = base_color.rgb * COLOR.rgb * (0.82 + broad * 0.24 + grain * 0.13);
-	if (surface_kind == 1) {
+	if (surface_kind == 1.0) {
 		float earth = smoothstep(0.43, 0.67, noise(p * 0.065) + noise(p * 0.6) * 0.18);
 		color = mix(vec3(0.23, 0.31, 0.13), vec3(0.37, 0.29, 0.19), earth) * (0.73 + grain * 0.38 + broad * 0.25);
-	} else if (surface_kind == 2) {
+	} else if (surface_kind == 2.0) {
 		float fissure = 1.0 - smoothstep(0.012, 0.035, abs(sin(p.x * 0.45 + noise(p * 0.16) * 6.0)));
 		color *= 1.0 - fissure * 0.42;
-	} else if (surface_kind == 3) {
+	} else if (surface_kind == 3.0) {
 		vec2 tile = p * vec2(2.8, 5.2);
 		tile.x += mod(floor(tile.y), 2.0) * 0.5;
 		vec2 edge = min(fract(tile), 1.0 - fract(tile));
 		float mortar = 1.0 - smoothstep(0.025, 0.05, min(edge.x, edge.y));
 		color = mix(color, vec3(0.32, 0.30, 0.25), mortar * 0.85);
-	} else if (surface_kind == 4) {
+	} else if (surface_kind == 4.0) {
 		float seams = step(0.985, fract(p.x * 0.65)) + step(0.985, fract(p.y * 0.65));
 		color *= 1.0 - min(seams, 1.0) * 0.35;
 	}

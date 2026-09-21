@@ -4,17 +4,21 @@ Android-first 3D zombie survival shooter built with **Godot 4.6.3**, with offlin
 
 ## Current status
 
-Current Closed Beta:
+Current source candidate (PR #16, branch `agent/city-simulation-upgrade`):
 
 ```text
-0.9.0-beta.5
-versionCode 900005
+0.9.0-beta.6
+versionCode 900006
 protocol 2
-content version 1
+content version 2
 Android target API 36
 ```
 
-Last confirmed full runtime deployment:
+Beta.6 adds a 192 × 192 m enterable city, VALERIA alongside DANTE, corrected
+horde navigation and presentation-free dedicated simulation. All clients and
+the server must update together because the collision layout changed.
+
+Last deployment with a full recorded build log (beta.5):
 
 ```text
 f402f1696c0438447d76236122a5d82101a94cc0
@@ -29,13 +33,15 @@ Beta.5 completed its VPS `--force` deployment successfully:
 - localhost control/social/match API validated;
 - HTTPS API validated.
 
-The **next acceptance gate is physical Android testing**, not another automatic version bump: Solo -> Duo with deliberate disconnect/reconnect -> 3 players -> 4 players.
+The owner confirmed that the subsequent beta.5 portal/main update works.
+Beta.6 has not been deployed from this workspace. Its next acceptance gate is
+the signed VPS build, then physical Android Solo/Duo/Squad and WAN latency tests.
 
 ## Start here
 
 For development or a new ChatGPT/Codex session, read these in order:
 
-1. [Beta.5 handoff / new-chat prompt](docs/HANDOFF_BETA_5.md)
+1. [City, simulation and beta.6 recovery handoff](docs/HANDOFF_CITY_SIMULATION.md)
 2. [Current operational status](docs/CURRENT_STATUS.md)
 3. [Master roadmap](docs/ROADMAP.md)
 4. [Download portal/version-history plan](docs/DOWNLOAD_PORTAL_PLAN.md)

@@ -87,4 +87,3 @@ position = Vector3(0, 1.62, 0)
 script = ExtResource("3_camera")
 
 [node name="Pitch" type="Node3D" parent="CameraRig"]
-

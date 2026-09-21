@@ -37,6 +37,10 @@ func _ready() -> void:
 	call_deferred("_start_control_ping")
 
 func _process(delta: float) -> void:
+	# Offline Solo has no gameplay network latency. Do not show the lobby API
+	# badge over an offline match or spend connection probes while playing it.
+	if _ping_panel != null:
+		_ping_panel.visible = not Game.is_local_session()
 	_control_elapsed += delta
 	_presence_elapsed += delta
 	if _control_elapsed >= CONTROL_PING_INTERVAL_SECONDS:
@@ -91,7 +95,7 @@ func snapshot() -> Dictionary:
 
 func _start_control_ping() -> void:
 	# Gameplay has its own ENet ping. Do not add HTTPS traffic during a match.
-	if Game.is_network_client():
+	if Game.is_network_client() or Game.is_local_session():
 		return
 	var social := get_node_or_null("/root/SocialClient")
 	if social == null:

@@ -21,7 +21,7 @@ var _rng := RandomNumberGenerator.new()
 func build(city: Dictionary) -> void:
 	_rng.seed = 764209
 	for box: Dictionary in city.boxes:
-		if box.surface != "wreck_collision":
+		if box.surface not in ["wreck_collision", "trunk_collision"]:
 			_box(box.at, box.size, String(box.surface), Vector3(0, float(box.yaw), 0))
 	_streets()
 	for house: Dictionary in city.houses:
@@ -68,11 +68,6 @@ func _house_details(house: Dictionary) -> void:
 	# Different upper silhouettes: standing facades, exposed rafters and torn roofs.
 	for z in [-d * 0.35, 0.0, d * 0.35]:
 		_box(at + Vector3(0, 3.9, z), Vector3(w + 0.3, 0.20, 0.19), "wood", Vector3(0, 0, 0.025 if ruined else 0))
-	if int(house.id) % 2 == 0:
-		for side in [-1.0, 1.0]:
-			_box(at + Vector3(side * w * 0.5, 5.4, -d * 0.26), Vector3(0.4, 2.8, d * 0.50), String(house.surface))
-		_box(at + Vector3(w * 0.17, 5.3, -d * 0.5), Vector3(w * 0.66, 2.6, 0.40), String(house.surface))
-		_box(at + Vector3(w * 0.3, 6.75, -d * 0.27), Vector3(w * 0.42, 0.22, d * 0.54), "roof", Vector3(0.06, 0, 0.05))
 	for front in [-1.0, 1.0]:
 		for x in [-w * 0.30, w * 0.30]:
 			var window := at + Vector3(x, 2.15, front * (d * 0.5 + 0.24))
@@ -126,7 +121,7 @@ func _car_box(origin: Transform3D, at: Vector3, size: Vector3, material: String,
 func _vegetation() -> void:
 	var count := 1200 if int(Settings.quality_tier) == 0 else 3200
 	for i in range(count):
-		var point := Vector3(_rng.randf_range(-94, 94), 0.13, _rng.randf_range(-94, 94))
+		var point := Vector3(_rng.randf_range(-94, 94), 0.002, _rng.randf_range(-94, 94))
 		var grass_allowed := true
 		for road in Layout.ROAD_CENTERS:
 			if absf(point.x - road) < 11.5 or absf(point.z - road) < 11.5:
@@ -137,7 +132,7 @@ func _vegetation() -> void:
 					grass_allowed = false
 		if grass_allowed:
 			_add("grass", point, Vector3.ONE * _rng.randf_range(0.6, 1.7), "grass", Basis(Vector3.UP, _rng.randf() * TAU), Color(_rng.randf_range(0.78, 1.0), 1.0, 0.85))
-	for point in [Vector3(19,0,-20), Vector3(39,0,-37), Vector3(20,0,-42), Vector3(39,0,-18), Vector3(-43,0,37), Vector3(-70,0,40), Vector3(42,0,77), Vector3(-40,0,-75), Vector3(77,0,-41), Vector3(-76,0,15)]:
+	for point in Layout.TREE_POSITIONS:
 		_add("cylinder", point + Vector3(0, 2.1, 0), Vector3(0.5, 4.2, 0.5), "wood")
 		for branch in range(4):
 			var crown: Vector3 = point + Vector3(_rng.randf_range(-1.1, 1.1), 4.2 + _rng.randf_range(0, 1.2), _rng.randf_range(-1.1, 1.1))

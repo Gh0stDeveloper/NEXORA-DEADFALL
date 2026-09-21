@@ -96,7 +96,8 @@ func has_simulation_authority() -> bool:
 	var game := get_tree().root.get_node_or_null("Game")
 	return game != null and game.has_method("is_simulation_authority") and bool(game.call("is_simulation_authority"))
 func get_state_name() -> String: return State.keys()[state]
-func get_target() -> Node3D: return _target
+func get_target() -> Node3D:
+	return _target if is_instance_valid(_target) else null
 func is_crawler() -> bool: return _crawler_mode
 func get_attack_damage_multiplier() -> float: return _attack_damage_multiplier
 func get_attack_cooldown_multiplier() -> float: return _attack_cooldown_multiplier
@@ -261,9 +262,11 @@ func _find_visible_target() -> Node3D:
 		best = candidate; best_distance = distance
 	return best
 
-func _target_is_alive(target: Node3D) -> bool:
-	if target == null or not is_instance_valid(target) or not target.is_inside_tree(): return false
-	var target_health := target.get_node_or_null("Health")
+func _target_is_alive(target: Variant) -> bool:
+	# A disconnected player can already be freed before the next AI tick. A
+	# Node3D argument would fail type validation before this guard could run.
+	if not is_instance_valid(target) or not target is Node3D or not target.is_inside_tree(): return false
+	var target_health: Node = target.get_node_or_null("Health")
 	if target_health == null: return false
 	return not target_health.has_method("is_dead") or not bool(target_health.call("is_dead"))
 

@@ -8,6 +8,9 @@ func _run() -> void:
 		quit(1)
 		return
 	Engine.max_fps = 60
+	var telemetry := root.get_node("NetworkTelemetry")
+	telemetry.set_process(false)
+	telemetry.get_node("NetworkPingOverlay").hide()
 	root.size = Vector2i(1280, 720)
 	var world := Node3D.new()
 	root.add_child(world)

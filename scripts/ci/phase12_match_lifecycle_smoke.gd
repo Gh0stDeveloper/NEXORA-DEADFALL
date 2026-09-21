@@ -82,10 +82,10 @@ func _run() -> void:
 			return
 
 	var build_constants: Dictionary = build_info_script.get_script_constant_map()
-	if String(build_constants.get("APP_VERSION", "")) != "0.9.0-beta.5" or int(build_constants.get("VERSION_CODE", 0)) != 900005:
-		_fail("Phase 12 requires beta.5 / 900005")
+	if int(build_constants.get("VERSION_CODE", 0)) < 900005:
+		_fail("Match lifecycle requires beta.5 or a newer build")
 		return
-	if int(build_constants.get("MIN_CLIENT_VERSION_CODE", 0)) != 900005 or int(build_constants.get("MIN_SERVER_VERSION_CODE", 0)) != 900005:
+	if int(build_constants.get("MIN_CLIENT_VERSION_CODE", 0)) < 900005 or int(build_constants.get("MIN_SERVER_VERSION_CODE", 0)) < 900005:
 		_fail("Phase 12 compatibility floor must reject beta.4")
 		return
 

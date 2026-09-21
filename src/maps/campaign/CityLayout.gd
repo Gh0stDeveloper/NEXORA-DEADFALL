@@ -4,6 +4,7 @@ extends RefCounted
 const SIZE := 192.0
 const ROAD_CENTERS := [-56.0, 0.0, 56.0]
 const LOT_CENTERS := [-80.0, -28.0, 28.0, 80.0]
+const TREE_POSITIONS := [Vector3(19,0,-20), Vector3(39,0,-37), Vector3(20,0,-42), Vector3(39,0,-18), Vector3(-43,0,37), Vector3(-70,0,40), Vector3(42,0,77), Vector3(-40,0,-75), Vector3(77,0,-41), Vector3(-76,0,15)]
 const NAV_SOURCE_GROUP: StringName = &"deadfall_nav_source"
 
 # The collision description is deterministic and shared by solo, clients and
@@ -38,6 +39,8 @@ static func describe() -> Dictionary:
 		var car := {"id": car_index, "at": cars[car_index][0], "yaw": cars[car_index][1], "burning": car_index in [2, 5, 9, 11]}
 		city.cars.append(car)
 		_box(city, "Wreck_%d" % car_index, car.at + Vector3(0, 0.72, 0), Vector3(1.95, 1.35, 4.3), "wreck_collision", float(car.yaw))
+	for index_tree in range(TREE_POSITIONS.size()):
+		_box(city, "Tree_%d" % index_tree, TREE_POSITIONS[index_tree] + Vector3(0, 2.1, 0), Vector3(0.5, 4.2, 0.5), "trunk_collision")
 	for side in [-1.0, 1.0]:
 		_box(city, "BoundaryX", Vector3(side * 97, 3, 0), Vector3(2, 6, 196), "boundary")
 		_box(city, "BoundaryZ", Vector3(0, 3, side * 97), Vector3(192, 6, 2), "boundary")
@@ -68,6 +71,13 @@ static func _house(city: Dictionary, house: Dictionary) -> void:
 		_box(city, prefix + "LeftWall", at + Vector3(-w * 0.5, 1.9, 0), Vector3(0.42, 3.8, d), surface)
 	# Partial ceilings and exposed beams keep the damaged interior readable.
 	_box(city, prefix + "Roof", at + Vector3(w * 0.30, 3.95, 0), Vector3(w * 0.42, 0.26, d + 0.6), "roof")
+	# Large upper ruins also block authoritative shots, using the same geometry
+	# as the client. Only small trim, foliage and loose rubble are cosmetic.
+	if int(house.id) % 2 == 0:
+		for side in [-1.0, 1.0]:
+			_box(city, prefix + "UpperSide", at + Vector3(side * w * 0.5, 5.4, -d * 0.26), Vector3(0.4, 2.8, d * 0.50), surface)
+		_box(city, prefix + "UpperBack", at + Vector3(w * 0.17, 5.3, -d * 0.5), Vector3(w * 0.66, 2.6, 0.40), surface)
+		_box(city, prefix + "UpperRoof", at + Vector3(w * 0.3, 6.75, -d * 0.27), Vector3(w * 0.42, 0.22, d * 0.54), "roof")
 	_box(city, prefix + "Partition", at + Vector3(-w * 0.25, 1.5, -d * 0.12), Vector3(w * 0.40, 3.0, 0.25), "interior")
 	_box(city, prefix + "Counter", at + Vector3(w * 0.30, 0.50, -d * 0.30), Vector3(3.6, 1.0, 0.85), "wood")
 	_box(city, prefix + "Sofa", at + Vector3(-w * 0.28, 0.42, d * 0.30), Vector3(2.8, 0.84, 1.0), "fabric")

@@ -131,7 +131,7 @@ assert 'download_portal_smoke.sh' in update
 assert 'scripts/build/build_download_site\\.sh' in update
 history = json.load(open('web/download-site/src/data/releases.json', encoding='utf-8'))
 assert history['schema_version'] == 1
-assert history['current'] == '0.9.0-beta.5'
+assert history['current'] == '0.9.0-beta.6'
 assert sum(item['version'] == history['current'] for item in history['releases']) == 1
 assert any(item['status'] == 'superseded' for item in history['releases'])
 PY

@@ -157,11 +157,25 @@ def main() -> None:
     parser.add_argument("--source", required=True, type=pathlib.Path)
     parser.add_argument("--current", type=pathlib.Path)
     parser.add_argument("--output", required=True, type=pathlib.Path)
+    parser.add_argument("--keep-published-version", action="store_true",
+                        help="Al preparar el portal, conservar el APK publicado hasta exportar el nuevo.")
     args = parser.parse_args()
 
     source = read_json(args.source)
     catalog, current_record = validate_catalog(source)
     manifest = read_json(args.current) if args.current else None
+    if (args.keep_published_version and isinstance(manifest, dict)
+            and manifest.get("version") != catalog["current"]):
+        published = next((item for item in catalog["releases"]
+                          if item["version"] == manifest.get("version")), None)
+        if published is None:
+            fail("la versión del APK publicado no existe en el historial fuente")
+        # Do not announce or label the unbuilt candidate as a past release.
+        catalog["releases"] = [item for item in catalog["releases"]
+                               if item["version"] != catalog["current"]]
+        catalog["current"] = published["version"]
+        published["status"] = "current"
+        current_record = published
     merge_runtime_manifest(catalog, current_record, manifest)
     validate_catalog(catalog)
     write_atomic(args.output, catalog)

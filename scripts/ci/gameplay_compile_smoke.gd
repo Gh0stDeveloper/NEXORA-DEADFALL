@@ -1,6 +1,15 @@
 extends SceneTree
 
 const REQUIRED_SCRIPTS := [
+	"res://src/core/PresentationRuntime.gd",
+	"res://src/core/CharacterMovement.gd",
+	"res://src/maps/campaign/CityArena.gd",
+	"res://src/maps/campaign/CityLayout.gd",
+	"res://src/maps/campaign/CityPresentation.gd",
+	"res://src/maps/campaign/CityFire.gd",
+	"res://src/assets/FemaleOperatorDesign.gd",
+	"res://src/network/ControlLatencyProbe.gd",
+	"res://src/server/ServerPerformance.gd",
 	"res://src/main/Boot.gd",
 	"res://src/audio/AudioDirector.gd",
 	"res://src/audio/ActorAudio.gd",

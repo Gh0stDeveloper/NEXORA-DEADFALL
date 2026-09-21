@@ -51,6 +51,12 @@ func _run() -> void:
 		if route.size() >= 3: break
 		await physics_frame
 	_check(route.size() >= 3, "Route must go around the clinic, not through a solid building")
+	# Validate the whole playable district, including the two mission interiors.
+	var city: Dictionary = arena.get("city_layout")
+	for house: Dictionary in city.houses:
+		_check_path_reaches(map, player.global_position, house.at + Vector3.UP * 0.1, "House %s" % house.id)
+	for marker: Node3D in arena.get_node("CampaignTargets").get_children():
+		_check_path_reaches(map, player.global_position, marker.global_position, str(marker.name))
 	_check(zombie.call("_find_visible_target") == null, "Regression fixture must begin out of sight/range")
 	zombie.call("enable_horde_pursuit")
 	var start := zombie.global_position
@@ -63,10 +69,29 @@ func _run() -> void:
 	_check(start.distance_to(zombie.global_position) > 20.0, "Horde zombie remained near its distant spawn")
 	_check(closest < 1.8, "Horde zombie failed to navigate around the obstacle to its target: distance=%s position=%s" % [closest, zombie.global_position])
 	print("DEADFALL_NAVIGATION_RESULT distance=", closest, " path_points=", route.size())
+	player.position = Vector3(-28, 0.15, -28)
+	closest = 1000.0
+	for frame in range(1000):
+		await physics_frame
+		closest = minf(closest, zombie.global_position.distance_to(player.global_position))
+		if closest < 1.8: break
+	_check(closest < 1.8, "Zombie could not follow the survivor through the clinic doorway")
+	print("DEADFALL_INTERIOR_PURSUIT distance=", closest, " reachable_houses=", city.houses.size())
+	# Disconnecting a target must be safe before the next AI tick.
+	player.free()
+	for frame in range(4): await physics_frame
+	_check(zombie.call("get_target") == null, "Zombie retained a freed target")
 	arena.free()
 	game.call("stop_session")
 	if not _failed: print("NEXORA: DEADFALL dedicated presentation/navigation smoke passed")
 	quit(1 if _failed else 0)
+
+func _check_path_reaches(map: RID, from: Vector3, target: Vector3, label: String) -> void:
+	var path := NavigationServer3D.map_get_path(map, from, target, true)
+	_check(not path.is_empty(), "%s is unreachable" % label)
+	if path.is_empty(): return
+	var end: Vector3 = path[path.size() - 1]
+	_check(Vector2(end.x - target.x, end.z - target.z).length() < 1.0 and absf(end.y - target.y) < 0.8, "%s path stops outside its ground-floor destination" % label)
 
 func _check_no_presentation(node: Node) -> void:
 	_check(not (node is VisualInstance3D or node is Camera3D or node is WorldEnvironment or node is AudioStreamPlayer or node is AudioStreamPlayer3D), "Dedicated allocated a presentation node: %s (%s)" % [node.name, node.get_class()])

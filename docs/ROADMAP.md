@@ -1,6 +1,6 @@
 # NEXORA: DEADFALL — Master Roadmap
 
-Last updated: 2026-09-16.
+Last updated: 2026-09-21.
 
 Legend:
 
@@ -9,6 +9,20 @@ Legend:
 - [ ] pending.
 
 Current runtime deployment: `0.9.0-beta.5 / 900005` at `f402f1696c0438447d76236122a5d82101a94cc0`.
+
+## City/simulation iteration — beta.6 (PR #16)
+
+- [x] Recoverable phase checkpoints on `agent/city-simulation-upgrade`.
+- [x] 192 × 192 m shared city with fifteen accessible interiors.
+- [x] Natural surfaces, vegetation, wrecks and client-side fire.
+- [x] Correct horde pursuit, navigation elevation, curbs and disconnected targets.
+- [x] Dedicated simulation without presentation nodes; 60 Hz physics/frame cap.
+- [x] Persistent lobby HTTP measurement separated from gameplay ENet RTT.
+- [x] VALERIA and DANTE; stable account IDs and weapon grips.
+- [x] Four-client loopback simulation measurement and automated city gates.
+- [~] Signed beta.6 APK, physical Android performance and live VPS/WAN measurements.
+
+Recovery and exact results: `docs/HANDOFF_CITY_SIMULATION.md`.
 
 ## Phase 0 — Foundation
 
