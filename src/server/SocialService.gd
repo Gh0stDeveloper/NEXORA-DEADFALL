@@ -21,6 +21,7 @@ var _direct_messages: Dictionary = {}
 var _presence: Dictionary = {}
 var _rate_windows: Dictionary = {}
 var _message_sequence := 0
+var _match_history: Dictionary = {}
 
 func configure(store: Node) -> void:
 	account_store = store
@@ -63,6 +64,7 @@ func profile_by_id(requester_token: String, target_guest_id: String) -> Dictiona
 	profile["is_friend"] = _friend_list(requester).has(target_guest_id)
 	profile["request_pending"] = _outgoing_list(requester).has(target_guest_id)
 	profile.merge(_presence_snapshot(target_guest_id), true)
+	profile["stats"] = _history_stats(target_guest_id)
 	return {"ok": true, "profile": profile}
 
 func create_party(token: String, requested_capacity: int) -> Dictionary:
@@ -74,7 +76,12 @@ func create_party(token: String, requested_capacity: int) -> Dictionary:
 	var existing := server_party_record_for_guest(guest_id)
 	if not existing.is_empty() and _party_is_match_locked(existing):
 		return _reject("party_locked_for_match")
-	var capacity := 2 if requested_capacity == 2 else 4
+	var capacity := requested_capacity if requested_capacity in [1, 2, 4] else 4
+	if not existing.is_empty() and String(existing.get("leader_guest_id", "")) == guest_id:
+		if Array(existing.get("members", [])).size() > capacity: return _reject("party_capacity_invalid")
+		existing["capacity"] = capacity
+		_parties[String(existing.code)] = existing
+		return {"ok": true, "party": _party_snapshot(String(existing.code), guest_id)}
 	_leave_party_internal(guest_id)
 	var code := _new_party_code()
 	var party := {
@@ -358,6 +365,7 @@ func _party_snapshot(code: String, requester_guest_id: String = "") -> Dictionar
 			"host": String(assignment.get("host", "")),
 			"port": int(assignment.get("port", 0)),
 			"mission_id": String(assignment.get("mission_id", "mission_01_first_signal")),
+			"game_mode": String(assignment.get("game_mode", "campaign")),
 			"status": String(assignment.get("status", "STARTING")),
 			"created_unix": int(assignment.get("created_unix", 0)),
 			"join_ticket": String(tickets.get(requester_guest_id, "")),
@@ -369,6 +377,8 @@ func _party_snapshot(code: String, requester_guest_id: String = "") -> Dictionar
 		"state": String(party.get("state", "OPEN")),
 		"members": members_public,
 		"chat": _public_messages(Array(party.get("chat", []))),
+		"queue": Dictionary(party.get("queue", {})).duplicate(true),
+		"queue_error": String(party.get("queue_error", "")),
 		"match": match_public,
 	}
 
@@ -407,6 +417,7 @@ func _leave_party_internal(guest_id: String) -> void:
 	_append_party_system_message(code, "%s salió de la escuadra" % _username(guest_id))
 
 func _party_is_match_locked(party: Dictionary) -> bool:
+	if not Dictionary(party.get("queue", {})).is_empty(): return true
 	var assignment: Dictionary = Dictionary(party.get("match", {}))
 	if assignment.is_empty():
 		return false
@@ -425,6 +436,7 @@ func _presence_snapshot(guest_id: String) -> Dictionary:
 	var online := last_seen > 0 and now - last_seen <= PRESENCE_ONLINE_SECONDS
 	return {
 		"online": online,
+		"activity": "OFFLINE" if not online else ("IN_MATCH" if String(server_party_record_for_guest(guest_id).get("state", "")) == "IN_MATCH" else ("IN_PARTY" if _guest_party.has(guest_id) else "ONLINE")),
 		"ping_ms": int(record.get("ping_ms", 999)) if online else 999,
 		"last_seen_unix": last_seen,
 	}
@@ -526,6 +538,7 @@ func _load() -> void:
 	_incoming_requests.clear()
 	_outgoing_requests.clear()
 	_direct_messages.clear()
+	_match_history.clear()
 	if not FileAccess.file_exists(STATE_PATH):
 		return
 	var file := FileAccess.open(STATE_PATH, FileAccess.READ)
@@ -541,6 +554,7 @@ func _load() -> void:
 	_outgoing_requests = Dictionary(root.get("outgoing_requests", {})).duplicate(true)
 	_direct_messages = Dictionary(root.get("direct_messages", {})).duplicate(true)
 	_message_sequence = int(root.get("message_sequence", 0))
+	_match_history = Dictionary(root.get("match_history", {})).duplicate(true)
 
 func _save() -> void:
 	var base := DirAccess.open("user://")
@@ -552,7 +566,8 @@ func _save() -> void:
 	if file == null:
 		return
 	file.store_string(JSON.stringify({
-		"schema_version": 1,
+		"schema_version": 2,
+		"match_history": _match_history,
 		"friends": _friends,
 		"incoming_requests": _incoming_requests,
 		"outgoing_requests": _outgoing_requests,
@@ -573,3 +588,99 @@ func leave_match(token: String, match_id: String) -> Dictionary:
 		return {"ok": true, "already_left": true}
 	_leave_party_internal(guest_id)
 	return {"ok": true, "left_match_id": match_id}
+
+func search_players(token: String, query: String) -> Dictionary:
+	var guest := guest_for_token(token)
+	if guest.is_empty():
+		return _reject("unauthorized")
+	if not _allow(guest, &"search", 12, 20.0):
+		return _reject("rate_limited")
+	var result: Array = []
+	if account_store != null and account_store.has_method("search_public_accounts"):
+		for value in account_store.call("search_public_accounts", query, 20):
+			var profile := Dictionary(value)
+			var target := String(profile.get("guest_id", ""))
+			if target == guest:
+				continue
+			profile.merge(_presence_snapshot(target), true)
+			profile["is_friend"] = _friend_list(guest).has(target)
+			profile["request_pending"] = _outgoing_list(guest).has(target)
+			profile["incoming_request"] = _incoming_list(guest).has(target)
+			result.append(profile)
+	return {"ok": true, "players": result, "query": query}
+
+func reject_friend(token: String, source_guest_id: String) -> Dictionary:
+	var target := guest_for_token(token)
+	if target.is_empty():
+		return _reject("unauthorized")
+	var incoming := _incoming_list(target)
+	incoming.erase(source_guest_id)
+	_incoming_requests[target] = incoming
+	var outgoing := _outgoing_list(source_guest_id)
+	outgoing.erase(target)
+	_outgoing_requests[source_guest_id] = outgoing
+	_save()
+	return {"ok": true, "friends": _friends_snapshot(target)}
+
+func match_history(token: String) -> Dictionary:
+	var guest := guest_for_token(token)
+	if guest.is_empty():
+		return _reject("unauthorized")
+	return {"ok": true, "matches": Array(_match_history.get(guest, [])).duplicate(true), "stats": _history_stats(guest)}
+
+# Only the orchestrator calls this after reading its dedicated child's result.
+# There is deliberately no client route that can submit scores or wins.
+func record_match_result(members: Array, result: Dictionary, mode: String, teams: Dictionary = {}) -> void:
+	var id := String(result.get("match_id", ""))
+	if id.is_empty() or not bool(result.get("server_authoritative", false)):
+		return
+	for value in members:
+		var guest := String(value)
+		var history: Array = Array(_match_history.get(guest, [])).duplicate(true)
+		var already_saved := false
+		for old in history:
+			if String(old.get("match_id", "")) == id:
+				already_saved = true
+		if already_saved:
+			continue
+		var outcome := String(result.get("outcome", "ABORTED"))
+		var winner := int(result.get("winner_team", -1))
+		if mode.begins_with("pvp_") and winner >= 0:
+			outcome = "VICTORY" if int(teams.get(guest, -2)) == winner else "DEFEAT"
+		var personal: Dictionary = Dictionary(Dictionary(result.get("player_stats", {})).get(guest, {}))
+		history.push_front({"match_id": id, "mode": mode, "outcome": outcome,
+			"kills": int(personal.get("kills", 0)), "damage": int(personal.get("damage", 0)),
+			"team_kills": int(result.get("kills", 0)), "score": int(result.get("score", 0)),
+			"wave": int(result.get("wave", 0)), "duration": int(result.get("uptime_seconds", 0)),
+			"completed_unix": int(result.get("completed_unix", Time.get_unix_time_from_system())),
+			"players": members.size(), "reason": String(result.get("reason", ""))})
+		if history.size() > 100:
+			history.resize(100)
+		_match_history[guest] = history
+	_save()
+
+func _history_stats(guest: String) -> Dictionary:
+	var history: Array = Array(_match_history.get(guest, []))
+	var stats := {"matches": history.size(), "wins": 0, "kills": 0, "damage": 0}
+	for entry in history:
+		if String(entry.get("outcome", "")) == "VICTORY":
+			stats["wins"] += 1
+		stats["kills"] += int(entry.get("kills", 0))
+		stats["damage"] += int(entry.get("damage", 0))
+	return stats
+
+func set_party_queue(code: String, queue: Dictionary, error: String = "") -> void:
+	if not _parties.has(code): return
+	var party: Dictionary = _parties[code]
+	party["queue"] = queue.duplicate(true)
+	party["queue_error"] = error
+	if Dictionary(party.get("match", {})).is_empty():
+		party["state"] = "OPEN" if queue.is_empty() else "QUEUED"
+	_parties[code] = party
+
+func party_members_online(code: String) -> bool:
+	var party := server_party_record(code)
+	if party.is_empty(): return false
+	for guest in Array(party.get("members", [])):
+		if not bool(_presence_snapshot(String(guest)).get("online", false)): return false
+	return true

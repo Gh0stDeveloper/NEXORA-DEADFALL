@@ -27,6 +27,7 @@ var _shot_sequence := 0
 var _last_server_fire_sequence := 0
 var _last_server_reload_sequence := 0
 var _last_presented_sequence := 0
+var _last_dry_usec := -1000000
 var _view_model: Node3D
 var _view_tween: Tween
 var _base_view_position := Vector3(0.25, -0.22, -0.48)
@@ -131,7 +132,9 @@ func _try_fire(now_usec: int) -> bool:
 	if not _owner_can_use_weapon() or _state.reloading:
 		return false
 	if _state.ammo_in_mag <= 0:
-		dry_fired.emit()
+		if now_usec - _last_dry_usec >= 500000:
+			_last_dry_usec = now_usec
+			dry_fired.emit()
 		return false
 	if not _state.try_consume_shot(now_usec):
 		return false
@@ -167,6 +170,14 @@ func server_try_reload(request_sequence: int) -> bool:
 	if not _is_simulation_authority() or not _owner_can_use_weapon() or request_sequence <= _last_server_reload_sequence:
 		return false
 	_last_server_reload_sequence = request_sequence
+	var started := _state.try_start_reload(Time.get_ticks_usec())
+	if started:
+		reload_started.emit()
+	return started
+
+func start_automatic_reload() -> bool:
+	if not _is_simulation_authority() or not _owner_can_use_weapon():
+		return false
 	var started := _state.try_start_reload(Time.get_ticks_usec())
 	if started:
 		reload_started.emit()

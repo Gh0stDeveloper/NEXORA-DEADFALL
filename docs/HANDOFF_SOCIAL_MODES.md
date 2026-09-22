@@ -22,3 +22,8 @@ Base verificada: main `5f08a0c01ed98387730523e34b5ec714dbcce0a7` (beta.7 / PR #1
 Godot 4.6.3 disponible en ../tools. Sin Android físico, SDK/firma ni acceso shell al VPS.
 Git local tiene ancestro sintético: publicar mediante árbol/commit de GitHub sobre SHA remoto real, nunca empujar esta historia local.
 No perder gitlink vendor/Objetos3D ni symlinks GLB. CI Android/Godot necesita el secreto DEADFALL_MODELS_TOKEN para submódulo privado (pendiente externo de beta.7).
+
+## Punto de recuperación beta.8 (2026-09-22)
+Implementación A–D escrita. Pasaron fire_drag_ammo_smoke, social_modes_smoke y social_ui_smoke (HTTP real y pantalla renderizada). Compilación estricta inicial correcta. Rama: agent/social-modes-beta8.
+
+Falta cerrar E: prueba con proceso dedicado y clientes ENet reales, regresiones, bump coordinado beta.8/900008, CI y PR. No se ha exportado APK ni probado en teléfono. Las imágenes build/social-smoke son capturas de prueba; historial de producción usa resultados del servidor.

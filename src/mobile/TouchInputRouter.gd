@@ -101,7 +101,8 @@ func _drag_touch(index: int, screen_position: Vector2, delta: Vector2) -> void:
 	var accepted := false
 	match kind:
 		"action":
-			accepted = true
+			if target.has_method("router_touch_drag"):
+				accepted = bool(target.call("router_touch_drag", index, delta))
 		"click":
 			accepted = true
 		"joystick":
@@ -132,8 +133,18 @@ func _end_touch(index: int) -> void:
 func _release_all_touches() -> void:
 	var active_indices := _touch_routes.keys()
 	for value in active_indices:
-		_end_touch(int(value))
+		var route: Dictionary = _touch_routes[value]
+		var target := route.get("target") as Node
+		if is_instance_valid(target) and String(route.get("kind", "")) != "click":
+			if target.has_method("router_touch_cancel"):
+				target.call("router_touch_cancel")
+			elif target.has_method("router_touch_up"):
+				target.call("router_touch_up", int(value))
 	_touch_routes.clear()
+
+func _notification(what: int) -> void:
+	if what in [NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_APPLICATION_PAUSED]:
+		_release_all_touches()
 
 func _find_action_button(screen_position: Vector2) -> Node:
 	return _find_control(_action_buttons, screen_position)

@@ -10,6 +10,8 @@ const SafeAreaScript = preload("res://src/mobile/SafeArea.gd")
 const CharacterCatalog = preload("res://src/lobby/CharacterCatalog.gd")
 const PartyAvatarScript = preload("res://src/lobby/LobbyPartyAvatar.gd")
 
+var selected_game_mode := "campaign"
+var _game_mode_button: Button
 var selected_mode: PartyMode = PartyMode.SOLO
 var _safe_root: Control
 var _username_label: Label
@@ -137,13 +139,16 @@ func _build_bottom_bar() -> void:
 	var bar := PanelContainer.new()
 	bar.name = "MatchControls"
 	bar.add_theme_stylebox_override("panel", UI.style())
-	UI.place(bar, _safe_root, Rect2(0.23, 0.83, 0.74, 0.14))
+	UI.place(bar, _safe_root, Rect2(0.23, 0.80, 0.74, 0.17))
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 18)
 	bar.add_child(row)
 	var column := UI.column(row, 4)
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	column.add_child(UI.label("ELIGE TU FORMACIÓN", 20, UI.MUTED))
+	_game_mode_button = UI.button("ZOMBIS · CAMPAÑA  ›", _open_mode_picker)
+	_game_mode_button.custom_minimum_size.y = 46
+	_game_mode_button.add_theme_font_size_override("font_size", 23)
+	column.add_child(_game_mode_button)
 	var modes := HBoxContainer.new()
 	modes.add_theme_constant_override("separation", 10)
 	column.add_child(modes)
@@ -294,10 +299,13 @@ func _select_character(character_id: StringName) -> void:
 	_status_label.text = "OPERADOR EQUIPADO"
 
 func _set_mode(mode: int) -> void:
+	if mode not in preload("res://src/modes/ModeCatalog.gd").find(selected_game_mode).get("formations", [1, 2, 4]):
+		_status_label.text = "ESA FORMACIÓN NO ESTÁ DISPONIBLE EN ESTE MODO"
+		return
 	if mode not in [1, 2, 4]:
 		return
 	var party := SocialClient.current_party
-	if not Dictionary(party.get("match", {})).is_empty():
+	if not Dictionary(party.get("match", {})).is_empty() or not Dictionary(party.get("queue", {})).is_empty():
 		_status_label.text = "ESPERA A QUE TERMINE LA PARTIDA"
 		return
 	if mode > 1 and not party.is_empty() and String(party.get("leader_guest_id", "")) != GuestIdentity.guest_id:
@@ -309,13 +317,16 @@ func _set_mode(mode: int) -> void:
 func _refresh_mode() -> void:
 	for key in _mode_buttons:
 		var button: Button = _mode_buttons[key]
+		button.disabled = int(key) not in preload("res://src/modes/ModeCatalog.gd").find(selected_game_mode).get("formations", [1, 2, 4])
 		button.set_pressed_no_signal(int(key) == int(selected_mode))
 		UI.skin_button(button, button.button_pressed)
 	var title := "SOLO" if selected_mode == 1 else ("DÚO" if selected_mode == 2 else "ESCUADRA")
 	_party_title.text = "TU EQUIPO  /  %s" % title
 	_start_button.text = "INICIAR %s" % title
 	_status_label.text = "PREPARADO" if selected_mode == 1 else "INVITA A TUS COMPAÑEROS"
-	update_party_members([], int(selected_mode))
+	if is_instance_valid(_game_mode_button):
+		_game_mode_button.text = "%s  ›" % preload("res://src/modes/ModeCatalog.gd").find(selected_game_mode).get("title", "CAMPAÑA")
+	update_party_members(Array(SocialClient.current_party.get("members", [])), int(selected_mode))
 
 func update_party_members(members: Array, capacity: int) -> void:
 	var shown := members.duplicate(true)
@@ -363,8 +374,45 @@ func _on_start_pressed() -> void:
 	if not GuestIdentity.has_complete_profile():
 		_status_label.text = "COMPLETA TU CUENTA ANTES DE INICIAR"
 		return
-	if selected_mode != PartyMode.SOLO:
-		return
-	_start_button.disabled = true
+	# SocialOverlay owns online start for every formation, including solo.
 	_status_label.text = "PREPARANDO PARTIDA"
-	start_requested.emit(int(selected_mode))
+
+func _open_mode_picker() -> void:
+	var box := _new_overlay("ELIGE TU PARTIDA")
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 16)
+	grid.add_theme_constant_override("v_separation", 16)
+	box.add_child(grid)
+	for definition in preload("res://src/modes/ModeCatalog.gd").MODES:
+		var card := PanelContainer.new()
+		card.custom_minimum_size.x = 590
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		card.add_theme_stylebox_override("panel", UI.style(Color(0.025, 0.07, 0.09, 0.96), UI.AMBER if definition.id == selected_game_mode else UI.CYAN, 20))
+		grid.add_child(card)
+		var content := UI.column(card, 8)
+		content.add_child(UI.label(String(definition.tag), 20, UI.CYAN))
+		content.add_child(UI.label(String(definition.title), 30, UI.AMBER))
+		var description := UI.label(String(definition.description), 23, UI.MUTED)
+		description.custom_minimum_size = Vector2(520, 64)
+		description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		content.add_child(description)
+		content.add_child(UI.button("SELECCIONADO" if definition.id == selected_game_mode else "SELECCIONAR", _select_game_mode.bind(String(definition.id)), definition.id == selected_game_mode))
+
+func _select_game_mode(value: String) -> void:
+	var party := SocialClient.current_party
+	if not Dictionary(party.get("match", {})).is_empty() or not Dictionary(party.get("queue", {})).is_empty():
+		_status_label.text = "CANCELA LA BÚSQUEDA ANTES DE CAMBIAR DE MODO"
+		return
+	if not party.is_empty() and String(party.get("leader_guest_id", "")) != GuestIdentity.guest_id:
+		_status_label.text = "SOLO EL LÍDER PUEDE ELEGIR EL MODO"
+		return
+	var definition := preload("res://src/modes/ModeCatalog.gd").find(value)
+	if definition.is_empty(): return
+	if Array(party.get("members", [])).size() > int(Array(definition.formations).back()):
+		_status_label.text = "EL EQUIPO ES DEMASIADO GRANDE PARA ESTE MODO"
+		return
+	selected_game_mode = value
+	if int(selected_mode) not in definition.formations: selected_mode = int(Array(definition.formations).back()) as PartyMode
+	_refresh_mode()
+	_close_character_panel()

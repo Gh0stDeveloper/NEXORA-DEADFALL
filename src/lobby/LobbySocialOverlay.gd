@@ -21,6 +21,7 @@ var _chat_friend_id := ""
 var _last_mode := 1
 var _poll_timer: Timer
 var _last_match_emitted := ""
+var _start_after_party_created := false
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -65,21 +66,17 @@ func _process(_delta: float) -> void:
 		return
 	_last_mode = mode
 	var current_match := Dictionary(SocialClient.current_party.get("match", {}))
-	if not current_match.is_empty():
+	if not current_match.is_empty() or not Dictionary(SocialClient.current_party.get("queue", {})).is_empty():
 		_set_status("NO PUEDES CAMBIAR FORMACIÓN DURANTE EL EMPAREJAMIENTO")
 		return
-	if mode == 1:
-		if not SocialClient.current_party.is_empty():
-			SocialClient.leave_party()
-	else:
-		var current_capacity := int(SocialClient.current_party.get("capacity", 0))
-		var leader_id := String(SocialClient.current_party.get("leader_guest_id", ""))
-		if SocialClient.current_party.is_empty() or (current_capacity != mode and leader_id == GuestIdentity.guest_id):
-			_set_status("CREANDO CÓDIGO DE %s..." % ("DÚO" if mode == 2 else "ESCUADRA"))
-			SocialClient.create_party(mode)
+	var current_capacity := int(SocialClient.current_party.get("capacity", 0))
+	var leader_id := String(SocialClient.current_party.get("leader_guest_id", ""))
+	if SocialClient.current_party.is_empty() or (current_capacity != mode and leader_id == GuestIdentity.guest_id):
+		_set_status("PREPARANDO FORMACIÓN...")
+		SocialClient.create_party(mode)
 
 func request_start_match() -> void:
-	if _lobby == null or int(_lobby.get("selected_mode")) <= 1:
+	if _lobby == null:
 		return
 	if not GuestIdentity.has_complete_profile():
 		_set_status("CONFIGURA UN NOMBRE ANTES DE FORMAR ESCUADRA")
@@ -89,19 +86,21 @@ func request_start_match() -> void:
 		return
 	var party := SocialClient.current_party
 	if party.is_empty():
-		_set_status("CREA UNA ESCUADRA ANTES DE INICIAR")
+		_start_after_party_created = true
+		_set_status("PREPARANDO TU PARTIDA...")
+		SocialClient.create_party(int(_lobby.get("selected_mode")))
 		return
 	if String(party.get("leader_guest_id", "")) != GuestIdentity.guest_id:
 		_set_status("ESPERANDO A QUE EL LÍDER INICIE LA PARTIDA")
+		return
+	if not Dictionary(party.get("queue", {})).is_empty():
+		SocialClient.cancel_party_match()
 		return
 	var members: Array = Array(party.get("members", []))
 	var expected_capacity := int(_lobby.get("selected_mode"))
 	if int(party.get("capacity", expected_capacity)) != expected_capacity:
 		_set_status("LA FORMACIÓN CAMBIÓ · ACTUALIZANDO ESCUADRA")
 		SocialClient.refresh_party()
-		return
-	if members.size() < 2:
-		_set_status("SE NECESITA AL MENOS UN COMPAÑERO")
 		return
 	for member_value in members:
 		var member := Dictionary(member_value)
@@ -115,7 +114,7 @@ func request_start_match() -> void:
 			_set_status("EMPAREJAMIENTO %s" % status)
 			return
 	_set_status("BUSCANDO SERVIDOR PARA TODA LA ESCUADRA...")
-	SocialClient.start_party_match(DEFAULT_MISSION)
+	SocialClient.start_party_match(DEFAULT_MISSION, String(_lobby.get("selected_game_mode")))
 
 func _build_top_actions() -> void:
 	var row := HBoxContainer.new()
@@ -229,7 +228,7 @@ func _render_party_management(party: Dictionary) -> void:
 	var leader_id := String(party.get("leader_guest_id", ""))
 	var is_leader := leader_id == GuestIdentity.guest_id
 	var match := Dictionary(party.get("match", {}))
-	var match_locked := not match.is_empty() and String(match.get("status", "")).to_upper() in ["STARTING", "READY", "IN_MATCH"]
+	var match_locked := not Dictionary(party.get("queue", {})).is_empty() or (not match.is_empty() and String(match.get("status", "")).to_upper() in ["STARTING", "READY", "IN_MATCH"])
 
 	var code_row := HBoxContainer.new()
 	code_row.add_theme_constant_override("separation", 10)
@@ -337,14 +336,21 @@ func _party_member_row(member: Dictionary, local_is_leader: bool, match_locked: 
 	return panel
 
 func _open_profile() -> void:
+	_open_social_hub("profile")
+
+func _open_social_hub(section: String) -> void:
 	_lobby.call("_close_character_panel")
-	_modal.visible = true
-	_modal_title.text = "PERFIL"
-	_clear_modal_body()
-	var loading := Label.new()
-	loading.text = "Cargando perfil..."
-	_modal_body.add_child(loading)
-	SocialClient.load_profile()
+	_modal.hide()
+	var old := _safe_root.get_node_or_null("SocialHub")
+	if old != null:
+		old.call("show_section", section)
+		return
+	_lobby.call("set_stage_covered", true)
+	var hub := preload("res://src/lobby/SocialHub.gd").new()
+	hub.section = section
+	hub.closed.connect(func() -> void: _lobby.call("set_stage_covered", false))
+	hub.chat_requested.connect(_open_friend_chat)
+	_safe_root.add_child(hub)
 
 func _on_profile_loaded(profile: Dictionary) -> void:
 	if not _modal.visible or _modal_title.text != "PERFIL":
@@ -374,14 +380,7 @@ func _on_profile_loaded(profile: Dictionary) -> void:
 	)
 
 func _open_friends() -> void:
-	_lobby.call("_close_character_panel")
-	_modal.visible = true
-	_modal_title.text = "AMIGOS"
-	_clear_modal_body()
-	var loading := Label.new()
-	loading.text = "Cargando amigos..."
-	_modal_body.add_child(loading)
-	SocialClient.refresh_friends()
+	_open_social_hub("friends")
 
 func _on_friends_updated(snapshot: Dictionary) -> void:
 	if _modal.visible and _modal_title.text == "AMIGOS":
@@ -571,6 +570,21 @@ func _on_party_updated(party: Dictionary) -> void:
 		_render_party_management(party)
 	elif _modal.visible and _chat_friend_id.is_empty() and _modal_title.text == "CHAT DE ESCUADRA":
 		_render_chat(Array(party.get("chat", [])))
+	var queue := Dictionary(party.get("queue", {}))
+	var start_button := _lobby.get("_start_button") as Button
+	if start_button != null:
+		start_button.text = "CANCELAR BÚSQUEDA" if not queue.is_empty() else "INICIAR PARTIDA"
+	if not queue.is_empty():
+		_set_status("BUSCANDO JUGADORES · %s" % preload("res://src/modes/ModeCatalog.gd").find(String(queue.get("mode", "campaign"))).get("title", ""))
+		return
+	var queue_error := String(party.get("queue_error", ""))
+	if not queue_error.is_empty():
+		_set_status("NO HAY RIVALES DISPONIBLES · VUELVE A INTENTARLO" if queue_error == "no_opponents" else "BÚSQUEDA INTERRUMPIDA · REVISA LA CONEXIÓN DEL EQUIPO")
+		return
+	if _start_after_party_created:
+		_start_after_party_created = false
+		request_start_match()
+		return
 	var match := Dictionary(party.get("match", {}))
 	if not match.is_empty():
 		var match_status := String(match.get("status", "STARTING")).to_upper()
@@ -624,10 +638,11 @@ func _poll_social_state() -> void:
 		SocialClient.refresh_party()
 
 func _on_request_failed(operation: String, reason: String) -> void:
+	if operation == "party_create": _start_after_party_created = false
 	match reason:
 		"party_not_found": _set_status("NO EXISTE UNA ESCUADRA CON ESE CÓDIGO")
 		"party_full": _set_status("LA ESCUADRA ESTÁ LLENA")
-		"party_needs_teammate": _set_status("SE NECESITA AL MENOS UN COMPAÑERO")
+		"party_needs_teammate", "party_needs_opponent": _set_status("EL DUELO INTERNO NECESITA AL MENOS DOS JUGADORES")
 		"party_locked_for_match": _set_status("LA ESCUADRA ESTÁ BLOQUEADA POR EMPAREJAMIENTO")
 		"leader_required": _set_status("SOLO EL LÍDER PUEDE HACER ESO")
 		"profile_not_found": _set_status("NO SE ENCONTRÓ ESA CUENTA")

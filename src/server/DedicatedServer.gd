@@ -144,6 +144,8 @@ func _boot_network_arena(campaign_mode: bool, mission_id: StringName) -> void:
 	_arena.name = "CampaignArena" if campaign_mode else "DuoArena"
 	if campaign_mode:
 		_arena.set("mission_id", mission_id)
+		if _match_admission != null:
+			_arena.set("game_mode", String(_match_admission.snapshot().get("game_mode", "campaign")))
 	get_parent().add_child(_arena)
 	var session := _arena.get_node_or_null("NetworkSession")
 	if session != null and session.has_method("configure_server"):
@@ -158,6 +160,8 @@ func _configure_match_instance_guard() -> void:
 	if session == null:
 		return
 	var admission_snapshot: Dictionary = Dictionary(_match_admission.call("snapshot"))
+	var mode := _arena.get_node_or_null("MatchModeDirector")
+	if mode != null: mode.expected_members = int(admission_snapshot.get("expected_members", 1))
 	_match_guard = MatchInstanceGuardScript.new()
 	_match_guard.name = "MatchInstanceGuard"
 	add_child(_match_guard)

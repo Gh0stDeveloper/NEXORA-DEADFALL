@@ -10,6 +10,7 @@ const RESULT_DELIVERY_GRACE_SECONDS := 7.0
 var network_session: Node
 var campaign_director: Node
 var horde_director: Node
+var mode_director: Node
 var match_id := ""
 var heartbeat_path := ""
 var result_path := ""
@@ -35,6 +36,8 @@ func configure(
 	result_path = configured_result_path.strip_edges()
 	campaign_director = campaign
 	horde_director = horde
+	mode_director = session.get_parent().get_node_or_null("MatchModeDirector") if session != null and session.get_parent() != null else null
+	if mode_director != null: mode_director.connect("finished", _on_mode_finished)
 	_started_usec = Time.get_ticks_usec()
 	_bind_terminal_signals()
 	_write_heartbeat("STARTING")
@@ -118,6 +121,7 @@ func _finalize_result(
 		"completed_unix": int(Time.get_unix_time_from_system()),
 		"server_authoritative": true,
 	}
+	if mode_director != null: result.merge(mode_director.call("result_metadata"), true)
 	_result_published = true
 	if network_session != null and network_session.has_method("publish_match_result"):
 		network_session.call("publish_match_result", result)
@@ -196,3 +200,6 @@ func _shutdown(reason: String) -> void:
 	_write_heartbeat("EXITING")
 	print("DEADFALL_MATCH_INSTANCE_EXIT match=%s reason=%s" % [match_id, reason])
 	get_tree().quit(0)
+
+func _on_mode_finished(outcome: String, reason: String) -> void:
+	_finalize_result(outcome, reason)

@@ -27,11 +27,13 @@ func present(result: Dictionary) -> void:
 	_remaining = AUTO_RETURN_SECONDS
 	var outcome := String(result.get("outcome", "ABORTED")).to_upper()
 	_title.text = "MISIÓN COMPLETADA" if outcome == "VICTORY" else "ESCUADRÓN ELIMINADO" if outcome == "DEFEAT" else "PARTIDA FINALIZADA"
+	if String(result.get("game_mode", "")).begins_with("pvp_"):
+		_title.text = "VICTORIA" if outcome == "VICTORY" else "DERROTA" if outcome == "DEFEAT" else "EMPATE" if outcome == "DRAW" else "PARTIDA INTERRUMPIDA"
 	var wave := int(result.get("wave", 0))
 	var score := int(result.get("score", 0))
 	var kills := int(result.get("kills", 0))
 	var reason := String(result.get("reason", "match_finished")).replace("_", " ").to_upper()
-	_summary.text = "RESULTADO AUTORITATIVO DEL SERVIDOR\nPUNTOS  %d    BAJAS  %d    OLEADA  %d\n%s" % [score, kills, wave, reason]
+	_summary.text = "PUNTOS  %d    BAJAS  %d    OLEADA  %d\n%s" % [score, kills, wave, reason]
 	_update_countdown()
 	visible = true
 	_timer.start()

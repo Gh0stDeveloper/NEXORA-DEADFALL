@@ -4,6 +4,7 @@ extends "res://src/core/authority/GameAuthority.gd"
 const DamageRulesScript = preload("res://src/core/damage/DamageRules.gd")
 
 var active := false
+var damage_filter: Callable
 var _damageables: Dictionary = {}
 
 func start() -> void:
@@ -46,6 +47,9 @@ func resolve_damage(event) -> bool:
 		damage_rejected.emit(event, "invalid_health_component")
 		return false
 
+	if damage_filter.is_valid() and not bool(damage_filter.call(event)):
+		damage_rejected.emit(event, "match_rules")
+		return false
 	event.resolved_amount = DamageRulesScript.resolve_amount(event)
 	event.critical = DamageRulesScript.is_critical(event)
 	if event.resolved_amount <= 0.0:

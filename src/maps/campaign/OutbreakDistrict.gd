@@ -8,6 +8,7 @@ const HordeHUDScene = preload("res://src/horde/HordeHUD.tscn")
 const Mission1 = preload("res://src/campaign/data/mission_01_first_signal.tres")
 const Mission2 = preload("res://src/campaign/data/mission_02_last_broadcast.tres")
 
+@export var game_mode := "campaign"
 @export var mission_id: StringName = &"mission_01_first_signal"
 
 @onready var players_root: Node3D = $NetworkPlayers
@@ -21,7 +22,18 @@ func _ready() -> void:
 	campaign.set("mission", selected)
 	if Game.is_local_session():
 		_spawn_local_player()
-	campaign.call_deferred("start_mission", selected, true)
+	var mode := preload("res://src/modes/MatchModeDirector.gd").new()
+	mode.name = "MatchModeDirector"
+	mode.game_mode = game_mode
+	add_child(mode)
+	if game_mode == "campaign":
+		campaign.call_deferred("start_mission", selected, true)
+	else:
+		campaign.set_process(false)
+		get_node("CampaignNetworkBridge").set_physics_process(false)
+		get_node("CampaignHUD").hide()
+	if preload("res://src/modes/ModeCatalog.gd").is_pvp(game_mode):
+		horde.enabled = false
 	print("DEADFALL_CAMPAIGN_ARENA_READY mission=%s" % String(selected.get("mission_id")))
 
 func _spawn_local_player() -> void:

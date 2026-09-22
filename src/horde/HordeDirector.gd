@@ -33,6 +33,7 @@ enum State { DISABLED, COUNTDOWN, SPAWNING, ACTIVE, INTERMISSION, GAME_OVER }
 @export var spawn_safety_radius := 8.0
 @export var deterministic_seed: int = 0
 
+var enabled := true
 var state: int = State.DISABLED
 var wave_number := 0
 var score := 0
@@ -140,6 +141,7 @@ func get_scaling_squad_size() -> int:
 	return clampi(maxi(1, get_registered_player_count()), 1, 4)
 
 func start_run() -> bool:
+	if not enabled: return false
 	if not has_simulation_authority():
 		_set_state(State.DISABLED, "no_simulation_authority")
 		return false

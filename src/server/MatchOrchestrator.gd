@@ -33,6 +33,8 @@ var _metrics := {
 	"reconnects_total": 0,
 }
 
+var _queue: RefCounted
+
 func configure(store: Node, social: Node, configured_public_host: String) -> void:
 	account_store = store
 	social_service = social
@@ -41,6 +43,9 @@ func configure(store: Node, social: Node, configured_public_host: String) -> voi
 		public_host = "127.0.0.1"
 	_match_dir = ProjectSettings.globalize_path("user://server/matches")
 	DirAccess.make_dir_recursive_absolute(_match_dir)
+	_queue = preload("res://src/server/MatchQueue.gd").new()
+	_queue.social = social_service
+	_queue.launcher = _launch_match
 	set_process(true)
 
 func configure_validation_port_range(start_port: int, end_port: int) -> bool:
@@ -54,7 +59,7 @@ func configure_validation_port_range(start_port: int, end_port: int) -> bool:
 	_port_end = end_port
 	return true
 
-func start_party_match(token: String, requested_mission_id: String = "mission_01_first_signal") -> Dictionary:
+func start_party_match(token: String, requested_mission_id: String = "mission_01_first_signal", game_mode: String = "campaign", fill_team: bool = false) -> Dictionary:
 	if social_service == null or account_store == null:
 		return _reject("orchestrator_unavailable")
 	var leader_guest_id := String(social_service.call("guest_for_token", token))
@@ -67,8 +72,8 @@ func start_party_match(token: String, requested_mission_id: String = "mission_01
 		return _reject("leader_required")
 	var party_code := String(party.get("code", ""))
 	var members: Array = Array(party.get("members", []))
-	if members.size() < 2:
-		return _reject("party_needs_teammate")
+	if members.is_empty():
+		return _reject("party_missing")
 	if members.size() > int(party.get("capacity", 4)):
 		return _reject("party_capacity_invalid")
 	if _party_match.has(party_code):
@@ -78,6 +83,27 @@ func start_party_match(token: String, requested_mission_id: String = "mission_01
 			if _is_match_process_alive(existing) and String(existing.get("status", "")) != "RESULT":
 				return {"ok": true, "reused": true, "party": social_service.call("party_snapshot_for_token", token)}
 			_cleanup_match(existing_match_id, "stale_process", true)
+	if preload("res://src/modes/ModeCatalog.gd").find(game_mode).is_empty():
+		return _reject("invalid_game_mode")
+	if fill_team:
+		if not social_service.call("party_members_online", party_code): return _reject("queue_member_offline")
+		var queued: Dictionary = _queue.enqueue(party, game_mode, requested_mission_id)
+		queued["party"] = social_service.call("party_snapshot_for_token", token)
+		return queued
+	var response := _launch_match([party], requested_mission_id, game_mode, {})
+	response["party"] = social_service.call("party_snapshot_for_token", token)
+	return response
+
+func _launch_match(parties: Array, requested_mission_id: String, game_mode: String, teams: Dictionary) -> Dictionary:
+	if parties.is_empty(): return _reject("party_missing")
+	var party: Dictionary = parties[0]
+	var party_code := String(party.get("code", ""))
+	var party_codes: Array = []
+	var members: Array = []
+	for value in parties:
+		party_codes.append(String(value.get("code", "")))
+		members.append_array(Array(value.get("members", [])))
+	if members.is_empty() or members.size() > 4: return _reject("party_capacity_invalid")
 	if _matches.size() >= MAX_CONCURRENT_MATCHES:
 		return _reject("match_capacity_reached")
 	var port := _allocate_port()
@@ -100,6 +126,7 @@ func start_party_match(token: String, requested_mission_id: String = "mission_01
 			"username": String(profile.get("username", "Player")),
 			"selected_character": String(profile.get("selected_character", "operator_01")),
 			"ticket": ticket,
+			"team_id": int(teams.get(guest_id, 0)),
 		})
 	var config_path := "%s/%s.json" % [_match_dir, match_id]
 	var ready_path := "%s.ready" % config_path
@@ -114,6 +141,7 @@ func start_party_match(token: String, requested_mission_id: String = "mission_01
 		"public_host": public_host,
 		"port": port,
 		"mission_id": mission_id,
+		"game_mode": game_mode,
 		"created_unix": created_unix,
 		"ready_path": ready_path,
 		"heartbeat_path": heartbeat_path,
@@ -147,6 +175,7 @@ func start_party_match(token: String, requested_mission_id: String = "mission_01
 		"host": public_host,
 		"port": port,
 		"mission_id": mission_id,
+		"game_mode": game_mode,
 		"pid": pid,
 		"config_path": config_path,
 		"ready_path": ready_path,
@@ -165,13 +194,18 @@ func start_party_match(token: String, requested_mission_id: String = "mission_01
 		"result": {},
 		"tickets": tickets_by_guest,
 		"member_count": members.size(),
+		"members": members.duplicate(),
+		"teams": teams.duplicate(),
+		"party_codes": party_codes,
 	}
 	_matches[match_id] = record
-	_party_match[party_code] = match_id
+	for code in party_codes:
+		_party_match[code] = match_id
 	_metrics["started_total"] = int(_metrics["started_total"]) + 1
-	social_service.call("set_party_match_assignment", party_code, _assignment_from_record(record))
+	for code in party_codes:
+		social_service.call("set_party_match_assignment", code, _assignment_from_record(record))
 	print("DEADFALL_MATCH_START match=%s party=%s port=%d pid=%d members=%d" % [match_id, party_code, port, pid, members.size()])
-	return {"ok": true, "reused": false, "party": social_service.call("party_snapshot_for_token", token)}
+	return {"ok": true, "reused": false, "match_id": match_id}
 
 func cancel_party_match(token: String) -> Dictionary:
 	if social_service == null:
@@ -185,6 +219,9 @@ func cancel_party_match(token: String) -> Dictionary:
 	if String(party.get("leader_guest_id", "")) != guest_id:
 		return _reject("leader_required")
 	var party_code := String(party.get("code", ""))
+	if _queue != null and _queue.entries.has(party_code):
+		_queue.cancel(party_code)
+		return {"ok": true, "party": social_service.call("party_snapshot_for_token", token)}
 	var match_id := String(_party_match.get(party_code, ""))
 	if match_id.is_empty() or not _matches.has(match_id):
 		return {"ok": true, "party": social_service.call("party_snapshot_for_token", token)}
@@ -209,7 +246,7 @@ func mark_party_match_in_progress(party_code: String, match_id: String) -> void:
 	record["ever_had_player"] = true
 	_matches[match_id] = record
 	if social_service != null:
-		social_service.call("update_party_match_status", party_code, match_id, "IN_MATCH")
+		_update_all_parties(record, "IN_MATCH")
 	print("DEADFALL_MATCH_IN_PROGRESS match=%s party=%s" % [match_id, party_code])
 
 func get_status_snapshot() -> Dictionary:
@@ -245,6 +282,7 @@ func get_status_snapshot() -> Dictionary:
 	}
 
 func _process(_delta: float) -> void:
+	if _queue != null: _queue.tick()
 	var now := int(Time.get_unix_time_from_system())
 	for match_id_value in _matches.keys().duplicate():
 		var match_id := String(match_id_value)
@@ -286,7 +324,7 @@ func _process(_delta: float) -> void:
 			record["ready_unix"] = now
 			_matches[match_id] = record
 			if social_service != null:
-				social_service.call("update_party_match_status", String(record.get("party_code", "")), match_id, "READY")
+				_update_all_parties(record, "READY")
 			print("DEADFALL_MATCH_READY match=%s party=%s port=%d" % [match_id, String(record.get("party_code", "")), int(record.get("port", 0))])
 
 		var heartbeat_path := String(record.get("heartbeat_path", ""))
@@ -335,6 +373,8 @@ func _accept_result(match_id: String, result: Dictionary, now: int) -> void:
 	record["result_seen_unix"] = now
 	record["result"] = result.duplicate(true)
 	_matches[match_id] = record
+	if social_service != null and social_service.has_method("record_match_result"):
+		social_service.call("record_match_result", Array(record.get("members", [])), result, String(record.get("game_mode", "campaign")), Dictionary(record.get("teams", {})))
 	var outcome := String(result.get("outcome", "ABORTED")).to_upper()
 	match outcome:
 		"VICTORY":
@@ -347,7 +387,7 @@ func _accept_result(match_id: String, result: Dictionary, now: int) -> void:
 	if String(_party_match.get(party_code, "")) == match_id:
 		_party_match.erase(party_code)
 	if social_service != null:
-		social_service.call("clear_party_match_assignment", party_code, match_id)
+		_clear_all_parties(record)
 	print("DEADFALL_MATCH_RESULT_ACCEPTED match=%s party=%s outcome=%s score=%d kills=%d" % [
 		match_id,
 		party_code,
@@ -368,7 +408,7 @@ func _fail_match(match_id: String, reason: String, category: String) -> void:
 	_kill_process(record)
 	var party_code := String(record.get("party_code", ""))
 	if social_service != null:
-		social_service.call("update_party_match_status", party_code, match_id, "FAILED")
+		_update_all_parties(record, "FAILED")
 	_cleanup_match(match_id, reason, true)
 
 func _exit_tree() -> void:
@@ -386,6 +426,7 @@ func _assignment_from_record(record: Dictionary) -> Dictionary:
 		"host": String(record.get("host", public_host)),
 		"port": int(record.get("port", 0)),
 		"mission_id": String(record.get("mission_id", ALLOWED_MISSIONS[0])),
+		"game_mode": String(record.get("game_mode", "campaign")),
 		"status": String(record.get("status", "STARTING")),
 		"created_unix": int(record.get("created_unix", 0)),
 		"tickets": Dictionary(record.get("tickets", {})).duplicate(true),
@@ -420,7 +461,7 @@ func _cleanup_match(match_id: String, reason: String, clear_social: bool) -> voi
 	if String(_party_match.get(party_code, "")) == match_id:
 		_party_match.erase(party_code)
 	if clear_social and social_service != null:
-		social_service.call("clear_party_match_assignment", party_code, match_id)
+		_clear_all_parties(record)
 	_remove_paths([
 		String(record.get("config_path", "")),
 		String(record.get("ready_path", "")),
@@ -456,3 +497,12 @@ func _read_json(path: String) -> Dictionary:
 
 func _reject(reason: String) -> Dictionary:
 	return {"ok": false, "reason": reason}
+
+func _update_all_parties(record: Dictionary, status: String) -> void:
+	for code in Array(record.get("party_codes", [record.get("party_code", "")])):
+		social_service.call("update_party_match_status", String(code), String(record.match_id), status)
+
+func _clear_all_parties(record: Dictionary) -> void:
+	for code in Array(record.get("party_codes", [record.get("party_code", "")])):
+		if String(_party_match.get(code, "")) == String(record.match_id): _party_match.erase(code)
+		social_service.call("clear_party_match_assignment", String(code), String(record.match_id))

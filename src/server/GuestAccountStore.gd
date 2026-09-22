@@ -134,7 +134,20 @@ func resolve_guest_id(account_id: String) -> String:
 		return value
 	if _valid_public_id(value):
 		return String(_public_id_index.get(value, ""))
-	return ""
+	return String(_username_index.get(value.to_lower(), ""))
+
+func search_public_accounts(query: String, limit: int = 20) -> Array:
+	var needle := query.strip_edges().to_lower()
+	var result: Array = []
+	if needle.length() < 2 or needle.length() > 24:
+		return result
+	for guest_id in _accounts:
+		var profile := public_account(String(guest_id))
+		if String(profile.get("public_id", "")) == needle or String(profile.get("username", "")).to_lower().contains(needle):
+			result.append(profile)
+			if result.size() >= clampi(limit, 1, 20):
+				break
+	return result
 
 func username_available(username: String, except_guest_id: String = "") -> bool:
 	if not _valid_username(username):
