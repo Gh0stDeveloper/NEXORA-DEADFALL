@@ -31,8 +31,11 @@ var _hud_layout_editor: Control
 var _hud_elements: Dictionary = {}
 var _hud_defaults: Dictionary = {}
 var _gameplay_controls_enabled := true
+var _hud_refresh := 0.0
+var _leave_dialog: ConfirmationDialog
 
 func _ready() -> void:
+	add_to_group("deadfall_mobile_hud")
 	bind_player(get_node_or_null(player_path))
 
 func bind_player(player: Node) -> bool:
@@ -90,6 +93,7 @@ func _build_hud() -> void:
 	_hud_defaults.clear()
 	_safe_root = SafeAreaScript.new()
 	_safe_root.name = "SafeArea"
+	preload("res://src/ui/TacticalTheme.gd").apply(_safe_root)
 	add_child(_safe_root)
 	_safe_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
@@ -131,15 +135,17 @@ func _build_hud() -> void:
 	_touch_router.call("register_joystick", joystick)
 	_touch_router.call("register_look_area", look_area)
 
-	_add_action_button(&"sprint", &"sprint", Rect2(326, -154, 92, 92), Vector2(0, 1), &"sprint", Color(0.08, 0.60, 0.66, 1.0), true)
-	_add_action_button(&"interact", &"interact", Rect2(-492, -244, 88, 88), Vector2(1, 1), &"interact")
-	_add_action_button(&"flashlight", &"flashlight", Rect2(-492, -344, 82, 82), Vector2(1, 1), &"flashlight")
-	_add_action_button(&"prone", &"prone", Rect2(-395, -278, 84, 84), Vector2(1, 1), &"prone")
-	_add_action_button(&"crouch", &"crouch", Rect2(-397, -174, 90, 90), Vector2(1, 1), &"crouch")
-	_add_action_button(&"camera", &"camera_cycle", Rect2(-287, -374, 82, 82), Vector2(1, 1), &"camera")
-	_add_action_button(&"jump", &"jump", Rect2(-292, -272, 96, 96), Vector2(1, 1), &"jump", Color(0.10, 0.48, 0.76, 1.0))
-	_add_action_button(&"reload", &"reload", Rect2(-176, -286, 86, 86), Vector2(1, 1), &"reload", Color(0.88, 0.45, 0.07, 1.0))
-	_add_action_button(&"fire", &"fire", Rect2(-178, -178, 140, 140), Vector2(1, 1), &"fire", Color(0.82, 0.07, 0.09, 1.0))
+	_add_action_button(&"sprint", &"sprint", Rect2(134, -466, 102, 102), Vector2(0, 1), &"sprint", Color(0.08, 0.60, 0.66, 1.0), true)
+	_add_action_button(&"interact", &"interact", Rect2(-506, -310, 88, 88), Vector2(1, 1), &"interact")
+	_add_action_button(&"flashlight", &"flashlight", Rect2(40, -438, 78, 78), Vector2(0, 1), &"flashlight")
+	_add_action_button(&"prone", &"prone", Rect2(-352, -140, 92, 92), Vector2(1, 1), &"prone")
+	_add_action_button(&"crouch", &"crouch", Rect2(-182, -155, 100, 100), Vector2(1, 1), &"crouch")
+	_add_action_button(&"camera", &"camera_cycle", Rect2(-478, 246, 76, 76), Vector2(1, 0), &"camera")
+	_add_action_button(&"jump", &"jump", Rect2(-165, -350, 108, 108), Vector2(1, 1), &"jump", Color(0.10, 0.48, 0.76, 1.0))
+	_add_action_button(&"reload", &"reload", Rect2(-360, -480, 88, 88), Vector2(1, 1), &"reload", Color(0.88, 0.45, 0.07, 1.0))
+	_add_action_button(&"fire", &"fire", Rect2(-368, -337, 158, 158), Vector2(1, 1), &"fire", Color(0.90, 0.65, 0.22, 1.0))
+
+	_add_action_button(&"aim", &"aim", Rect2(-165, -535, 98, 98), Vector2(1, 1), &"aim", Color("f2bb60"), true)
 
 	_build_player_status()
 	_build_weapon_selector()
@@ -157,9 +163,9 @@ func _build_player_status() -> void:
 	panel.anchor_right = 0.5
 	panel.anchor_bottom = 1.0
 	panel.offset_left = -270.0
-	panel.offset_top = -184.0
+	panel.offset_top = -92.0
 	panel.offset_right = 270.0
-	panel.offset_bottom = -112.0
+	panel.offset_bottom = -28.0
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_theme_stylebox_override("panel", _status_panel_style())
 	_safe_root.add_child(panel)
@@ -182,13 +188,6 @@ func _build_player_status() -> void:
 	_health_label.add_theme_font_size_override("font_size", 17)
 	_health_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(_health_label)
-	_ammo_label = Label.new()
-	_ammo_label.text = "30 / 120"
-	_ammo_label.add_theme_font_size_override("font_size", 20)
-	_ammo_label.add_theme_color_override("font_color", Color(1.0, 0.79, 0.34))
-	_ammo_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	row.add_child(_ammo_label)
-
 	_health_bar = ProgressBar.new()
 	_health_bar.min_value = 0.0
 	_health_bar.max_value = 100.0
@@ -199,12 +198,6 @@ func _build_player_status() -> void:
 	_health_bar.add_theme_stylebox_override("fill", _bar_style(Color(0.09, 0.78, 0.55, 1.0), Color(0.35, 1.0, 0.72, 0.94)))
 	vbox.add_child(_health_bar)
 
-	_weapon_name_label = Label.new()
-	_weapon_name_label.text = "NXR-4 CARBINE"
-	_weapon_name_label.add_theme_font_size_override("font_size", 11)
-	_weapon_name_label.add_theme_color_override("font_color", Color(0.54, 0.83, 0.86))
-	_weapon_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	vbox.add_child(_weapon_name_label)
 	_register_hud_element(&"player_status", panel)
 
 func _build_weapon_selector() -> void:
@@ -212,34 +205,35 @@ func _build_weapon_selector() -> void:
 		return
 	var panel := PanelContainer.new()
 	panel.name = "WeaponSelector"
-	panel.anchor_left = 0.5
-	panel.anchor_top = 1.0
-	panel.anchor_right = 0.5
-	panel.anchor_bottom = 1.0
-	panel.offset_left = -188.0
-	panel.offset_top = -102.0
-	panel.offset_right = 188.0
-	panel.offset_bottom = -38.0
+	panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	panel.offset_left = -446
+	panel.offset_top = 34
+	panel.offset_right = -120
+	panel.offset_bottom = 228
 	panel.add_theme_stylebox_override("panel", _selector_panel_style())
 	_controls_root.add_child(panel)
-
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 7)
-	margin.add_theme_constant_override("margin_right", 7)
-	margin.add_theme_constant_override("margin_top", 7)
-	margin.add_theme_constant_override("margin_bottom", 7)
-	panel.add_child(margin)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 6)
+	panel.add_child(column)
+	_weapon_name_label = Label.new()
+	_weapon_name_label.add_theme_font_size_override("font_size", 20)
+	_weapon_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	column.add_child(_weapon_name_label)
+	_ammo_label = Label.new()
+	_ammo_label.add_theme_font_size_override("font_size", 34)
+	_ammo_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	column.add_child(_ammo_label)
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	margin.add_child(row)
+	row.add_theme_constant_override("separation", 4)
+	column.add_child(row)
 	_weapon_buttons.clear()
-	var labels := {0: "RIFLE", 1: "PISTOLA", 2: "MACHETE"}
 	for slot in range(3):
-		var button := Button.new()
+		var button := preload("res://src/mobile/WeaponSlotButton.gd").new()
 		button.name = "WeaponSlot%d" % slot
-		button.text = String(labels[slot])
+		button.slot = slot
+		button.tooltip_text = ["Rifle", "Pistola", "Machete · sin límite"][slot]
 		button.focus_mode = Control.FOCUS_NONE
-		button.custom_minimum_size = Vector2(114, 48)
+		button.custom_minimum_size = Vector2(106, 88)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.pressed.connect(_on_weapon_button_pressed.bind(slot))
 		row.add_child(button)
@@ -247,6 +241,24 @@ func _build_weapon_selector() -> void:
 		_weapon_buttons[slot] = button
 	_refresh_weapon_buttons(int(_loadout.get("active_slot")))
 	_register_hud_element(&"weapon_selector", panel)
+
+func _process(delta: float) -> void:
+	_hud_refresh += delta
+	if _hud_refresh < 0.2 or not visible:
+		return
+	_hud_refresh = 0.0
+	if is_instance_valid(_input_target):
+		for action in [&"sprint", &"aim"]:
+			var button := _hud_elements.get(action) as BaseButton
+			if button != null:
+				button.set_pressed_no_signal(bool(_input_target.call("is_action_pressed", action)))
+	if is_instance_valid(_loadout):
+		var state: Dictionary = _loadout.call("get_authoritative_state")
+		for slot in _weapon_buttons:
+			var button: Button = _weapon_buttons[slot]
+			var data: Dictionary = state.get("primary" if slot == 0 else "secondary", {})
+			button.set("ammo_text", "∞" if slot == 2 else str(int(data.get("ammo", 0)) + int(data.get("reserve", 0))))
+			button.queue_redraw()
 
 func _bind_status_sources() -> void:
 	if _health != null and _health.has_signal("health_changed"):
@@ -521,6 +533,8 @@ func _build_hud_editor() -> void:
 	_hud_layout_editor.call("configure", self, _safe_root, _hud_elements)
 
 func _open_hud_editor() -> void:
+	if _input_target != null:
+		_input_target.call("clear_mobile_actions")
 	if _quick_settings_panel != null:
 		_quick_settings_panel.visible = false
 	if _hud_layout_editor == null or not is_instance_valid(_hud_layout_editor):
@@ -541,14 +555,27 @@ func _build_quick_settings() -> void:
 	settings_button.anchor_right = 1.0
 	settings_button.anchor_bottom = 0.0
 	settings_button.offset_left = -92.0
-	settings_button.offset_top = 210.0
+	settings_button.offset_top = 30.0
 	settings_button.offset_right = -20.0
-	settings_button.offset_bottom = 282.0
+	settings_button.offset_bottom = 102.0
 	settings_button.modulate = Color(1.0, 1.0, 1.0, 0.90)
 	_controls_root.add_child(settings_button)
 	_register_hud_element(&"settings", settings_button)
 	_touch_router.call("register_action_button", settings_button)
 	settings_button.pressed.connect(_toggle_quick_settings)
+	var exit_button := Button.new()
+	exit_button.name = "ExitMatchButton"
+	exit_button.text = "SALIR"
+	exit_button.focus_mode = Control.FOCUS_NONE
+	exit_button.add_theme_font_size_override("font_size", 20)
+	exit_button.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	exit_button.offset_left = -104
+	exit_button.offset_right = -16
+	exit_button.offset_top = 118
+	exit_button.offset_bottom = 174
+	_safe_root.add_child(exit_button)
+	_touch_router.call("register_passthrough_control", exit_button)
+	exit_button.pressed.connect(request_leave_confirmation)
 
 	_quick_settings_panel = PanelContainer.new()
 	_quick_settings_panel.name = "QuickSensitivityPanel"
@@ -579,7 +606,7 @@ func _build_quick_settings() -> void:
 	var header := HBoxContainer.new()
 	vbox.add_child(header)
 	var title := Label.new()
-	title.text = "SENSIBILIDAD"
+	title.text = "PARTIDA · SENSIBILIDAD"
 	title.add_theme_font_size_override("font_size", 20)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
@@ -607,6 +634,20 @@ func _build_quick_settings() -> void:
 	_touch_router.call("register_click_control", editor_button)
 	editor_button.pressed.connect(_open_hud_editor)
 
+	var leave := Button.new()
+	leave.name = "LeaveMatchButton"
+	leave.text = "ABANDONAR PARTIDA"
+	leave.custom_minimum_size.y = 58
+	vbox.add_child(leave)
+	_touch_router.call("register_click_control", leave)
+	leave.pressed.connect(request_leave_confirmation)
+	var resume := Button.new()
+	resume.text = "CONTINUAR"
+	resume.custom_minimum_size.y = 48
+	vbox.add_child(resume)
+	_touch_router.call("register_click_control", resume)
+	resume.pressed.connect(_toggle_quick_settings)
+
 	var persistence_hint := Label.new()
 	persistence_hint.text = "Sensibilidad y HUD se guardan en este dispositivo."
 	persistence_hint.add_theme_font_size_override("font_size", 12)
@@ -614,6 +655,8 @@ func _build_quick_settings() -> void:
 	vbox.add_child(persistence_hint)
 
 func _toggle_quick_settings() -> void:
+	if is_instance_valid(_input_target):
+		_input_target.call("clear_mobile_actions")
 	if _quick_settings_panel != null:
 		_quick_settings_panel.visible = not _quick_settings_panel.visible
 
@@ -665,10 +708,10 @@ func _selector_panel_style() -> StyleBoxFlat:
 
 func _weapon_button_style(active: bool, emphasized: bool) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.67, 0.035, 0.05, 0.96) if active else Color(0.018, 0.055, 0.066, 0.90)
+	style.bg_color = Color(0.30, 0.23, 0.11, 0.90) if active else Color(0.018, 0.055, 0.066, 0.90)
 	if emphasized:
 		style.bg_color = Color(0.86, 0.045, 0.06, 1.0) if active else Color(0.025, 0.11, 0.13, 0.98)
-	style.border_color = Color(1.0, 0.22, 0.18, 0.92) if active else Color(0.20, 0.68, 0.72, 0.50)
+	style.border_color = Color("f2bb60") if active else Color(0.20, 0.68, 0.72, 0.50)
 	style.set_border_width_all(2 if active else 1)
 	style.corner_radius_top_left = 10
 	style.corner_radius_top_right = 10
@@ -686,3 +729,25 @@ func _bar_style(background: Color, border: Color) -> StyleBoxFlat:
 	style.corner_radius_bottom_left = 7
 	style.corner_radius_bottom_right = 7
 	return style
+
+func request_leave_confirmation() -> void:
+	if _input_target != null:
+		_input_target.call("clear_mobile_actions")
+	_touch_router.call("set_enabled", false)
+	if not is_instance_valid(_leave_dialog):
+		_leave_dialog = ConfirmationDialog.new()
+		_leave_dialog.title = "ABANDONAR PARTIDA"
+		_leave_dialog.dialog_text = "¿Volver al lobby? Tu personaje abandonará esta partida."
+		_leave_dialog.ok_button_text = "ABANDONAR"
+		_leave_dialog.cancel_button_text = "CONTINUAR JUGANDO"
+		_safe_root.add_child(_leave_dialog)
+		_leave_dialog.theme = _safe_root.theme
+		_leave_dialog.confirmed.connect(_confirm_leave)
+		_leave_dialog.canceled.connect(func() -> void: _touch_router.call("set_enabled", _gameplay_controls_enabled))
+	_leave_dialog.popup_centered(Vector2i(680, 220))
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+func _confirm_leave() -> void:
+	var flow := get_tree().get_first_node_in_group("deadfall_match_flow")
+	if flow != null:
+		flow.call_deferred("leave_current_match")

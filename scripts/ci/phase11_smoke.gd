@@ -199,8 +199,10 @@ func _run() -> void:
 		_fail("Phase 11 Horde HUD could not instantiate")
 		return
 	var stats := horde_hud.get_node_or_null("SafeArea/StatsPanel") as Control
-	if stats == null or stats.anchor_left < 0.90:
-		_fail("Phase 11 Horde stats are not separated to the right side")
+	# The right corner now belongs to direct weapon slots. Horde progress
+	# stays below the match ping in the center strip.
+	if stats == null or stats.anchor_left > 0.8 or stats.offset_top < 66.0:
+		_fail("Horde stats overlap the weapon corner or match ping")
 		return
 	horde_hud.free()
 

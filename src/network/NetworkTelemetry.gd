@@ -27,6 +27,7 @@ var _control_connection_ms := 0
 var _control_total_ms := 0
 var _overlay_label: Label
 var _ping_panel: PanelContainer
+var _frontend_mode := true
 
 func _ready() -> void:
 	if DisplayServer.get_name() == "headless" or "--server" in OS.get_cmdline_user_args():
@@ -40,7 +41,7 @@ func _process(delta: float) -> void:
 	# Offline Solo has no gameplay network latency. Do not show the lobby API
 	# badge over an offline match or spend connection probes while playing it.
 	if _ping_panel != null:
-		_ping_panel.visible = not Game.is_local_session()
+		_ping_panel.visible = not _frontend_mode and Game.is_network_client()
 	_control_elapsed += delta
 	_presence_elapsed += delta
 	if _control_elapsed >= CONTROL_PING_INTERVAL_SECONDS:
@@ -164,17 +165,17 @@ func _report_presence() -> void:
 func _build_overlay() -> void:
 	var layer := CanvasLayer.new()
 	layer.name = "NetworkPingOverlay"
-	layer.layer = 190
+	layer.layer = 45
 	add_child(layer)
 	var panel := PanelContainer.new()
 	_ping_panel = panel
-	panel.anchor_left = 1.0
+	panel.anchor_left = 0.5
 	panel.anchor_top = 0.0
-	panel.anchor_right = 1.0
+	panel.anchor_right = 0.5
 	panel.anchor_bottom = 0.0
-	panel.offset_left = -190.0
+	panel.offset_left = -150.0
 	panel.offset_top = 18.0
-	panel.offset_right = -18.0
+	panel.offset_right = 150.0
 	panel.offset_bottom = 62.0
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var style := StyleBoxFlat.new()
@@ -196,23 +197,16 @@ func _build_overlay() -> void:
 	_refresh_overlay()
 
 func set_frontend_mode(frontend: bool) -> void:
-	if _ping_panel == null:
-		return
-	_ping_panel.anchor_left = 0.97 if frontend else 1.0
-	_ping_panel.anchor_right = _ping_panel.anchor_left
-	_ping_panel.anchor_top = 0.105 if frontend else 0.0
-	_ping_panel.anchor_bottom = _ping_panel.anchor_top
-	_ping_panel.offset_left = -220.0 if frontend else -190.0
-	_ping_panel.offset_right = 0.0 if frontend else -18.0
-	_ping_panel.offset_top = 0.0 if frontend else 18.0
-	_ping_panel.offset_bottom = 42.0 if frontend else 62.0
-	_overlay_label.add_theme_font_size_override("font_size", 18 if frontend else 14)
+	_frontend_mode = frontend
+	if _ping_panel != null:
+		_ping_panel.visible = not frontend and Game.is_network_client()
+		_overlay_label.add_theme_font_size_override("font_size", 24)
 
 func _refresh_overlay() -> void:
 	if _overlay_label == null:
 		return
-	var ping_text := "+999" if _display_ping_ms >= 999 else str(_display_ping_ms)
-	_overlay_label.text = "%s %s ms" % ["PARTIDA" if _source == "match" else "API LOBBY", ping_text]
+	var ping_text := "999" if _display_ping_ms >= 999 else str(_display_ping_ms)
+	_overlay_label.text = "%s ms%s" % [ping_text, " · SIN CONEXIÓN" if _display_ping_ms >= 999 else ""]
 	if _display_ping_ms >= 999:
 		_overlay_label.add_theme_color_override("font_color", Color(0.88, 0.20, 0.22))
 	elif _display_ping_ms <= EXCELLENT_PING_THRESHOLD_MS:

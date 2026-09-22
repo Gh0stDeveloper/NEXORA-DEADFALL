@@ -41,8 +41,13 @@ var _reconnect_in_progress := false
 var _match_terminal := false
 var _match_result_overlay: CanvasLayer
 var _last_match_result: Dictionary = {}
+var _update_gate: CanvasLayer
+var _update_continuation := Callable()
+var _leaving_match := false
 
 func _ready() -> void:
+	add_to_group("deadfall_match_flow")
+	get_tree().quit_on_go_back = false
 	var args := OS.get_cmdline_user_args()
 	var campaign_mode := "--campaign" in args
 	var mission_id := StringName(_arg_value(args, "--mission=", "mission_01_first_signal"))
@@ -67,7 +72,7 @@ func _ready() -> void:
 		return
 
 	if DisplayServer.get_name() != "headless" and "--skip-login" not in args and "--skip-lobby" not in args:
-		_boot_login_gate(mission_id)
+		_check_release(Callable(self, "_boot_login_gate").bind(mission_id))
 		_boot_android_diagnostics()
 		print("NEXORA: DEADFALL guest login bootstrap ready")
 		return
@@ -108,8 +113,12 @@ func _boot_lobby(mission_id: StringName) -> void:
 		lobby.connect("online_match_ready", Callable(self, "_on_lobby_online_match_ready").bind(lobby))
 
 func _on_lobby_start_requested(mode: int, lobby: Node, mission_id: StringName) -> void:
-	if mode != 1:
+	_check_release(Callable(self, "_start_local_from_lobby").bind(mode, lobby, mission_id))
+
+func _start_local_from_lobby(mode: int, lobby: Node, mission_id: StringName) -> void:
+	if mode != 1 or not is_instance_valid(lobby) or lobby.is_queued_for_deletion():
 		return
+	_match_terminal = false
 	Game.start_local_session()
 	lobby.hide()
 	_begin_match_loading("")
@@ -122,6 +131,11 @@ func _on_lobby_start_requested(mode: int, lobby: Node, mission_id: StringName) -
 	lobby.queue_free()
 
 func _on_lobby_online_match_ready(match: Dictionary, lobby: Node) -> void:
+	_check_release(Callable(self, "_start_online_from_lobby").bind(match, lobby))
+
+func _start_online_from_lobby(match: Dictionary, lobby: Node) -> void:
+	if not is_instance_valid(lobby) or lobby.is_queued_for_deletion():
+		return
 	var host := String(match.get("host", "")).strip_edges()
 	var port := int(match.get("port", 0))
 	var ticket := String(match.get("join_ticket", "")).strip_edges()
@@ -268,6 +282,8 @@ func _boot_network_arena_client(
 	print("NEXORA: DEADFALL %s client connecting to %s:%d orchestrated=%s reconnect=%s" % ["Campaign" if campaign_mode else "Squad", host, port, str(not match_ticket.is_empty()), str(reconnecting)])
 
 func _on_orchestrated_joined(entity_id: int, _resume_token: String, room_code: String, arena: Node, session: Node, reconnecting: bool) -> void:
+	if _match_terminal or session != _pending_network_session:
+		return
 	_stop_match_timeout()
 	_stop_reconnect_timer()
 	_active_network_arena = arena
@@ -287,6 +303,8 @@ func _on_orchestrated_joined(entity_id: int, _resume_token: String, room_code: S
 	_pending_match_id = ""
 	_pending_match_endpoint = ""
 	await get_tree().create_timer(0.30).timeout
+	if _match_terminal or session != _active_network_session:
+		return
 	_clear_match_loading()
 	print("DEADFALL_MATCH_CLIENT_ACTIVE match=%s entity=%d reconnect=%s" % [String(_active_match_context.get("match_id", "")), entity_id, str(reconnecting)])
 
@@ -294,12 +312,16 @@ func _on_orchestrated_first_snapshot(_snapshot: Dictionary) -> void:
 	_set_match_loading_stage("Preparando tu equipo y controles…", 0.95)
 
 func _on_orchestrated_join_failed(reason: String, session: Node, reconnecting: bool) -> void:
+	if _match_terminal or session != _pending_network_session:
+		return
 	if reconnecting:
 		if session == _pending_network_session:
 			_discard_pending_network_arena()
 		_schedule_reconnect_retry(reason)
 		return
 	_fail_pending_match(_match_failure_message(reason))
+	if reason in ["client_update_required", "server_update_required", "content_mismatch", "protocol_mismatch", "protocol_mismatch_server", "content_version_mismatch"]:
+		_check_release(Callable())
 
 func _on_orchestrated_disconnected(reason: String, session: Node, reconnecting: bool) -> void:
 	if _match_terminal:
@@ -581,3 +603,71 @@ func _arg_value(args: PackedStringArray, prefix: String, fallback: String = "") 
 		if arg.begins_with(prefix):
 			return arg.trim_prefix(prefix)
 	return fallback
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_RESUMED and (has_node("Lobby") or has_node("LoginGate")):
+		_check_release(Callable())
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		var gate := get_node_or_null("LoginGate")
+		if gate != null:
+			gate.call("handle_back")
+		else:
+			var hud := get_tree().get_first_node_in_group("deadfall_mobile_hud")
+			if hud != null:
+				hud.call("request_leave_confirmation")
+
+func leave_current_match() -> void:
+	if _leaving_match:
+		return
+	_leaving_match = true
+	_match_terminal = true
+	_reconnect_in_progress = false
+	_stop_match_timeout()
+	_stop_reconnect_timer()
+	var match_id := String(_active_match_context.get("match_id", ""))
+	if not match_id.is_empty() and SocialClient.has_session():
+		SocialClient.leave_current_match(match_id)
+	for hud in get_tree().get_nodes_in_group("deadfall_mobile_hud"):
+		hud.call("set_gameplay_controls_enabled", false)
+	_discard_pending_network_arena()
+	_teardown_active_transport()
+	_clear_match_loading()
+	_clear_match_result_overlay()
+	for arena_name in ["CampaignArena", "DuoArena", "TestRange"]:
+		var arena := get_node_or_null(arena_name)
+		if arena != null and not arena.is_queued_for_deletion():
+			arena.queue_free()
+	if is_instance_valid(_pending_lobby):
+		_pending_lobby.queue_free()
+	_pending_lobby = null
+	_active_match_context.clear()
+	_pending_match_id = ""
+	_pending_match_endpoint = ""
+	_last_match_result.clear()
+	Game.stop_session()
+	NetworkTelemetry.clear_match_ping()
+	NetworkTelemetry.set_frontend_mode(true)
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	await get_tree().process_frame
+	_boot_lobby(_pending_mission_id)
+	_refresh_returned_lobby("HAS ABANDONADO LA PARTIDA")
+	_leaving_match = false
+
+func _check_release(continuation: Callable) -> void:
+	if continuation.is_valid():
+		_update_continuation = continuation
+	if is_instance_valid(_update_gate):
+		return
+	_update_gate = preload("res://src/ui/UpdateGate.gd").new()
+	_update_gate.name = "UpdateGate"
+	add_child(_update_gate)
+	_update_gate.allowed.connect(_on_release_allowed, CONNECT_ONE_SHOT)
+	_update_gate.call("check_version")
+
+func _on_release_allowed() -> void:
+	_update_gate.queue_free()
+	_update_gate = null
+	var continuation := _update_continuation
+	_update_continuation = Callable()
+	if continuation.is_valid():
+		continuation.call_deferred()

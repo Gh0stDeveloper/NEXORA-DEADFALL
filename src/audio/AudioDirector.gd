@@ -126,6 +126,8 @@ func stop_all() -> void:
 		_fade.kill()
 	for player in _world_voices + _ui_voices + [_music, _ambience]:
 		if is_instance_valid(player):
+			if player.stream_paused:
+				player.stream_paused = false
 			player.stop()
 			player.stream = null
 	_streams.clear()

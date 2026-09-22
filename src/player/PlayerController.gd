@@ -99,6 +99,7 @@ func _physics_process(delta: float) -> void:
 			return
 		_apply_authoritative_orientation(command)
 	else:
+		camera_rig.set_aiming(input_source.is_action_pressed(&"aim"), delta)
 		command = _capture_local_command()
 		_apply_local_look(Vector2(command.get("look_delta", Vector2.ZERO)))
 
@@ -206,6 +207,8 @@ func _process_vertical_velocity(delta: float, jump_requested: bool) -> void:
 		velocity.y -= _gravity * delta
 
 func _process_planar_velocity(delta: float, move_input: Vector2, sprint: bool, movement_multiplier: float = 1.0) -> void:
+	if sprint and not _life_is_downed():
+		_try_set_stance(Stance.STAND)
 	var local_direction := Vector3(move_input.x, 0.0, move_input.y)
 	var world_direction := (global_transform.basis * local_direction).normalized()
 	var target_speed := _get_target_speed(sprint) * clampf(movement_multiplier, 0.0, 1.0)

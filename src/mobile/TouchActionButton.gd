@@ -167,63 +167,6 @@ func _circle_style(background: Color, border: Color, border_width: int) -> Style
 	return style
 
 func _draw() -> void:
-	var center := size * 0.5
-	var radius := minf(size.x, size.y) * 0.22
-	var width := maxf(2.4, minf(size.x, size.y) * 0.025)
 	if toggle_action and button_pressed:
-		draw_arc(center, minf(size.x, size.y) * 0.40, 0.0, TAU, 40, Color(accent_color.r, accent_color.g, accent_color.b, 0.92), maxf(3.0, width * 1.15), true)
-	match icon_name:
-		&"fire":
-			draw_arc(center, radius, 0.0, TAU, 32, icon_color, width, true)
-			draw_circle(center, radius * 0.24, icon_color)
-			draw_line(center + Vector2(-radius * 1.45, 0), center + Vector2(-radius * 0.72, 0), icon_color, width, true)
-			draw_line(center + Vector2(radius * 0.72, 0), center + Vector2(radius * 1.45, 0), icon_color, width, true)
-			draw_line(center + Vector2(0, -radius * 1.45), center + Vector2(0, -radius * 0.72), icon_color, width, true)
-			draw_line(center + Vector2(0, radius * 0.72), center + Vector2(0, radius * 1.45), icon_color, width, true)
-		&"jump":
-			draw_line(center + Vector2(-radius, radius * 0.50), center + Vector2(0, -radius * 0.75), icon_color, width, true)
-			draw_line(center + Vector2(0, -radius * 0.75), center + Vector2(radius, radius * 0.50), icon_color, width, true)
-			draw_line(center + Vector2(-radius, radius), center + Vector2(radius, radius), icon_color, width, true)
-		&"crouch":
-			draw_circle(center + Vector2(-radius * 0.45, -radius * 0.65), radius * 0.26, icon_color)
-			draw_line(center + Vector2(-radius * 0.30, -radius * 0.32), center + Vector2(radius * 0.20, radius * 0.10), icon_color, width, true)
-			draw_line(center + Vector2(radius * 0.20, radius * 0.10), center + Vector2(radius * 0.90, radius * 0.10), icon_color, width, true)
-			draw_line(center + Vector2(radius * 0.15, radius * 0.15), center + Vector2(-radius * 0.40, radius * 0.90), icon_color, width, true)
-			draw_line(center + Vector2(radius * 0.15, radius * 0.15), center + Vector2(radius * 0.65, radius * 0.90), icon_color, width, true)
-		&"prone":
-			draw_circle(center + Vector2(-radius * 0.95, 0), radius * 0.25, icon_color)
-			draw_line(center + Vector2(-radius * 0.55, 0), center + Vector2(radius * 0.75, radius * 0.15), icon_color, width, true)
-			draw_line(center + Vector2(radius * 0.10, radius * 0.10), center + Vector2(radius, radius * 0.70), icon_color, width, true)
-			draw_line(center + Vector2(-radius * 1.20, radius), center + Vector2(radius * 1.20, radius), icon_color, width, true)
-		&"sprint":
-			draw_line(center + Vector2(-radius * 0.75, radius * 0.80), center + Vector2(radius * 0.15, -radius * 0.20), icon_color, width, true)
-			draw_line(center + Vector2(radius * 0.15, -radius * 0.20), center + Vector2(radius * 0.95, -radius * 0.55), icon_color, width, true)
-			draw_line(center + Vector2(radius * 0.15, -radius * 0.20), center + Vector2(radius * 0.85, radius * 0.80), icon_color, width, true)
-			draw_circle(center + Vector2(-radius * 0.15, -radius * 0.85), radius * 0.25, icon_color)
-		&"reload":
-			draw_arc(center, radius, deg_to_rad(-55.0), deg_to_rad(245.0), 24, icon_color, width, true)
-			draw_line(center + Vector2(-radius * 0.95, -radius * 0.15), center + Vector2(-radius * 0.95, -radius * 0.85), icon_color, width, true)
-			draw_line(center + Vector2(-radius * 0.95, -radius * 0.85), center + Vector2(-radius * 0.30, -radius * 0.75), icon_color, width, true)
-		&"camera":
-			draw_rect(Rect2(center - Vector2(radius, radius * 0.65), Vector2(radius * 2.0, radius * 1.3)), icon_color, false, width, true)
-			draw_circle(center, radius * 0.42, icon_color, false, width, true)
-			draw_line(center + Vector2(-radius * 0.55, -radius * 0.68), center + Vector2(-radius * 0.20, -radius), icon_color, width, true)
-			draw_line(center + Vector2(-radius * 0.20, -radius), center + Vector2(radius * 0.22, -radius), icon_color, width, true)
-		&"interact":
-			draw_rect(Rect2(center - Vector2(radius * 0.85, radius * 0.75), Vector2(radius * 1.7, radius * 1.5)), icon_color, false, width, true)
-			draw_line(center + Vector2(-radius * 0.45, 0), center + Vector2(radius * 0.45, 0), icon_color, width, true)
-			draw_line(center + Vector2(radius * 0.45, 0), center + Vector2(radius * 0.10, -radius * 0.35), icon_color, width, true)
-			draw_line(center + Vector2(radius * 0.45, 0), center + Vector2(radius * 0.10, radius * 0.35), icon_color, width, true)
-		&"settings":
-			draw_arc(center, radius * 0.90, 0.0, TAU, 24, icon_color, width, true)
-			draw_circle(center, radius * 0.30, icon_color, false, width, true)
-			for angle in range(0, 360, 45):
-				var direction := Vector2.RIGHT.rotated(deg_to_rad(float(angle)))
-				draw_line(center + direction * radius * 0.92, center + direction * radius * 1.28, icon_color, width, true)
-		&"flashlight":
-			draw_rect(Rect2(center + Vector2(-radius * 0.65, -radius * 0.32), Vector2(radius * 0.90, radius * 0.64)), icon_color, false, width, true)
-			draw_line(center + Vector2(radius * 0.25, -radius * 0.55), center + Vector2(radius * 0.90, -radius), icon_color, width, true)
-			draw_line(center + Vector2(radius * 0.25, radius * 0.55), center + Vector2(radius * 0.90, radius), icon_color, width, true)
-			draw_line(center + Vector2(radius * 0.90, -radius), center + Vector2(radius * 0.90, radius), icon_color, width, true)
-		_:
-			draw_circle(center, radius, icon_color, false, width, true)
+		draw_arc(size * 0.5, minf(size.x, size.y) * 0.43, 0.0, TAU, 48, Color("f2bb60"), 4.0, true)
+	preload("res://src/mobile/HUDIcons.gd").draw_icon(self, icon_name, Rect2(size * 0.18, size * 0.64), icon_color)

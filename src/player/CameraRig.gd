@@ -95,3 +95,8 @@ func _apply_mode() -> void:
 	if third_person_front != null:
 		third_person_front.current = _camera_enabled and mode == CameraMode.THIRD_PERSON_FRONT
 	camera_mode_changed.emit(int(mode))
+
+func set_aiming(active: bool, delta: float) -> void:
+	var camera := get_active_camera()
+	if camera != null and _camera_enabled:
+		camera.fov = move_toward(camera.fov, 52.0 if active else 75.0, delta * 150.0)

@@ -39,7 +39,10 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func get_move_vector() -> Vector2:
 	var desktop := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-	return _mobile_move if _mobile_move.length_squared() > desktop.length_squared() else desktop
+	var manual := _mobile_move if _mobile_move.length_squared() > desktop.length_squared() else desktop
+	if manual.is_zero_approx() and bool(_mobile_pressed.get(&"sprint", false)):
+		return Vector2.UP
+	return manual
 
 func consume_look_delta() -> Vector2:
 	var value := _mobile_look
@@ -59,6 +62,8 @@ func consume_action_just_pressed(action: StringName) -> bool:
 
 func set_mobile_move(value: Vector2) -> void:
 	_mobile_move = value.limit_length(1.0)
+	if _mobile_move.y > 0.2:
+		_mobile_pressed[&"sprint"] = false
 	if _android_debug_enabled() and not _debug_move_logged and _mobile_move.length() >= 0.2:
 		_debug_move_logged = true
 		print("DEADFALL_TOUCH_JOYSTICK active")
@@ -70,6 +75,8 @@ func add_mobile_look(delta: Vector2) -> void:
 		print("DEADFALL_TOUCH_LOOK active")
 
 func set_mobile_action(action: StringName, pressed: bool) -> void:
+	if pressed and action in [&"crouch", &"prone", &"aim"]:
+		_mobile_pressed[&"sprint"] = false
 	var was_pressed := bool(_mobile_pressed.get(action, false))
 	_mobile_pressed[action] = pressed
 	if pressed and not was_pressed:
@@ -96,9 +103,19 @@ func _ensure_input_map() -> void:
 			key_event.physical_keycode = KEY_BINDINGS[action]
 			InputMap.action_add_event(action, key_event)
 
+	if not InputMap.has_action(&"aim"):
+		InputMap.add_action(&"aim", 0.2)
+	if InputMap.action_get_events(&"aim").is_empty():
+		var aim_event := InputEventMouseButton.new()
+		aim_event.button_index = MOUSE_BUTTON_RIGHT
+		InputMap.action_add_event(&"aim", aim_event)
 	if not InputMap.has_action(&"fire"):
 		InputMap.add_action(&"fire", 0.2)
 	if InputMap.action_get_events(&"fire").is_empty():
 		var mouse_event := InputEventMouseButton.new()
 		mouse_event.button_index = MOUSE_BUTTON_LEFT
 		InputMap.action_add_event(&"fire", mouse_event)
+
+func _notification(what: int) -> void:
+	if what in [NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT]:
+		clear_mobile_actions()

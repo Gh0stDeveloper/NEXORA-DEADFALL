@@ -110,3 +110,12 @@ func _unregister_from_authority() -> void:
 	if _registered_authority != null and _registered_authority.has_method("unregister_damageable"):
 		_registered_authority.unregister_damageable(entity_id, self)
 	_registered_authority = null
+
+func heal_authoritative(amount: float) -> float:
+	if amount <= 0.0 or _dead or not _can_mutate_authoritative_state():
+		return 0.0
+	var restored := minf(amount, maxf(0.0, max_health - current_health))
+	if restored > 0.0:
+		current_health += restored
+		health_changed.emit(current_health, max_health, null)
+	return restored

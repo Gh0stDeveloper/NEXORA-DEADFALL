@@ -25,6 +25,7 @@ func _ready() -> void:
 	# MobileHUD lives at layer 20. Game Over must sit above touch controls or its
 	# button is visible but the look/action controls can consume the touch first.
 	layer = 40
+	budget_label.hide()
 	_director = get_node_or_null(director_path)
 	_restart_handler = get_node_or_null(restart_handler_path) if not String(restart_handler_path).is_empty() else null
 	if _director == null:

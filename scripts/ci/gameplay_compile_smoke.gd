@@ -28,6 +28,10 @@ const REQUIRED_SCRIPTS := [
 	"res://src/horde/AmmoPickup.gd",
 	"res://src/horde/AmmoDropDirector.gd",
 	"res://src/mobile/TouchActionButton.gd",
+	"res://src/mobile/HUDIcons.gd",
+	"res://src/mobile/WeaponSlotButton.gd",
+	"res://src/horde/PickupPresentation.gd",
+	"res://src/ui/UpdateGate.gd",
 	"res://src/mobile/TouchInputRouter.gd",
 	"res://src/mobile/MobileHUD.gd",
 	"res://src/mobile/MobilePerformanceTuner.gd",
@@ -194,6 +198,9 @@ func _run() -> void:
 
 	if not _run_child_smoke("res://scripts/ci/presentation_assets_smoke.gd", "NEXORA: DEADFALL presentation assets smoke passed", "Presentation geometry/audio"):
 		return
+	if not _run_child_smoke("res://scripts/ci/android_playtest_smoke.gd", "NEXORA: DEADFALL Android playtest controls/pickups/update smoke passed", "Android playtest regression"):
+		return
+	print("NEXORA: DEADFALL Android playtest controls/pickups/update smoke passed")
 	print("NEXORA: DEADFALL presentation assets smoke passed")
 	print("NEXORA: DEADFALL strict gameplay compile smoke passed")
 	print("NEXORA: DEADFALL login/loading recovery smoke passed")

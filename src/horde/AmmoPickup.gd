@@ -7,6 +7,8 @@ signal collected(pickup_id: int, ammo_added: int, collector_entity_id: int)
 @export_range(1, 240, 1) var ammo_amount := 30
 @export_range(5.0, 180.0, 1.0) var lifetime_seconds := 45.0
 @export var replica_only := false
+@export_enum("ammo", "health") var pickup_kind := "ammo"
+var _collect_elapsed := 0.0
 
 var _age := 0.0
 var _collected := false
@@ -14,7 +16,10 @@ var _visual: Node3D
 
 func _enter_tree() -> void:
 	if preload("res://src/core/PresentationRuntime.gd").enabled() and not has_node("Visual"):
-		add_child((load("res://src/horde/AmmoPickupPresentation.tscn") as PackedScene).instantiate())
+		var presentation := preload("res://src/horde/PickupPresentation.gd").new()
+		presentation.name = "Visual"
+		add_child(presentation)
+		presentation.rebuild(pickup_kind, ammo_amount)
 
 func _ready() -> void:
 	_visual = get_node_or_null("Visual") as Node3D
@@ -29,12 +34,18 @@ func _process(delta: float) -> void:
 		_visual.position.y = 0.16 + sin(Time.get_ticks_msec() * 0.004 + float(pickup_id % 17)) * 0.07
 	if replica_only or not _has_simulation_authority():
 		return
+	_collect_elapsed += delta
+	if _collect_elapsed >= 0.2 and not _collected:
+		_collect_elapsed = 0.0
+		for body in get_overlapping_bodies():
+			_on_body_entered(body)
 	_age += delta
 	if _age >= lifetime_seconds:
 		queue_free()
 
-func configure(id: int, amount: int, as_replica: bool = false) -> void:
+func configure(id: int, amount: int, as_replica: bool = false, kind: String = "ammo") -> void:
 	pickup_id = id
+	pickup_kind = "health" if kind == "health" else "ammo"
 	ammo_amount = maxi(1, amount)
 	replica_only = as_replica
 	if is_inside_tree():
@@ -43,14 +54,18 @@ func configure(id: int, amount: int, as_replica: bool = false) -> void:
 func get_network_snapshot() -> Dictionary:
 	return {
 		"pickup_id": pickup_id,
-		"kind": "ammo",
+		"kind": pickup_kind,
 		"position": global_position,
 		"amount": ammo_amount,
 	}
 
 func apply_network_snapshot(snapshot: Dictionary) -> void:
+	var previous_kind := pickup_kind
+	pickup_kind = "health" if String(snapshot.get("kind", "ammo")) == "health" else "ammo"
 	pickup_id = int(snapshot.get("pickup_id", pickup_id))
 	ammo_amount = maxi(1, int(snapshot.get("amount", ammo_amount)))
+	if _visual != null and previous_kind != pickup_kind:
+		_visual.call("rebuild", pickup_kind, ammo_amount)
 	global_position = Vector3(snapshot.get("position", global_position))
 	replica_only = true
 	monitoring = false
@@ -58,9 +73,16 @@ func apply_network_snapshot(snapshot: Dictionary) -> void:
 func _on_body_entered(body: Node3D) -> void:
 	if _collected or replica_only or not _has_simulation_authority() or body == null or not body.is_in_group("deadfall_player"):
 		return
+	var life := body.get_node_or_null("LifeState")
+	if life != null and not bool(life.call("can_use_weapon")):
+		return
 	var added := 0
 	var loadout := body.get_node_or_null("WeaponLoadout")
-	if loadout != null and loadout.has_method("add_ammo"):
+	if pickup_kind == "health":
+		var health := body.get_node_or_null("Health")
+		if health != null:
+			added = ceili(float(health.call("heal_authoritative", float(ammo_amount))))
+	elif loadout != null and loadout.has_method("add_ammo"):
 		added = int(loadout.call("add_ammo", ammo_amount))
 	else:
 		var weapon := body.get_node_or_null("PrimaryWeapon")

@@ -9,6 +9,7 @@ var _started := false
 var _retry: Button
 
 func _ready() -> void:
+	get_tree().quit_on_go_back = false
 	# Headless automation keeps its established synchronous server/test bootstrap.
 	if DisplayServer.get_name() == "headless" or "--server" in OS.get_cmdline_user_args():
 		get_tree().change_scene_to_file.call_deferred(MAIN_PATH)

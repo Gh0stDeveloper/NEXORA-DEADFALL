@@ -4,19 +4,20 @@ Android-first 3D zombie survival shooter built with **Godot 4.6.3**, with offlin
 
 ## Current status
 
-Current source candidate (PR #16, branch `agent/city-simulation-upgrade`):
+Current source candidate (branch `agent/android-playtest-beta7`):
 
 ```text
-0.9.0-beta.6
-versionCode 900006
+0.9.0-beta.7
+versionCode 900007
 protocol 2
 content version 2
 Android target API 36
 ```
 
-Beta.6 adds a 192 × 192 m enterable city, VALERIA alongside DANTE, corrected
-horde navigation and presentation-free dedicated simulation. All clients and
-the server must update together because the collision layout changed.
+Beta.7 adds a redesigned touch HUD, direct weapon slots, automatic forward sprint,
+match ping/exit, medical/ammunition drops and a mandatory client-update screen.
+It retains the beta.6 city, VALERIA/DANTE and presentation-free server simulation.
+Update the server and all client APKs together; versionCode 900007 is required.
 
 Last deployment with a full recorded build log (beta.5):
 
@@ -33,15 +34,16 @@ Beta.5 completed its VPS `--force` deployment successfully:
 - localhost control/social/match API validated;
 - HTTPS API validated.
 
-The owner confirmed that the subsequent beta.5 portal/main update works.
-Beta.6 has not been deployed from this workspace. Its next acceptance gate is
-the signed VPS build, then physical Android Solo/Duo/Squad and WAN latency tests.
+The owner subsequently tested beta.6 on Android and confirmed improved gameplay
+and approximately 100–120 ms match RTT. PR #17 fixed its release-history transition
+and was merged into main. Beta.7 still requires a signed VPS build and physical
+Android acceptance; local rendered tests are not an Android artifact.
 
 ## Start here
 
 For development or a new ChatGPT/Codex session, read these in order:
 
-1. [City, simulation and beta.6 recovery handoff](docs/HANDOFF_CITY_SIMULATION.md)
+1. [Android playtest beta.7 recovery handoff](docs/HANDOFF_ANDROID_PLAYTEST.md)
 2. [Current operational status](docs/CURRENT_STATUS.md)
 3. [Master roadmap](docs/ROADMAP.md)
 4. [Download portal/version-history plan](docs/DOWNLOAD_PORTAL_PLAN.md)

@@ -82,19 +82,19 @@ script = ExtResource("2_safe")
 
 [node name="StatsPanel" type="PanelContainer" parent="SafeArea"]
 layout_mode = 0
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -278.0
-offset_top = 24.0
-offset_right = -24.0
-offset_bottom = 194.0
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -310.0
+offset_top = 88.0
+offset_right = 310.0
+offset_bottom = 134.0
 grow_horizontal = 0
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBox_stats")
 
-[node name="VBox" type="VBoxContainer" parent="SafeArea/StatsPanel"]
+[node name="VBox" type="HBoxContainer" parent="SafeArea/StatsPanel"]
 layout_mode = 2
-theme_override_constants/separation = 3
+theme_override_constants/separation = 14
 
 [node name="WaveLabel" type="Label" parent="SafeArea/StatsPanel/VBox"]
 layout_mode = 2
@@ -130,9 +130,9 @@ anchors_preset = 10
 anchor_left = 0.5
 anchor_right = 0.5
 offset_left = -150.0
-offset_top = 28.0
+offset_top = 144.0
 offset_right = 150.0
-offset_bottom = 66.0
+offset_bottom = 182.0
 grow_horizontal = 2
 theme_override_font_sizes/font_size = 26
 text = "WAVE 1 IN 3"

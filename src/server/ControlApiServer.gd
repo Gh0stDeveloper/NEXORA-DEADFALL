@@ -127,7 +127,11 @@ func _route(method: String, path: String, token: String, payload: Dictionary) ->
 		var active_matches := 0
 		if _match_orchestrator != null and _match_orchestrator.has_method("get_status_snapshot"):
 			active_matches = int(Dictionary(_match_orchestrator.call("get_status_snapshot")).get("active_count", 0))
-		return {"ok": true, "service": "deadfall-control", "active_matches": active_matches}
+		return {"ok": true, "service": "deadfall-control", "active_matches": active_matches, "build": preload("res://src/release/BuildInfo.gd").snapshot()}
+	if method == "POST" and path == "/v1/match/leave":
+		if _social_service == null:
+			return _server_unavailable()
+		return _social_service.leave_match(token, String(payload.get("match_id", "")))
 	if method == "POST" and path == "/v1/guest/register":
 		if _account_store == null or _social_service == null:
 			return _server_unavailable()

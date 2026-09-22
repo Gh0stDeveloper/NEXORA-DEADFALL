@@ -349,7 +349,7 @@ func _sync_pickups(snapshot: Dictionary) -> void:
 				continue
 			pickup.name = "AmmoPickup_%d" % pickup_id
 			if pickup.has_method("configure"):
-				pickup.call("configure", pickup_id, int(pickup_snapshot.get("amount", 30)), true)
+				pickup.call("configure", pickup_id, int(pickup_snapshot.get("amount", 30)), true, String(pickup_snapshot.get("kind", "ammo")))
 			_pickups_root.add_child(pickup)
 		if pickup.has_method("apply_network_snapshot"):
 			pickup.call("apply_network_snapshot", pickup_snapshot)
