@@ -138,7 +138,10 @@ func _run() -> void:
 	# accidentally remove a new party when an old HTTP retry arrives late.
 	_service.join_party(member_token, code)
 	_service.set_party_match_assignment(code, assignment)
-	var abandoned: Dictionary = _service.leave_match(leader_token, MATCH_ID)
+	var api: Node = load("res://src/server/ControlApiServer.gd").new()
+	api.configure(_store, _service)
+	var abandoned: Dictionary = api._route("POST", "/v1/match/leave", leader_token, {"match_id": MATCH_ID})
+	api.free()
 	var remaining: Dictionary = _service.party_snapshot_for_token(member_token)
 	if not bool(abandoned.get("ok", false)) or not Dictionary(_service.party_snapshot_for_token(leader_token)).is_empty() or String(remaining.get("leader_guest_id", "")) != MEMBER_GUEST or String(Dictionary(remaining.get("match", {})).get("match_id", "")) != MATCH_ID:
 		_fail("Abandoning match disrupted the remaining teammate or retained departing membership")

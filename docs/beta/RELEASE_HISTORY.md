@@ -1,6 +1,6 @@
 # NEXORA: DEADFALL — Closed Beta Release History
 
-Last updated: 2026-09-21.
+Last updated: 2026-09-22.
 
 This file is the human-readable release-history index used by maintainers and as the planning source for the future public version-history page.
 

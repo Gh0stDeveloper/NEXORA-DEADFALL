@@ -40,6 +40,7 @@ func _run() -> void:
 	var moving_zombies: Dictionary = {}
 	var max_zombies := 0
 	var seen_pickup_kinds: Dictionary = {}
+	print("DEADFALL_LOAD_SAMPLING_STARTED")
 	for second in range(20):
 		var player := arena.get_node_or_null("NetworkPlayers/Player_%d" % int(session.get("local_entity_id"))) as Node3D
 		if player != null:
@@ -50,6 +51,8 @@ func _run() -> void:
 		var status: Dictionary = session.call("get_status_snapshot")
 		var ping := int(status.get("raw_ping_ms", 999))
 		if ping < 999: pings.append(ping)
+		if second % 5 == 0:
+			print("DEADFALL_LOAD_SAMPLE second=", second, " ping=", ping)
 		var zombies := arena.get_node("HordeZombies")
 		for pickup in arena.get_node("WorldPickups").get_children():
 			seen_pickup_kinds[String(pickup.pickup_kind)] = true

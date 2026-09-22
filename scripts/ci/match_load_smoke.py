@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
+import threading
 import time
 
 
@@ -19,7 +20,7 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     binary = os.environ.get("GODOT_BIN", "godot")
     port = int(os.environ.get("DEADFALL_LOAD_TEST_PORT", "24870"))
-    processes, logs = [], []
+    processes, logs, readers = [], [], []
     with tempfile.TemporaryDirectory(prefix="deadfall-load-") as profile:
         def start(name, arguments):
             log = (output / f"{name}.log").open("w")
@@ -28,8 +29,18 @@ def main():
                 [binary, "--headless", "--path", str(repo), "--script",
                  "scripts/ci/match_load_peer.gd", "--", "--campaign", *arguments],
                 cwd=repo, env=dict(os.environ, XDG_DATA_HOME=str(Path(profile) / name)),
-                stdout=log, stderr=subprocess.STDOUT,
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
             )
+
+            # Drain complete process output before checking final success markers.
+            def capture():
+                for line in process.stdout:
+                    log.write(line)
+                    log.flush()
+
+            reader = threading.Thread(target=capture, daemon=True)
+            reader.start()
+            readers.append(reader)
             processes.append(process)
             return process
 
@@ -55,6 +66,9 @@ def main():
             # Let the dedicated process handle all departures and subsequent AI
             # ticks. Errors after the final client exits must fail this gate too.
             assert server.wait(timeout=12) == 0, "Dedicated failed after clients disconnected"
+            for reader in readers:
+                reader.join(timeout=3)
+                assert not reader.is_alive(), "Process output did not finish draining"
             results = []
             for index in range(4):
                 text = (output / f"client-{index}.log").read_text()
@@ -75,6 +89,7 @@ def main():
             for process in processes:
                 try: process.wait(timeout=5)
                 except subprocess.TimeoutExpired: process.kill(); process.wait()
+            for reader in readers: reader.join(timeout=3)
             for log in logs: log.close()
 
 

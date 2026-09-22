@@ -95,9 +95,22 @@ func _run() -> void:
 	assert(gate.state == "required" and accepted.is_empty(), "New client update did not block entry")
 	gate._on_response(HTTPRequest.RESULT_CANT_CONNECT, 0, PackedStringArray(), PackedByteArray())
 	assert(gate.state == "unavailable" and accepted.is_empty(), "Connection failure bypassed update gate")
+	gate._on_response(HTTPRequest.RESULT_SUCCESS, 200, PackedStringArray(), JSON.stringify({"ok": true, "service": "deadfall-control", "build": {"version_code": "later"}}).to_utf8_buffer())
+	assert(gate.state == "unavailable" and accepted.is_empty(), "Malformed version metadata bypassed update gate")
 	gate._on_response(HTTPRequest.RESULT_SUCCESS, 200, PackedStringArray(), JSON.stringify({"ok": true, "service": "deadfall-control", "build": build}).to_utf8_buffer())
 	assert(gate.state == "allowed" and accepted.size() == 1, "Compatible build did not unlock login")
 	gate.free()
+	var social: Node = load("res://src/social/SocialClient.gd").new()
+	root.add_child(social)
+	social.current_party = {"code": "OLD", "match": {"match_id": "old-match"}}
+	social.leave_current_match("old-match")
+	assert(social.current_party.is_empty())
+	var new_party := {"code": "NEW", "match": {}}
+	social.current_party = new_party.duplicate(true)
+	social._handle_success("match_leave", {"ok": true}, {"match_id": "old-match"})
+	social._adopt_party({"code": "OLD", "match": {"match_id": "old-match", "status": "READY", "join_ticket": "a".repeat(64)}})
+	assert(social.current_party == new_party, "Late leave/party replies replaced the new lobby or rejoined an abandoned match")
+	social.free()
 	game.stop_session()
 	await process_frame
 	print("NEXORA: DEADFALL Android playtest controls/pickups/update smoke passed")

@@ -1,13 +1,14 @@
 # NEXORA: DEADFALL — Current Status
 
-Last updated: 2026-09-21.
+Last updated: 2026-09-22.
 
 ## Current delivery
 
 - Repository: `Gh0stDeveloper/NEXORA-DEADFALL`; VPS updater tracks `main`.
 - Base main: `d1616d34e9f2a48e0dfd9285e75720aff826044d`, after authorized merge of PR #17.
 - Development: `agent/android-playtest-beta7`.
-- Source candidate: **0.9.0-beta.7 / versionCode 900007**.
+- Source delivery: **0.9.0-beta.7 / versionCode 900007**; merge authorized
+  by the owner on 2026-09-22 after local verification.
 - Godot 4.6.3; Android ARM64, target API 36; up to four players.
 - Network protocol 2, map/content version 2. Minimum client and server: 900007.
 - Recovery/phase checklist: `HANDOFF_ANDROID_PLAYTEST.md`.
@@ -33,7 +34,7 @@ regression executes the real production callers, including interrupted retries.
 - SALIR opens confirmation, closes the old transport and returns to the lobby.
   Abandoning removes only that party member; teammates keep their active match.
   Late party replies cannot send the departing player back into the old match.
-- Ammo cartidges and green-marked medical kits replace the generic green box.
+- Ammo cartridges and green-marked medical kits replace the generic green box.
   Medical kits restore up to 25 HP, without over-healing or reviving a downed
   player. Collection rechecks overlap and remains server-authoritative.
 - Fresh account creation and missing-server-account recovery retain the local
