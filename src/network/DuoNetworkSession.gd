@@ -404,6 +404,7 @@ func _find_revivable_teammate(reviver: Node3D) -> Node3D:
 		var candidate := record.get("player") as Node3D
 		if candidate == null or candidate == reviver or not is_instance_valid(candidate):
 			continue
+		if int(reviver.get_meta("team_id", 0)) != int(candidate.get_meta("team_id", 0)): continue
 		var life := candidate.get_node_or_null("LifeState")
 		if life == null or not life.has_method("is_downed") or not bool(life.call("is_downed")):
 			continue
@@ -653,7 +654,13 @@ func _build_client_huds(player: Node3D) -> void:
 		mobile.name = "MobileHUD"
 		mobile.set("player_path", NodePath("../NetworkPlayers/%s" % player.name))
 		arena.add_child(mobile)
-	if arena.get_node_or_null("HordeHUD") == null:
+	var mode := arena.get_node_or_null("MatchModeDirector")
+	var pvp := mode != null and preload("res://src/modes/ModeCatalog.gd").is_pvp(String(mode.game_mode))
+	if pvp and arena.get_node_or_null("MatchModeHUD") == null:
+		var mode_hud := preload("res://src/modes/MatchModeHUD.gd").new()
+		mode_hud.name = "MatchModeHUD"
+		arena.add_child(mode_hud)
+	if not pvp and arena.get_node_or_null("HordeHUD") == null:
 		var horde_hud := HordeHUDScene.instantiate()
 		horde_hud.name = "HordeHUD"
 		horde_hud.set("director_path", NodePath("../HordeDirector"))

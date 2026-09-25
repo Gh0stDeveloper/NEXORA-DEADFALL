@@ -50,7 +50,15 @@ func _build_hud() -> void:
 		_labels.append(label)
 
 func _on_snapshot_received(snapshot: Dictionary) -> void:
-	var players: Array = snapshot.get("players", [])
+	var players: Array = Array(snapshot.get("players", [])).duplicate(true)
+	var mode := Dictionary(snapshot.get("match_mode", {}))
+	if String(mode.get("game_mode", "")).begins_with("pvp_"):
+		var local_team := -1
+		for player in players:
+			if _session != null and int(player.get("entity_id", 0)) == int(_session.get("local_entity_id")):
+				local_team = int(player.get("team_id", -1))
+		players = players.filter(func(player: Dictionary) -> bool: return int(player.get("team_id", -2)) == local_team)
+
 	_title.text = "SQUAD %d/4" % mini(4, players.size())
 	for index in range(_labels.size()):
 		_labels[index].text = "--"

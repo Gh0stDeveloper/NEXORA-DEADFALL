@@ -8,6 +8,8 @@ signal party_updated(party: Dictionary)
 signal match_ready(match: Dictionary)
 signal friends_updated(snapshot: Dictionary)
 signal profile_loaded(profile: Dictionary)
+signal history_loaded(matches: Array, stats: Dictionary)
+signal players_found(players: Array, query: String)
 signal account_updated(account: Dictionary)
 signal chat_updated(channel: String, messages: Array)
 signal request_failed(operation: String, reason: String)
@@ -86,8 +88,8 @@ func set_party_state(state: String) -> bool:
 func refresh_party() -> bool:
 	return _request_json("party_current", HTTPClient.METHOD_GET, "/party/current", {}, true)
 
-func start_party_match(mission_id: String = "mission_01_first_signal") -> bool:
-	return _request_json("match_start", HTTPClient.METHOD_POST, "/match/start", {"mission_id": mission_id}, true)
+func start_party_match(mission_id: String = "mission_01_first_signal", game_mode: String = "campaign") -> bool:
+	return _request_json("match_start", HTTPClient.METHOD_POST, "/match/start", {"mission_id": mission_id, "game_mode": game_mode}, true)
 
 func cancel_party_match() -> bool:
 	return _request_json("match_cancel", HTTPClient.METHOD_POST, "/match/cancel", {}, true)
@@ -104,6 +106,15 @@ func request_friend(account_id: String) -> bool:
 
 func accept_friend(guest_id: String) -> bool:
 	return _request_json("friend_accept", HTTPClient.METHOD_POST, "/friends/accept", {"guest_id": guest_id}, true)
+
+func load_history() -> bool:
+	return _request_json("history", HTTPClient.METHOD_GET, "/history", {}, true)
+
+func search_players(query: String) -> bool:
+	return _request_json("player_search", HTTPClient.METHOD_POST, "/players/search", {"query": query}, true)
+
+func reject_friend(guest_id: String) -> bool:
+	return _request_json("friend_reject", HTTPClient.METHOD_POST, "/friends/reject", {"guest_id": guest_id}, true)
 
 func refresh_friends() -> bool:
 	return _request_json("friends", HTTPClient.METHOD_GET, "/friends", {}, true)
@@ -194,6 +205,10 @@ func _handle_success(operation: String, response: Dictionary, context: Dictionar
 				return
 			current_account = Dictionary(response.get("account", {})).duplicate(true)
 			login_succeeded.emit(current_account)
+		"history":
+			history_loaded.emit(Array(response.get("matches", [])), Dictionary(response.get("stats", {})))
+		"player_search":
+			players_found.emit(Array(response.get("players", [])), String(response.get("query", "")))
 		"profile":
 			profile_loaded.emit(Dictionary(response.get("profile", {})))
 		"character_update":
@@ -216,7 +231,7 @@ func _handle_success(operation: String, response: Dictionary, context: Dictionar
 			current_party = {}
 			_emitted_match_id = ""
 			party_updated.emit(current_party)
-		"friends", "friend_request", "friend_accept":
+		"friends", "friend_request", "friend_accept", "friend_reject":
 			friends = Dictionary(response.get("friends", {})).duplicate(true)
 			friends_updated.emit(friends)
 		"friend_chat_send", "friend_chat_load":

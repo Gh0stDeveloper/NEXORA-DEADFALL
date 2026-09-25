@@ -66,6 +66,10 @@ func _server_join_request(protocol: int, requested_token: String, requested_name
 	_active_match_tickets[clean_ticket] = sender
 	var player := record.get("player") as Node3D
 	_configure_player_model(player, StringName(record["selected_character"]))
+	record["team_id"] = int(admitted_member.get("team_id", 0))
+	_peers[sender] = record
+	var mode := get_parent().get_node_or_null("MatchModeDirector")
+	if mode != null: mode.call("register_member", player, admitted_member, reconnecting)
 	if reconnecting:
 		_orchestrated_reconnects += 1
 		print("DEADFALL_MATCH_RECONNECT_ACCEPTED peer=%d entity=%d guest=%s count=%d" % [
@@ -102,7 +106,12 @@ func publish_match_result(raw_result: Dictionary) -> bool:
 	_published_result_id = result_id
 	result["result_id"] = result_id
 	for peer_id in _peers.keys():
-		rpc_id(int(peer_id), "_client_match_finished", result)
+		var personal := result.duplicate(true)
+		var guest := String(_peers[peer_id].get("guest_id", ""))
+		personal["personal_stats"] = Dictionary(result.get("player_stats", {})).get(guest, {})
+		if String(result.get("game_mode", "")).begins_with("pvp_") and int(result.get("winner_team", -1)) >= 0:
+			personal["outcome"] = "VICTORY" if int(_peers[peer_id].get("team_id", -2)) == int(result.winner_team) else "DEFEAT"
+		rpc_id(int(peer_id), "_client_match_finished", personal)
 	print("DEADFALL_MATCH_RESULT_BROADCAST match=%s outcome=%s peers=%d" % [match_id, String(result.get("outcome", "UNKNOWN")), _peers.size()])
 	return true
 
@@ -127,3 +136,14 @@ func get_status_snapshot() -> Dictionary:
 		"result_published": not _published_result_id.is_empty(),
 	}
 	return snapshot
+
+func _build_player_state(peer_id: int, record: Dictionary, player: Node3D) -> Dictionary:
+	var state: Dictionary = super._build_player_state(peer_id, record, player)
+	state["team_id"] = int(record.get("team_id", 0))
+	return state
+
+func _apply_client_player_snapshot(player: Node3D, snapshot: Dictionary, local_player: bool) -> void:
+	super._apply_client_player_snapshot(player, snapshot, local_player)
+	var mode := get_parent().get_node_or_null("MatchModeDirector")
+	if mode != null and preload("res://src/modes/ModeCatalog.gd").is_pvp(String(mode.game_mode)):
+		mode.call("configure_pvp_player", player, int(snapshot.get("team_id", 0)))

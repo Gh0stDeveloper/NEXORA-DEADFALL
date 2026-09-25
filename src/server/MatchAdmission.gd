@@ -9,6 +9,7 @@ var match_id := ""
 var party_code := ""
 var public_host := ""
 var port := 0
+var game_mode := "campaign"
 var mission_id := "mission_01_first_signal"
 var created_unix := 0
 var ready_path := ""
@@ -34,6 +35,8 @@ func load_from_file(path: String) -> bool:
 	party_code = String(root.get("party_code", "")).strip_edges()
 	public_host = String(root.get("public_host", "")).strip_edges()
 	port = int(root.get("port", 0))
+	game_mode = String(root.get("game_mode", "campaign"))
+	if preload("res://src/modes/ModeCatalog.gd").find(game_mode).is_empty(): return false
 	mission_id = String(root.get("mission_id", "mission_01_first_signal"))
 	created_unix = int(root.get("created_unix", 0))
 	ready_path = String(root.get("ready_path", "")).strip_edges()
@@ -92,6 +95,7 @@ func snapshot() -> Dictionary:
 		"public_host": public_host,
 		"port": port,
 		"mission_id": mission_id,
+		"game_mode": game_mode,
 		"created_unix": created_unix,
 		"ready_path": ready_path,
 		"heartbeat_path": heartbeat_path,

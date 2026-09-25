@@ -193,7 +193,7 @@ func _route(method: String, path: String, token: String, payload: Dictionary) ->
 	if method == "POST" and path == "/v1/match/start":
 		if _match_orchestrator == null:
 			return _server_unavailable()
-		return _match_orchestrator.start_party_match(token, String(payload.get("mission_id", "mission_01_first_signal")))
+		return _match_orchestrator.start_party_match(token, String(payload.get("mission_id", "mission_01_first_signal")), String(payload.get("game_mode", "campaign")), true)
 	if method == "POST" and path == "/v1/match/cancel":
 		if _match_orchestrator == null:
 			return _server_unavailable()
@@ -205,6 +205,12 @@ func _route(method: String, path: String, token: String, payload: Dictionary) ->
 		if party.is_empty() and _social_service.guest_for_token(token).is_empty():
 			return {"ok": false, "reason": "unauthorized", "_status": 401}
 		return {"ok": true, "party": party}
+	if method == "GET" and path == "/v1/history":
+		return _social_service.match_history(token) if _social_service != null else _server_unavailable()
+	if method == "POST" and path == "/v1/players/search":
+		return _social_service.search_players(token, String(payload.get("query", ""))) if _social_service != null else _server_unavailable()
+	if method == "POST" and path == "/v1/friends/reject":
+		return _social_service.reject_friend(token, String(payload.get("guest_id", ""))) if _social_service != null else _server_unavailable()
 	if method == "POST" and path == "/v1/friends/request":
 		if _account_store == null or _social_service == null:
 			return _server_unavailable()

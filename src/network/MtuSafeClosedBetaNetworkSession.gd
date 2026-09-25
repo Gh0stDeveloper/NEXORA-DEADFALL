@@ -66,6 +66,8 @@ func _build_server_snapshot_with_pickups(peer_id: int) -> Dictionary:
 		for child in _pickups_root.get_children():
 			if child.has_method("get_network_snapshot"):
 				pickups.append(child.call("get_network_snapshot"))
+	var mode := get_parent().get_node_or_null("MatchModeDirector")
+	if mode != null: snapshot["match_mode"] = mode.call("get_status_snapshot")
 	snapshot["pickups"] = pickups
 	return snapshot
 
@@ -327,6 +329,8 @@ func _client_receive_snapshot_chunk(server_tick: int, raw_size: int, total_chunk
 	_last_completed_snapshot_tick = server_tick
 	super._client_receive_snapshot(snapshot)
 	_sync_pickups(snapshot)
+	var mode := get_parent().get_node_or_null("MatchModeDirector")
+	if mode != null: mode.call("apply_replica_snapshot", Dictionary(snapshot.get("match_mode", {})))
 
 func _sync_pickups(snapshot: Dictionary) -> void:
 	if _pickups_root == null or not is_instance_valid(_pickups_root):

@@ -41,6 +41,8 @@ func _ready() -> void:
 
 func _process(_delta: float) -> void:
 	_sync_local_control_mode(false)
+	if Game.is_simulation_authority():
+		maintain_ammunition()
 	if not _local_input_enabled or _input == null:
 		return
 	if bool(_input.call("consume_action_just_pressed", &"weapon_primary")):
@@ -51,6 +53,34 @@ func _process(_delta: float) -> void:
 		request_slot(Slot.MELEE)
 	elif bool(_input.call("consume_action_just_pressed", &"weapon_next")):
 		request_slot((active_slot + 1) % SLOT_COUNT)
+
+func maintain_ammunition() -> void:
+	if not Game.is_simulation_authority() or active_slot == Slot.MELEE:
+		return
+	var owner := get_parent()
+	if owner != null and owner.has_method("can_use_weapon") and not owner.call("can_use_weapon"):
+		return
+	var weapon := get_active_weapon()
+	if weapon == null or not weapon.has_method("get_ammo_in_mag"):
+		return
+	if int(weapon.call("get_ammo_in_mag")) > 0 or bool(weapon.call("is_reloading")):
+		return
+	if int(weapon.call("get_reserve_ammo")) > 0:
+		weapon.call("start_automatic_reload")
+		return
+	# Prefer a loaded firearm; an empty magazine with reserve is next.
+	for require_loaded in [true, false]:
+		for slot in [Slot.PRIMARY, Slot.SECONDARY]:
+			var candidate := get_weapon_for_slot(slot)
+			if slot == active_slot or candidate == null:
+				continue
+			var usable: int = int(candidate.call("get_ammo_in_mag")) if require_loaded else int(candidate.call("get_reserve_ammo"))
+			if usable > 0:
+				_apply_slot(slot, false)
+				if not require_loaded:
+					candidate.call("start_automatic_reload")
+				return
+	_apply_slot(Slot.MELEE, false)
 
 func request_slot(slot: int) -> bool:
 	var requested := clampi(slot, Slot.PRIMARY, Slot.MELEE)

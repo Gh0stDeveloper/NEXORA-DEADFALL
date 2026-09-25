@@ -132,7 +132,7 @@ func _run() -> void:
 	await _capture("08-settings")
 	lobby._close_character_panel()
 	lobby._set_mode(1)
-	lobby._on_start_pressed()
+	_main._on_lobby_start_requested(1, lobby, &"mission_01_first_signal")
 	if not await _until(func() -> bool: return _main.has_node("CampaignArena/NetworkPlayers/Player_1") and not is_instance_valid(_main._match_loading)):
 		return
 	var player := _main.get_node("CampaignArena/NetworkPlayers/Player_1")

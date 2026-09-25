@@ -161,6 +161,7 @@ func _start_online_from_lobby(match: Dictionary, lobby: Node) -> void:
 		"port": port,
 		"ticket": ticket,
 		"mission_id": String(mission_id),
+		"game_mode": String(match.get("game_mode", "campaign")),
 		"endpoint": _pending_match_endpoint,
 	}
 	_match_terminal = false
@@ -231,6 +232,8 @@ func _boot_network_arena_client(
 	arena.name = "CampaignArena" if campaign_mode else "DuoArena"
 	if campaign_mode:
 		arena.set("mission_id", mission_id)
+	if campaign_mode:
+		arena.set("game_mode", String(_active_match_context.get("game_mode", "campaign")))
 	add_child(arena)
 	var session := arena.get_node_or_null("NetworkSession")
 	var name_value := requested_name if not requested_name.strip_edges().is_empty() else "Player"

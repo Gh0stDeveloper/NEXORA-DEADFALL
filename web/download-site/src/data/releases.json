@@ -1,13 +1,72 @@
 {
   "schema_version": 1,
-  "current": "0.9.0-beta.7",
+  "current": "0.9.0-beta.8",
   "releases": [
+    {
+      "version": "0.9.0-beta.8",
+      "version_code": 900008,
+      "channel": "closed_beta",
+      "published_unix": null,
+      "status": "current",
+      "summary": "Disparo con arrastre, perfil y amigos, historial persistente, seis modos y equipos incompletos con emparejamiento.",
+      "added": [
+        "Disparo táctil sostenido con arrastre simultáneo de cámara, también al cambiar a la pistola.",
+        "Perfil con operador, ID para copiar y estadísticas de las últimas 100 partidas.",
+        "Lista de amigos, búsqueda por nombre o ID, solicitudes y acceso a mensajes.",
+        "Historial por cuenta con resultados y estadísticas registrados por el servidor.",
+        "Selector de campaña, asalto de 10 oleadas, resistencia infinita, todos contra todos, duelo de dúos y duelo interno."
+      ],
+      "changed": [
+        "Recarga automática al vaciar el cargador; cambio a un arma utilizable y machete como último recurso.",
+        "Dúo y escuadra pueden buscar con plazas libres; se completan con grupos compatibles que también estén buscando.",
+        "Cooperativo inicia incompleto tras 8 segundos; PvP busca un rival real y permite cancelar.",
+        "PvP con reaparición, protección breve, bloqueo de daño a compañeros y resultado a 10 bajas o 5 minutos."
+      ],
+      "fixed": [
+        "Cambiar formación conserva a los compañeros y rechaza capacidades menores que el grupo.",
+        "El dedo que dispara conserva la cámara fuera del círculo; cancelar o perder foco libera la acción.",
+        "Desconexiones de jugadores durante el duelo no dejan referencias inválidas en la simulación."
+      ],
+      "networking": [
+        "Los grupos existentes permanecen juntos al formar dos equipos de hasta dos jugadores.",
+        "El servidor decide munición, daño, equipos y resultados; el historial no acepta puntuaciones del cliente.",
+        "Cola y supervisión se consultan cuatro veces por segundo para evitar trabajo innecesario.",
+        "Servidor y cliente requieren versionCode 900008; protocolo 2, content version 2, máximo cuatro jugadores."
+      ],
+      "android": [
+        "Android ARM64, API objetivo 36.",
+        "Actualizar servidor y todos los APK con la clave de firma existente, conservando los datos de la aplicación."
+      ],
+      "known_issues": [
+        "PvP requiere al menos un rival real; tras 30 segundos sin rivales, se puede volver a buscar.",
+        "El historial comienza con esta versión y conserva las últimas 100 partidas por cuenta.",
+        "No se acredita APK firmado ni aceptación en teléfono con las pruebas locales.",
+        "Este catálogo de fuente no acredita un APK publicado; el despliegue completa fecha, SHA y enlace."
+      ],
+      "min_client_version_code": 900008,
+      "max_client_version_code": 900999,
+      "protocol": 2,
+      "content_version": 2,
+      "target_android_api": 36,
+      "max_players": 4,
+      "bytes": null,
+      "sha256": null,
+      "git_sha": null,
+      "download": null,
+      "download_available": false,
+      "compatibility": {
+        "platform": "Android",
+        "architecture": "ARM64",
+        "network": "closed_beta",
+        "server_authority": true
+      }
+    },
     {
       "version": "0.9.0-beta.7",
       "version_code": 900007,
       "channel": "closed_beta",
       "published_unix": null,
-      "status": "current",
+      "status": "superseded",
       "summary": "Controles táctiles rediseñados, carrera automática, ping en partida, botines de salud y acceso actualizado.",
       "added": [
         "Selector directo de rifle, pistola y machete con siluetas y munición visible.",

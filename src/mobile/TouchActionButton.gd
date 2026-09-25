@@ -69,7 +69,13 @@ func router_touch_down(index: int) -> bool:
 		_apply_mobile_action(true)
 	return true
 
-func router_touch_drag(_index: int, _screen_position: Vector2) -> bool:
+func router_touch_drag(index: int, screen_delta: Vector2) -> bool:
+	if index != _router_touch_index:
+		return false
+	# The router owns this finger until release, including outside the button.
+	# Match the look area's unscaled screen pixels and shared sensitivity.
+	if action_name == &"fire" and is_instance_valid(input_target) and input_target.has_method("add_mobile_look"):
+		input_target.call("add_mobile_look", screen_delta)
 	return true
 
 func router_touch_up(index: int) -> bool:
@@ -86,8 +92,11 @@ func router_touch_up(index: int) -> bool:
 	return true
 
 func router_touch_cancel() -> void:
-	if _router_touch_index != -1:
-		router_touch_up(_router_touch_index)
+	_router_touch_index = -1
+	_apply_mobile_action(false)
+	if toggle_action:
+		set_pressed_no_signal(false)
+	_play_release_feedback()
 
 func _exit_tree() -> void:
 	_router_touch_index = -1
