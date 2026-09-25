@@ -10,7 +10,8 @@ Versión: `0.9.0-beta.8` / `900008`, mínimos cliente/servidor `900008`, protoco
 - [x] B. Perfil visual, ID, amigos/búsqueda/solicitudes e historial por cuenta.
 - [x] C. Selector ilustrado de seis modos, oleadas finitas/infinitas y PvP real.
 - [x] D. Cola compatible, equipos incompletos, compañeros preservados y espera acotada.
-- [ ] E. Verificación final, publicación y comprobación del PR.
+- [x] E. Verificación local, publicación de código y comprobación del PR #19.
+- Pendiente externo: credencial de modelos para Actions y compilación/aceptación Android en el VPS y teléfonos.
 
 ## Comportamiento
 
@@ -38,7 +39,10 @@ Godot 4.6.3 oficial; la validación usa motor real y perfiles aislados.
 - `phase11_smoke`: pasa, incluido proceso dedicado real y reconexión por ticket.
 - `server_navigation_smoke`: pasa. Quince interiores alcanzables y persecución ~1.8 m; servidor sin nodos de presentación.
 - Portal Next.js e historial de versiones: `download_portal_smoke.sh` pasa; instalador VPS pasa.
-- Pendiente final: repetir medición de carga cooperativa con cuatro clientes y publicar todos los cambios/verificar CI.
+- `match_load_smoke.py`: pasa con 4 clientes y 23 zombis móviles, 60 Hz, 16.14% de un núcleo y 159.22 MB pico. RTT p95 17–33 ms en loopback local.
+- Publicado en PR #19: https://github.com/Gh0stDeveloper/NEXORA-DEADFALL/pull/19. Commit de implementación `1b86eea1f2afc0760b04f4b8b67ef7d8bbd006bd`. Los 47 archivos coinciden con sus blobs remotos.
+- Actions del PR #19: portal y servidor Docker aprobados; Godot, Android Debug y Android Runtime detienen su primer gate de modelos porque falta `DEADFALL_MODELS_TOKEN/GH_TOKEN`. Fallo comprobado en los jobs 107939175417, 107939175188 y 107939174940, antes de compilar código. Se conserva el gate.
+- La integración utiliza el padre remoto real, sin cambiar protecciones ni requisitos de CI.
 
 Las pruebas de reglas que se ejecutan en el updater aíslan su almacenamiento en memoria. La prueba HTTP/ENet usa directorio temporal y valida persistencia real. No deben escribir cuentas ficticias al almacenamiento del VPS.
 
@@ -46,7 +50,7 @@ Las pruebas de reglas que se ejecutan en el updater aíslan su almacenamiento en
 
 No se ha exportado un APK firmado ni probado en Android físico en este entorno; tampoco hay shell del VPS. Compilar con la firma existente e instalar sobre la versión anterior, conservando datos. La latencia de las pruebas es local; los 100–120 ms de beta.6 fueron reportados por el dueño.
 
-GitHub Actions requiere `DEADFALL_MODELS_TOKEN` para leer el submódulo privado `Gh0stDeveloper/Objetos3D`. Beta.7 ya tenía ese bloqueo externo. No quitar gates de modelos para ocultarlo; comprobar el resultado real del nuevo PR.
+GitHub Actions requiere `DEADFALL_MODELS_TOKEN` para leer el submódulo privado `Gh0stDeveloper/Objetos3D`. Beta.7 ya tenía ese bloqueo externo; se confirmó de nuevo en PR #19. Hace falta configurar esa credencial en el repositorio y volver a ejecutar los workflows. No se dispone de esa credencial en este entorno y no se han eliminado gates.
 
 El portal conserva `--keep-published-version` durante la exportación Android para que un catálogo beta.8 no invalide el APK beta.7 todavía publicado. El publicador final mantiene la comprobación estricta.
 

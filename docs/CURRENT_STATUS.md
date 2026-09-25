@@ -6,7 +6,7 @@ Last updated: 2026-09-25.
 
 - Repository: `Gh0stDeveloper/NEXORA-DEADFALL`; VPS updater tracks `main`.
 - Base main: `5f08a0c01ed98387730523e34b5ec714dbcce0a7` (PR #18 / beta.7).
-- Development: `agent/social-modes-beta8`.
+- Development: `agent/social-modes-beta8`; PR #19.
 - Source candidate: **0.9.0-beta.8 / versionCode 900008**.
 - Godot 4.6.3, Android ARM64 / API 36, maximum four players.
 - Protocol 2, map/content version 2. Minimum client and server: 900008.
@@ -44,7 +44,7 @@ that is owner feedback, not a measurement of this build.
 
 ## Validation and release limits
 
-See `HANDOFF_SOCIAL_MODES.md` for the completed gates and remaining checks.
+Local code/UI/network validation is complete. See `HANDOFF_SOCIAL_MODES.md` for results, CI evidence and external delivery requirements.
 Local tests run the actual Godot engine, rendered screens, HTTP services and ENet
 clients. They do not constitute a signed APK or physical Android acceptance.
 
