@@ -1,23 +1,24 @@
 # NEXORA: DEADFALL
 
-Android-first 3D zombie survival shooter built with **Godot 4.6.3**, with offline Campaign/Horde gameplay and server-authoritative online co-op for up to four players.
+Android-first 3D zombie survival shooter built with **Godot 4.6.3**, with server-authoritative cooperative survival and PvP for up to four players.
 
 ## Current status
 
-Current source candidate (branch `agent/android-playtest-beta7`):
+Current source candidate (branch `agent/social-modes-beta8`):
 
 ```text
-0.9.0-beta.7
-versionCode 900007
+0.9.0-beta.8
+versionCode 900008
 protocol 2
 content version 2
 Android target API 36
 ```
 
-Beta.7 adds a redesigned touch HUD, direct weapon slots, automatic forward sprint,
-match ping/exit, medical/ammunition drops and a mandatory client-update screen.
+Beta.8 adds fire-button camera drag, automatic reload/weapon fallback, an
+operator profile, friends/search/requests, persistent match history, six game
+modes and flexible matchmaking for incomplete teams.
 It retains the beta.6 city, VALERIA/DANTE and presentation-free server simulation.
-Update the server and all client APKs together; versionCode 900007 is required.
+Update the server and all client APKs together; versionCode 900008 is required.
 
 Last deployment with a full recorded build log (beta.5):
 
@@ -36,14 +37,14 @@ Beta.5 completed its VPS `--force` deployment successfully:
 
 The owner subsequently tested beta.6 on Android and confirmed improved gameplay
 and approximately 100–120 ms match RTT. PR #17 fixed its release-history transition
-and was merged into main. Beta.7 still requires a signed VPS build and physical
+and was merged into main. PR #18 delivered beta.7. Beta.8 requires a signed VPS build and physical
 Android acceptance; local rendered tests are not an Android artifact.
 
 ## Start here
 
 For development or a new ChatGPT/Codex session, read these in order:
 
-1. [Android playtest beta.7 recovery handoff](docs/HANDOFF_ANDROID_PLAYTEST.md)
+1. [Social and modes beta.8 recovery handoff](docs/HANDOFF_SOCIAL_MODES.md)
 2. [Current operational status](docs/CURRENT_STATUS.md)
 3. [Master roadmap](docs/ROADMAP.md)
 4. [Download portal/version-history plan](docs/DOWNLOAD_PORTAL_PLAN.md)
@@ -62,7 +63,10 @@ Older handoff/Phase 11 planning files remain historical references and should no
 - Persistent sensitivity and flashlight/night readability foundation.
 - HP/ammo/weapon HUD.
 - Rifle, pistol and machete loadout.
-- Finite magazines/reserves and reload.
+- Finite magazines/reserves, automatic reload and usable-weapon fallback.
+- Hold and drag the fire button to aim while firing.
+- Campaign, ten-wave assault and endless survival.
+- PvP free-for-all, two teams of up to two, or private within-party duels.
 - Server-authoritative movement, damage, hits, health and ammunition online.
 - Walker, Runner, Crawler, Tank and Screamer zombies.
 - Horde waves, scoring, spawn/population budgets and Game Over/Restart.
@@ -75,11 +79,14 @@ Older handoff/Phase 11 planning files remain historical references and should no
 - 1-4 player Squad.
 - Guest account/login and unique server-side username.
 - Public player ID.
-- Friends/direct messaging foundation.
+- Profile with operator, public ID, match statistics and persistent history.
+- Friends list, name/ID search, incoming requests and direct messaging.
 - Solo/Duo/Squad lobby.
 - Party codes, join/leave, leader kick/start and squad chat.
 - Server-authoritative party/match state.
-- One dedicated Godot child process per orchestrated party.
+- Compatible queued parties share one dedicated Godot child process.
+- Incomplete co-op teams launch after an 8-second fill window.
+- PvP needs real opponents; a 30-second search without a rival returns to lobby.
 - Dynamic match UDP range `24600-24749`.
 - One private 256-bit admission ticket per party member.
 - Host/port knowledge without a valid ticket is insufficient for admission.

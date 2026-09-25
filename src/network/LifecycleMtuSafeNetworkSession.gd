@@ -107,6 +107,8 @@ func publish_match_result(raw_result: Dictionary) -> bool:
 	result["result_id"] = result_id
 	for peer_id in _peers.keys():
 		var personal := result.duplicate(true)
+		var guest := String(_peers[peer_id].get("guest_id", ""))
+		personal["personal_stats"] = Dictionary(result.get("player_stats", {})).get(guest, {})
 		if String(result.get("game_mode", "")).begins_with("pvp_") and int(result.get("winner_team", -1)) >= 0:
 			personal["outcome"] = "VICTORY" if int(_peers[peer_id].get("team_id", -2)) == int(result.winner_team) else "DEFEAT"
 		rpc_id(int(peer_id), "_client_match_finished", personal)

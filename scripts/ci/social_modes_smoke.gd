@@ -5,13 +5,27 @@ var _tokens: Array[String] = []
 var _guests: Array[String] = []
 var _launched: Array = []
 
+class IsolatedAccountStore:
+	extends "res://src/server/GuestAccountStore.gd"
+	func _load() -> void: pass
+	func _save() -> void: pass
+
+class IsolatedSocialStore:
+	extends "res://src/server/SocialService.gd"
+	var stored: Dictionary = {}
+	func _save() -> void:
+		stored = {"friends": _friends.duplicate(true), "history": _match_history.duplicate(true)}
+	func _load() -> void:
+		_friends = stored.get("friends", {}).duplicate(true)
+		_match_history = stored.get("history", {}).duplicate(true)
+
 func _initialize() -> void: call_deferred("_run")
 
 func _run() -> void:
 	create_timer(35).timeout.connect(func() -> void: quit(1))
-	_store = load("res://src/server/GuestAccountStore.gd").new()
+	_store = IsolatedAccountStore.new()
 	root.add_child(_store)
-	_social = load("res://src/server/SocialService.gd").new()
+	_social = IsolatedSocialStore.new()
 	root.add_child(_social)
 	_social.configure(_store)
 	for index in range(4):
@@ -142,6 +156,15 @@ func _test_pvp() -> bool:
 	assert(game.authority.resolve_damage(event))
 	assert(ended.size() == 1 and mode.phase == "FINISHED" and mode.winner_team == 0)
 	assert(not game.authority.resolve_damage(event), "Finished match still accepted damage")
+	# Departed players remain in the identity/statistics registry. Never cast
+	# their freed scene nodes while ticking or during a pending respawn.
+	players[1].free()
+	mode.phase = "RUNNING"
+	mode._respawns[102] = Time.get_ticks_usec() - 1
+	mode._process(0)
+	mode._physics_process(0)
+	assert(mode._active_players().size() == 2)
+	assert(not game.authority.resolve_damage(event), "Damage targeted a departed player")
 	while not arena.navigation_is_ready: await process_frame
 	arena.free()
 	game.stop_session()

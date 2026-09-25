@@ -46,6 +46,15 @@ jobs:
         run: python3 scripts/ci/control_latency_smoke.py
       - name: Measure four-peer city simulation and disconnections
         run: python3 scripts/ci/match_load_smoke.py
+      - name: Validate social queue, PvP result and history with four real peers
+        run: python3 scripts/ci/social_match_smoke.py
+      - name: Upload social matchmaking logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: social-matchmaking
+          path: build/social-match/
+          if-no-files-found: ignore
       - name: Upload city simulation metrics
         if: always()
         uses: actions/upload-artifact@v4
@@ -85,6 +94,10 @@ jobs:
           XDG_DATA_HOME: ${{ runner.temp }}/deadfall-presentation
           LIBGL_ALWAYS_SOFTWARE: "1"
         run: xvfb-run -a bash scripts/ci/presentation_runtime_smoke.sh
+      - name: Exercise profile, friends, requests, history and mode selection
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: xvfb-run -a bash scripts/ci/social_ui_smoke.sh
       - name: Upload presentation captures and runtime log
         if: always()
         uses: actions/upload-artifact@v4
@@ -94,6 +107,8 @@ jobs:
             build/presentation-smoke/
             build/presentation-runtime.log
             build/city-smoke/
+            build/social-smoke/
+            build/social-ui.log
           if-no-files-found: ignore
       - name: Run Phase 10 VPS installer contract tests
         run: bash scripts/ci/vps_installer_smoke.sh
@@ -106,8 +121,8 @@ jobs:
       - name: Validate shell/Python build scripts
         run: |
           bash -n scripts/server/run_server.sh scripts/assets/sync_objetos3d.sh scripts/ci/sync_required_models.sh scripts/ci/download_portal_smoke.sh scripts/ci/android_runtime_smoke.sh scripts/ci/android_template_patch_smoke.sh scripts/ci/duo_integration.sh scripts/ci/squad_integration.sh scripts/ci/campaign_integration.sh scripts/ci/vps_installer_smoke.sh scripts/beta/collect_android_report.sh deploy/vps/install.sh deploy/vps/update.sh deploy/vps/nexora-deadfall deploy/vps/lib/common.sh scripts/build/build_android_vps.sh scripts/build/build_download_site.sh
-          bash -n scripts/ci/presentation_runtime_smoke.sh scripts/ci/city_presentation_smoke.sh
-          python3 -m py_compile scripts/build/patch_android_template.py scripts/assets/generate_original_audio.py scripts/ci/control_latency_smoke.py scripts/ci/match_load_smoke.py
+          bash -n scripts/ci/presentation_runtime_smoke.sh scripts/ci/city_presentation_smoke.sh scripts/ci/social_ui_smoke.sh
+          python3 -m py_compile scripts/build/patch_android_template.py scripts/assets/generate_original_audio.py scripts/ci/control_latency_smoke.py scripts/ci/match_load_smoke.py scripts/ci/social_match_smoke.py
 
   download-portal-validation:
     runs-on: ubuntu-24.04

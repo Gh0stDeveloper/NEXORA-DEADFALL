@@ -96,12 +96,12 @@ func _process(delta: float) -> void:
 	for entity in _respawns.keys():
 		if now >= int(_respawns[entity]):
 			var record: Dictionary = _entities.get(entity, {})
-			var player := record.get("player") as Node3D
+			var player = record.get("player")
 			if is_instance_valid(player):
 				player.get_node("Health").call("reset_health")
 				player.get_node("LifeState").call("reset_authoritative_life")
 				for path in ["PrimaryWeapon", "SecondaryWeapon"]:
-					var weapon := player.get_node(path)
+					var weapon: Node = player.get_node(path)
 					var data: Resource = weapon.get("weapon_data")
 					weapon.call("restore_authoritative_state", {"ammo": int(data.get("magazine_size")), "reserve": int(data.get("starting_reserve_ammo")), "reloading": false})
 				player.get_node("WeaponLoadout").call("force_active_slot", 0)
@@ -128,8 +128,8 @@ func allow_damage(event) -> bool:
 	var victim: Dictionary = _entities.get(int(event.victim_id), {})
 	if attacker.is_empty() or victim.is_empty(): return false
 	if int(attacker.team) == int(victim.team): return false
-	var target := victim.get("player") as Node3D
-	var shooter := attacker.get("player") as Node3D
+	var target = victim.get("player")
+	var shooter = attacker.get("player")
 	if not is_instance_valid(target) or not is_instance_valid(shooter): return false
 	if not shooter.call("can_use_weapon"): return false
 	return Time.get_ticks_usec() >= int(target.get_meta("spawn_shield_until", 0))
@@ -167,7 +167,9 @@ func _place_player(player: Node3D, team: int) -> void:
 func _active_players() -> Array:
 	var active: Array = []
 	for value in _entities.values():
-		var player := value.get("player") as Node3D
+		# Check the Variant before casting: an ENet departure frees the node but
+		# its identity/statistics remain until the authoritative result is saved.
+		var player = value.get("player")
 		if is_instance_valid(player) and not player.is_queued_for_deletion(): active.append(value)
 	return active
 
@@ -195,7 +197,7 @@ func result_metadata() -> Dictionary:
 	return {"game_mode": game_mode, "winner_team": winner_team, "player_stats": player_stats.duplicate(true)}
 
 func _physics_process(_delta: float) -> void:
-	if not Game.is_simulation_authority() or not Catalog.is_pvp(game_mode): return
+	if not Game.is_simulation_authority() or not Catalog.is_pvp(game_mode) or phase == "FINISHED": return
 	for record in _active_players():
 		var player := record.player as Node3D
 		var hitboxes := player.get_node_or_null("PvPHitboxes") as Node3D

@@ -1,6 +1,6 @@
 # NEXORA: DEADFALL — Closed Beta Release History
 
-Last updated: 2026-09-22.
+Last updated: 2026-09-25.
 
 This file is the human-readable release-history index used by maintainers and as the planning source for the future public version-history page.
 
@@ -14,9 +14,27 @@ This file is the human-readable release-history index used by maintainers and as
 
 ## Current source candidate
 
+### 0.9.0-beta.8 — versionCode 900008
+
+Status: source candidate on `agent/social-modes-beta8`; no signed APK claimed.
+
+- Hold/drag the touch trigger to fire and aim simultaneously; joystick independent.
+- Automatic reload, fallback to usable firearm, then melee if both are exhausted.
+- Visual operator profile, copyable ID, friends/search/requests and personal history.
+- Six selectable modes: campaign, ten waves, endless, PvP FFA, duo duel and private party duel.
+- Compatible queued groups fill missing slots, preserving existing teammates.
+- Co-op can launch incomplete after 8 seconds; PvP requires a real opposing team.
+- Server-authoritative PvP damage, respawn/shield, 10-kill or 5-minute result.
+- Last 100 results per account survive a service restart; no client score-writing route.
+- Minimum client and server 900008. Protocol 2/content 2, maximum four players.
+
+Validation and recovery: `../HANDOFF_SOCIAL_MODES.md`.
+
+## Previous source delivery
+
 ### 0.9.0-beta.7 — versionCode 900007
 
-Status: source candidate on `agent/android-playtest-beta7`; no signed APK claimed.
+Status: PR #18 merged at `5f08a0c01ed98387730523e34b5ec714dbcce0a7`; no signed APK claimed here.
 
 - Original silhouette controls and direct three-slot weapon selection.
 - Automatic forward sprint, cancellation by backward movement, stance, aiming,

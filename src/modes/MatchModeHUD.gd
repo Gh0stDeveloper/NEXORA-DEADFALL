@@ -35,5 +35,6 @@ func _on_snapshot(snapshot: Dictionary) -> void:
 	for value in Array(snapshot.get("players", [])):
 		if int(value.get("entity_id", 0)) == int(_session.get("local_entity_id")): local_team = int(value.get("team_id", -1))
 	for team in scores:
-		text.append("%s %d" % ["TÚ" if int(team) == local_team else "RIVAL %d" % (int(team) + 1), int(scores[team])])
+		var own := "TU EQUIPO" if String(mode.get("game_mode", "")) == "pvp_duo" else "TÚ"
+		text.append("%s %d" % [own if int(team) == local_team else "RIVAL %d" % (int(team) + 1), int(scores[team])])
 	_detail.text = "  /  ".join(text) if phase != "WAITING" else "La partida empieza cuando estén listos · Protección al reaparecer: 2 s"

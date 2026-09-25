@@ -52,6 +52,9 @@ func consume_look_delta() -> Vector2:
 func is_action_pressed(action: StringName) -> bool:
 	return Input.is_action_pressed(action) or bool(_mobile_pressed.get(action, false))
 
+func is_mobile_action_pressed(action: StringName) -> bool:
+	return bool(_mobile_pressed.get(action, false))
+
 func consume_action_just_pressed(action: StringName) -> bool:
 	if Input.is_action_just_pressed(action):
 		return true

@@ -201,8 +201,8 @@ func _friend_card(profile: Dictionary) -> PanelContainer:
 		row.add_child(_action("RECHAZAR", func() -> void: SocialClient.reject_friend(guest)))
 	elif section == "friends" or bool(profile.get("is_friend", false)):
 		row.add_child(_action("MENSAJE", func() -> void:
-			chat_requested.emit(guest, String(profile.get("username", "Jugador")))
 			_close()
+			chat_requested.emit(guest, String(profile.get("username", "Jugador")))
 		))
 	else:
 		var pending: bool = bool(profile.get("request_pending", false)) or Array(_friends.get("outgoing_ids", [])).has(guest)
@@ -264,6 +264,8 @@ func _render_history() -> void:
 
 func _show_match(entry: Dictionary) -> void:
 	_status.text = "Daño: %d  ·  Puntuación del equipo: %d  ·  Oleada: %d  ·  Jugadores: %d" % [int(entry.get("damage", 0)), int(entry.get("score", 0)), int(entry.get("wave", 0)), int(entry.get("players", 1))]
+	if String(entry.get("mode", "")).begins_with("pvp_"):
+		_status.text = "Bajas: %d  ·  Daño: %d  ·  Jugadores: %d  ·  Objetivo: 10 bajas en 5 minutos" % [int(entry.get("kills", 0)), int(entry.get("damage", 0)), int(entry.get("players", 1))]
 
 func _on_profile(profile: Dictionary) -> void:
 	if String(profile.get("guest_id", "")) != GuestIdentity.guest_id: return

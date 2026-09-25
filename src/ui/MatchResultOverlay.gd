@@ -33,7 +33,14 @@ func present(result: Dictionary) -> void:
 	var score := int(result.get("score", 0))
 	var kills := int(result.get("kills", 0))
 	var reason := String(result.get("reason", "match_finished")).replace("_", " ").to_upper()
+	reason = {"mission_completed": "Objetivos completados", "squad_eliminated": "Todo el equipo ha caído", "kill_target": "Meta de 10 bajas alcanzada", "time_limit": "Se terminó el tiempo", "ten_waves_completed": "Diez oleadas superadas", "opponent_did_not_connect": "El rival no llegó a conectarse", "empty_timeout": "Los jugadores abandonaron la partida", "startup_timeout": "La partida no pudo comenzar", "absolute_timeout": "Se alcanzó el límite de la sesión"}.get(String(result.get("reason", "")), "Partida finalizada")
 	_summary.text = "PUNTOS  %d    BAJAS  %d    OLEADA  %d\n%s" % [score, kills, wave, reason]
+	if String(result.get("game_mode", "")).begins_with("pvp_"):
+		var personal := Dictionary(result.get("personal_stats", {}))
+		var seconds := int(result.get("uptime_seconds", 0))
+		_summary.text = "TUS BAJAS  %d    DAÑO  %d    TIEMPO  %02d:%02d\n%s" % [int(personal.get("kills", 0)), int(personal.get("damage", 0)), seconds / 60, seconds % 60, reason]
+	elif String(result.get("game_mode", "")) == "waves" and outcome == "VICTORY":
+		_title.text = "ASALTO COMPLETADO"
 	_update_countdown()
 	visible = true
 	_timer.start()

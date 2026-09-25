@@ -29,6 +29,8 @@ var _selected_character: StringName = &"operator_01"
 var _stage_view: Control
 var _overlay: PanelContainer
 var _stage_info: Control
+var _briefing_tag: Label
+var _briefing_title: Label
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -92,8 +94,10 @@ func _build_navigation() -> void:
 	briefing.add_theme_stylebox_override("panel", UI.style())
 	UI.place(briefing, _safe_root, Rect2(0.03, 0.18, 0.17, 0.19))
 	var copy := UI.column(briefing, 2)
-	copy.add_child(UI.label("CAMPAÑA  /  01", 21, UI.CYAN))
-	copy.add_child(UI.label("PRIMERA\nSEÑAL", 39))
+	_briefing_tag = UI.label("COOPERATIVO", 21, UI.CYAN)
+	copy.add_child(_briefing_tag)
+	_briefing_title = UI.label("PRIMERA\nSEÑAL", 36)
+	copy.add_child(_briefing_title)
 	copy.add_child(UI.label("Distrito del brote", 23, UI.MUTED))
 	var nav := VBoxContainer.new()
 	nav.name = "Navigation"
@@ -308,8 +312,11 @@ func _set_mode(mode: int) -> void:
 	if not Dictionary(party.get("match", {})).is_empty() or not Dictionary(party.get("queue", {})).is_empty():
 		_status_label.text = "ESPERA A QUE TERMINE LA PARTIDA"
 		return
-	if mode > 1 and not party.is_empty() and String(party.get("leader_guest_id", "")) != GuestIdentity.guest_id:
+	if not party.is_empty() and String(party.get("leader_guest_id", "")) != GuestIdentity.guest_id:
 		_status_label.text = "SOLO EL LÍDER PUEDE CAMBIAR LA FORMACIÓN"
+		return
+	if Array(party.get("members", [])).size() > mode:
+		_status_label.text = "HAY MÁS COMPAÑEROS QUE PLAZAS EN ESA FORMACIÓN"
 		return
 	selected_mode = mode as PartyMode
 	_refresh_mode()
@@ -326,6 +333,9 @@ func _refresh_mode() -> void:
 	_status_label.text = "PREPARADO" if selected_mode == 1 else "INVITA A TUS COMPAÑEROS"
 	if is_instance_valid(_game_mode_button):
 		_game_mode_button.text = "%s  ›" % preload("res://src/modes/ModeCatalog.gd").find(selected_game_mode).get("title", "CAMPAÑA")
+	if is_instance_valid(_briefing_tag):
+		_briefing_tag.text = String(preload("res://src/modes/ModeCatalog.gd").find(selected_game_mode).get("tag", "COOPERATIVO"))
+		_briefing_title.text = {"campaign": "PRIMERA\nSEÑAL", "waves": "ASALTO\n10 OLEADAS", "endless": "RESISTENCIA\nINFINITA", "pvp_ffa": "TODOS\nCONTRA TODOS", "pvp_duo": "DUELO\nDE DÚOS", "pvp_squad": "DUELO\nINTERNO"}.get(selected_game_mode, "PRIMERA\nSEÑAL")
 	update_party_members(Array(SocialClient.current_party.get("members", [])), int(selected_mode))
 
 func update_party_members(members: Array, capacity: int) -> void:
@@ -379,25 +389,39 @@ func _on_start_pressed() -> void:
 
 func _open_mode_picker() -> void:
 	var box := _new_overlay("ELIGE TU PARTIDA")
+	_overlay.anchor_left = 0.03
+	_overlay.anchor_top = 0.10
+	_overlay.anchor_right = 0.97
+	_overlay.anchor_bottom = 0.96
 	var grid := GridContainer.new()
-	grid.columns = 2
+	grid.columns = 3
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	grid.add_theme_constant_override("h_separation", 16)
 	grid.add_theme_constant_override("v_separation", 16)
 	box.add_child(grid)
 	for definition in preload("res://src/modes/ModeCatalog.gd").MODES:
 		var card := PanelContainer.new()
-		card.custom_minimum_size.x = 590
+		card.custom_minimum_size.x = 520
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		card.add_theme_stylebox_override("panel", UI.style(Color(0.025, 0.07, 0.09, 0.96), UI.AMBER if definition.id == selected_game_mode else UI.CYAN, 20))
 		grid.add_child(card)
 		var content := UI.column(card, 8)
+		var image := TextureRect.new()
+		image.texture = load("res://docs/media/city-beta6/%s.webp" % {"campaign": "city_overview", "waves": "city_interior", "endless": "city_wreck", "pvp_ffa": "city_overview", "pvp_duo": "city_wreck", "pvp_squad": "city_interior"}[definition.id])
+		image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		image.custom_minimum_size.y = 120
+		image.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		content.add_child(image)
 		content.add_child(UI.label(String(definition.tag), 20, UI.CYAN))
-		content.add_child(UI.label(String(definition.title), 30, UI.AMBER))
-		var description := UI.label(String(definition.description), 23, UI.MUTED)
-		description.custom_minimum_size = Vector2(520, 64)
+		content.add_child(UI.label(String(definition.title), 28, UI.AMBER))
+		var description := UI.label(String(definition.description), 22, UI.MUTED)
+		description.custom_minimum_size = Vector2(440, 62)
 		description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		content.add_child(description)
-		content.add_child(UI.button("SELECCIONADO" if definition.id == selected_game_mode else "SELECCIONAR", _select_game_mode.bind(String(definition.id)), definition.id == selected_game_mode))
+		var choose := UI.button("SELECCIONADO" if definition.id == selected_game_mode else "SELECCIONAR", _select_game_mode.bind(String(definition.id)), definition.id == selected_game_mode)
+		choose.custom_minimum_size.y = 50
+		content.add_child(choose)
 
 func _select_game_mode(value: String) -> void:
 	var party := SocialClient.current_party

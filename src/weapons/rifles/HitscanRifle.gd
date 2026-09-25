@@ -71,7 +71,7 @@ func _process(_delta: float) -> void:
 	if bool(weapon_data.get("automatic")):
 		wants_fire = bool(_input_source.is_action_pressed(&"fire"))
 	else:
-		wants_fire = bool(_input_source.consume_action_just_pressed(&"fire"))
+		wants_fire = bool(_input_source.consume_action_just_pressed(&"fire")) or bool(_input_source.is_mobile_action_pressed(&"fire"))
 	if wants_fire:
 		_try_fire(now_usec)
 

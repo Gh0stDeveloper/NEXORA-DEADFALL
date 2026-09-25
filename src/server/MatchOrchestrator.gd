@@ -34,6 +34,7 @@ var _metrics := {
 }
 
 var _queue: RefCounted
+var _poll_elapsed := 0.0
 
 func configure(store: Node, social: Node, configured_public_host: String) -> void:
 	account_store = store
@@ -281,7 +282,10 @@ func get_status_snapshot() -> Dictionary:
 		"metrics": _metrics.duplicate(true),
 	}
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_poll_elapsed += delta
+	if _poll_elapsed < 0.25: return
+	_poll_elapsed = 0.0
 	if _queue != null: _queue.tick()
 	var now := int(Time.get_unix_time_from_system())
 	for match_id_value in _matches.keys().duplicate():

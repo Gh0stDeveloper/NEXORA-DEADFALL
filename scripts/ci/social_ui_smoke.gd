@@ -28,7 +28,7 @@ func _run() -> void:
 	_social.register_guest("GhostDev")
 	assert(await _until(func() -> bool: return _social.has_session()))
 	var peer := "gst_render_social_peer_0000000000000000"
-	assert(_store.register_claim({"guest_id": peer, "username": "Valeria", "secret_verifier": "b".repeat(64), "selected_character": "operator_02"}).ok)
+	assert(_store.register_claim({"guest_id": peer, "username": "Valeria", "secret_verifier": "b".repeat(64), "selected_character": "operator_01"}).ok)
 	var peer_token: String = _service.issue_session(peer).session_token
 	_lobby = load("res://src/lobby/Lobby.tscn").instantiate() as Control
 	root.add_child(_lobby)

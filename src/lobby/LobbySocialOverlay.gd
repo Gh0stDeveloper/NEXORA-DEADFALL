@@ -22,6 +22,7 @@ var _last_mode := 1
 var _poll_timer: Timer
 var _last_match_emitted := ""
 var _start_after_party_created := false
+var _pending_formation := 0
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -73,6 +74,7 @@ func _process(_delta: float) -> void:
 	var leader_id := String(SocialClient.current_party.get("leader_guest_id", ""))
 	if SocialClient.current_party.is_empty() or (current_capacity != mode and leader_id == GuestIdentity.guest_id):
 		_set_status("PREPARANDO FORMACIÓN...")
+		_pending_formation = mode
 		SocialClient.create_party(mode)
 
 func request_start_match() -> void:
@@ -87,6 +89,7 @@ func request_start_match() -> void:
 	var party := SocialClient.current_party
 	if party.is_empty():
 		_start_after_party_created = true
+		_pending_formation = int(_lobby.get("selected_mode"))
 		_set_status("PREPARANDO TU PARTIDA...")
 		SocialClient.create_party(int(_lobby.get("selected_mode")))
 		return
@@ -479,6 +482,7 @@ func _open_party_chat() -> void:
 func _open_friend_chat(guest_id: String, username: String) -> void:
 	_chat_friend_id = guest_id
 	_lobby.call("_close_character_panel")
+	_lobby.call("set_stage_covered", true)
 	_modal.visible = true
 	_modal_title.text = "CHAT · %s" % username
 	_build_chat_body()
@@ -561,8 +565,14 @@ func _on_party_updated(party: Dictionary) -> void:
 	var code := String(party.get("code", ""))
 	_party_code_label.text = "CÓDIGO: %s" % code
 	var capacity := int(party.get("capacity", 4))
-	if _lobby != null and int(_lobby.get("selected_mode")) != capacity:
+	if _pending_formation == capacity: _pending_formation = 0
+	var authoritative_mode := String(Dictionary(party.get("queue", {})).get("mode", Dictionary(party.get("match", {})).get("game_mode", "")))
+	if not authoritative_mode.is_empty() and _lobby.get("selected_game_mode") != authoritative_mode:
+		_lobby.set("selected_game_mode", authoritative_mode)
+		_lobby.call("_refresh_mode")
+	if _pending_formation == 0 and _lobby != null and int(_lobby.get("selected_mode")) != capacity:
 		_lobby.set("selected_mode", capacity)
+		_last_mode = capacity
 		if _lobby.has_method("_refresh_mode"):
 			_lobby.call("_refresh_mode")
 	_update_lobby_party_labels(party)
@@ -638,7 +648,13 @@ func _poll_social_state() -> void:
 		SocialClient.refresh_party()
 
 func _on_request_failed(operation: String, reason: String) -> void:
-	if operation == "party_create": _start_after_party_created = false
+	if operation == "party_create":
+		_start_after_party_created = false
+		_pending_formation = 0
+		var capacity := int(SocialClient.current_party.get("capacity", _lobby.get("selected_mode")))
+		_lobby.set("selected_mode", capacity)
+		_last_mode = capacity
+		_lobby.call("_refresh_mode")
 	match reason:
 		"party_not_found": _set_status("NO EXISTE UNA ESCUADRA CON ESE CÓDIGO")
 		"party_full": _set_status("LA ESCUADRA ESTÁ LLENA")

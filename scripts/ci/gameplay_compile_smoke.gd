@@ -22,6 +22,11 @@ const REQUIRED_SCRIPTS := [
 	"res://src/server/MatchAdmission.gd",
 	"res://src/server/MatchInstanceGuard.gd",
 	"res://src/server/MatchOrchestrator.gd",
+	"res://src/server/MatchQueue.gd",
+	"res://src/lobby/SocialHub.gd",
+	"res://src/modes/ModeCatalog.gd",
+	"res://src/modes/MatchModeDirector.gd",
+	"res://src/modes/MatchModeHUD.gd",
 	"res://src/weapons/rifles/HitscanRifle.gd",
 	"res://src/weapons/WeaponLoadout.gd",
 	"res://src/weapons/melee/MacheteWeapon.gd",
@@ -201,6 +206,12 @@ func _run() -> void:
 	if not _run_child_smoke("res://scripts/ci/android_playtest_smoke.gd", "NEXORA: DEADFALL Android playtest controls/pickups/update smoke passed", "Android playtest regression"):
 		return
 	print("NEXORA: DEADFALL Android playtest controls/pickups/update smoke passed")
+	if not _run_child_smoke("res://scripts/ci/fire_drag_ammo_smoke.gd", "NEXORA: DEADFALL fire drag and automatic ammunition smoke passed", "Fire drag/automatic ammunition"):
+		return
+	if not _run_child_smoke("res://scripts/ci/social_modes_smoke.gd", "NEXORA: DEADFALL social history, flexible queue and PvP authority smoke passed", "Social/modes/queue"):
+		return
+	print("NEXORA: DEADFALL fire drag and automatic ammunition smoke passed")
+	print("NEXORA: DEADFALL social history, flexible queue and PvP authority smoke passed")
 	print("NEXORA: DEADFALL presentation assets smoke passed")
 	print("NEXORA: DEADFALL strict gameplay compile smoke passed")
 	print("NEXORA: DEADFALL login/loading recovery smoke passed")

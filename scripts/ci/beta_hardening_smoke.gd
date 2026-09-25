@@ -41,8 +41,8 @@ func _test_build_compatibility() -> bool:
 		return _fail("Wrong content version was accepted")
 	if BuildInfoScript.MIN_CLIENT_VERSION_CODE > 0 and bool(BuildInfoScript.validate_client(BuildInfoScript.NETWORK_PROTOCOL, BuildInfoScript.MIN_CLIENT_VERSION_CODE - 1, BuildInfoScript.CONTENT_VERSION).get("compatible", true)):
 		return _fail("Obsolete client version was accepted")
-	if BuildInfoScript.VERSION_CODE != 900007 or BuildInfoScript.APP_VERSION != "0.9.0-beta.7":
-		return _fail("Current Android playtest candidate must be 0.9.0-beta.7 / 900007")
+	if BuildInfoScript.VERSION_CODE != 900008 or BuildInfoScript.APP_VERSION != "0.9.0-beta.8":
+		return _fail("Current Android playtest candidate must be 0.9.0-beta.8 / 900008")
 	if BuildInfoScript.MIN_CLIENT_VERSION_CODE != BuildInfoScript.VERSION_CODE or BuildInfoScript.MIN_SERVER_VERSION_CODE != BuildInfoScript.VERSION_CODE:
 		return _fail("Beta.6 compatibility floor must reject older lifecycle clients/servers")
 	if bool(BuildInfoScript.validate_client(2, 900005, 1).get("compatible", true)):

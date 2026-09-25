@@ -56,6 +56,11 @@ func _run() -> void:
 	secondary.apply_authoritative_state({"ammo": 3, "reserve": 0, "reloading": false})
 	loadout.maintain_ammunition()
 	assert(loadout.active_slot == 1, "Empty rifle must switch to loaded pistol")
+	input.set_mobile_action(&"fire", true)
+	await create_timer(0.45).timeout
+	assert(secondary.get_ammo_in_mag() < 2, "Holding the touch trigger stopped after switching to pistol")
+	input.set_mobile_action(&"fire", false)
+	loadout.force_active_slot(1)
 	secondary.apply_authoritative_state({"ammo": 0, "reserve": 2, "reloading": false})
 	loadout.maintain_ammunition()
 	assert(secondary.is_reloading())
